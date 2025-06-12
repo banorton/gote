@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -15,8 +18,11 @@ type NoteMetadata struct {
 	Name         string // filename with relative path, e.g. "project/plan.md"
 	Path         string // full absolute path
 	Tags         []string
-	Created      int64 // Unix timestamp for creation
-	LastModified int64 // Unix timestamp for last edit
+	Created      int64  // Unix timestamp for creation
+	LastModified int64  // Unix timestamp for last edit
+	CreatedStr   string // yymmdd.hhmmss format
+	ModifiedStr  string // yymmdd.hhmmss format
+	AccessCount  int    // number of times accessed
 }
 
 func indexFilePath() string {
@@ -109,10 +115,11 @@ func shouldSkipDir(name string) bool {
 }
 
 // getOrCreateCreatedTime returns the creation time for a note, writing a .created file if needed
-func getOrCreateCreatedTime(notePath string, modTime int64) int64 {
+func getOrCreateCreatedTime(notePath string, modTime int64) (int64, string) {
 	createdPath := notePath + ".created"
 	if fi, err := os.Stat(createdPath); err == nil {
-		return fi.ModTime().Unix()
+		ts := fi.ModTime().Unix()
+		return ts, time.Unix(ts, 0).Format("060102.150405")
 	}
 	// If .created file doesn't exist, create it with current time
 	now := time.Now().Unix()
@@ -120,10 +127,10 @@ func getOrCreateCreatedTime(notePath string, modTime int64) int64 {
 	if err == nil {
 		f.Close()
 		os.Chtimes(createdPath, time.Unix(now, 0), time.Unix(now, 0))
-		return now
+		return now, time.Unix(now, 0).Format("060102.150405")
 	}
 	// Fallback: use modTime
-	return modTime
+	return modTime, time.Unix(modTime, 0).Format("060102.150405")
 }
 
 // IndexNotes walks notesDir recursively, skipping certain dirs, and returns all .md file metadata
@@ -145,13 +152,16 @@ func IndexNotes(notesDir string) ([]NoteMetadata, error) {
 			return tagErr
 		}
 		rel, _ := filepath.Rel(absNotesDir, path)
-		created := getOrCreateCreatedTime(path, info.ModTime().Unix())
+		created, createdStr := getOrCreateCreatedTime(path, info.ModTime().Unix())
+		modStr := time.Unix(info.ModTime().Unix(), 0).Format("060102.150405")
 		notes = append(notes, NoteMetadata{
 			Name:         rel,
 			Path:         path,
 			Tags:         tags,
 			Created:      created,
 			LastModified: info.ModTime().Unix(),
+			CreatedStr:   createdStr,
+			ModifiedStr:  modStr,
 		})
 		return nil
 	})
@@ -203,7 +213,8 @@ func RefreshIndex(notesDir string, force bool) ([]NoteMetadata, error) {
 		}
 		rel, _ := filepath.Rel(absNotesDir, path)
 		m, ok := metaMap[path]
-		created := getOrCreateCreatedTime(path, info.ModTime().Unix())
+		created, createdStr := getOrCreateCreatedTime(path, info.ModTime().Unix())
+		modStr := time.Unix(info.ModTime().Unix(), 0).Format("060102.150405")
 		if !ok || m.LastModified != info.ModTime().Unix() {
 			tags, _ := ParseTagsFromFile(path)
 			m = NoteMetadata{
@@ -212,7 +223,12 @@ func RefreshIndex(notesDir string, force bool) ([]NoteMetadata, error) {
 				Tags:         tags,
 				Created:      created,
 				LastModified: info.ModTime().Unix(),
+				CreatedStr:   createdStr,
+				ModifiedStr:  modStr,
 			}
+		} else {
+			m.CreatedStr = createdStr
+			m.ModifiedStr = modStr
 		}
 		updated = append(updated, m)
 		return nil
@@ -357,4 +373,139 @@ func ArchiveNote(notesDir, relPath string) error {
 	}
 	dst := filepath.Join(archiveDir, filepath.Base(relPath))
 	return os.Rename(src, dst)
+}
+
+// Access log file path
+func accessLogPath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".gote", "access.json")
+}
+
+var accessMu sync.Mutex
+
+// IncrementAccess increments the access count for a note and persists it.
+func IncrementAccess(relPath string) error {
+	accessMu.Lock()
+	defer accessMu.Unlock()
+	accessMap, _ := LoadAccessLog()
+	accessMap[relPath]++
+	return SaveAccessLog(accessMap)
+}
+
+// LoadAccessLog loads the access log from disk.
+func LoadAccessLog() (map[string]int, error) {
+	path := accessLogPath()
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return make(map[string]int), nil
+		}
+		return nil, err
+	}
+	defer f.Close()
+	var m map[string]int
+	if err := json.NewDecoder(f).Decode(&m); err != nil {
+		return make(map[string]int), nil
+	}
+	return m, nil
+}
+
+// SaveAccessLog saves the access log to disk.
+func SaveAccessLog(m map[string]int) error {
+	path := accessLogPath()
+	_ = os.MkdirAll(filepath.Dir(path), 0755)
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return json.NewEncoder(f).Encode(m)
+}
+
+// MergeAccessCounts merges access counts into the metadata slice.
+func MergeAccessCounts(notes []NoteMetadata, accessMap map[string]int) []NoteMetadata {
+	for i := range notes {
+		notes[i].AccessCount = accessMap[notes[i].Name]
+	}
+	return notes
+}
+
+// PopularNotes returns the top N notes by access count.
+func PopularNotes(notes []NoteMetadata, N int) []NoteMetadata {
+	sort.Slice(notes, func(i, j int) bool {
+		return notes[i].AccessCount > notes[j].AccessCount
+	})
+	if N > len(notes) {
+		N = len(notes)
+	}
+	return notes[:N]
+}
+
+// ExtractLinksFromNote returns a slice of note names linked from the given note file (outbound links)
+func ExtractLinksFromNote(path string) ([]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	linkRE := regexp.MustCompile(`\[\[([^\]]+)\]\]`)
+	matches := linkRE.FindAllStringSubmatch(string(data), -1)
+	var links []string
+	for _, m := range matches {
+		if len(m) > 1 {
+			name := strings.TrimSpace(m[1])
+			if name != "" {
+				links = append(links, name)
+			}
+		}
+	}
+	return links, nil
+}
+
+// FindInboundLinks returns a slice of note names that link to the given note (by name, not path)
+func FindInboundLinks(notesDir, targetName string) ([]string, error) {
+	index, err := IndexNotes(notesDir)
+	if err != nil {
+		return nil, err
+	}
+	var inbound []string
+	targetName = strings.TrimSuffix(targetName, ".md")
+	for _, n := range index {
+		links, err := ExtractLinksFromNote(n.Path)
+		if err != nil {
+			continue
+		}
+		for _, l := range links {
+			ln := strings.TrimSuffix(l, ".md")
+			if ln == targetName {
+				inbound = append(inbound, n.Name)
+				break
+			}
+		}
+	}
+	return inbound, nil
+}
+
+// FindOutboundLinks returns a slice of note names that the given note links to
+func FindOutboundLinks(notesDir, noteName string) ([]string, error) {
+	index, err := IndexNotes(notesDir)
+	if err != nil {
+		return nil, err
+	}
+	var notePath string
+	noteName = strings.TrimSuffix(noteName, ".md")
+	for _, n := range index {
+		base := strings.TrimSuffix(filepath.Base(n.Name), ".md")
+		if base == noteName {
+			notePath = n.Path
+			break
+		}
+	}
+	if notePath == "" {
+		return nil, fmt.Errorf("note not found: %s", noteName)
+	}
+	links, err := ExtractLinksFromNote(notePath)
+	if err != nil {
+		return nil, err
+	}
+	return links, nil
 }

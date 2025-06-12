@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -78,6 +79,75 @@ func main() {
 	}
 	arg := os.Args[1]
 
+	// Aliases for commands
+	switch arg {
+	case "d":
+		arg = "delete"
+	case "i":
+		arg = "index"
+	case "t":
+		arg = "tags"
+	case "s":
+		arg = "search"
+	case "r":
+		arg = "recent"
+	case "p":
+		arg = "pin"
+	case "u":
+		arg = "unpin"
+	case "a":
+		arg = "archive"
+	case "v":
+		arg = "view"
+	case "l":
+		arg = "lint"
+	case "c":
+		arg = "config"
+	case "n":
+		arg = "today"
+	case "k":
+		arg = "links"
+	case "x":
+		arg = "popular"
+	}
+
+	// gote popular [N]
+	if arg == "popular" {
+		N := 10
+		if len(os.Args) > 2 {
+			n, err := strconv.Atoi(os.Args[2])
+			if err == nil && n > 0 {
+				N = n
+			}
+		}
+		idx, err := note.LoadIndex()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to load index: %v\n", err)
+			os.Exit(1)
+		}
+		accessMap, _ := note.LoadAccessLog()
+		notes := note.MergeAccessCounts(idx, accessMap)
+		popular := note.PopularNotes(notes, N)
+		maxAccess := 1
+		for _, n := range popular {
+			if n.AccessCount > maxAccess {
+				maxAccess = n.AccessCount
+			}
+		}
+		fmt.Println("Popular notes:")
+		for _, n := range popular {
+			barLen := 0
+			if maxAccess > 0 {
+				barLen = n.AccessCount * 20 / maxAccess
+			}
+			bar := strings.Repeat("█", barLen)
+			rel := n.Name
+			title := strings.TrimSuffix(filepath.Base(rel), ".md")
+			fmt.Printf("%-20s | %-20s | %3d\n", title, bar, n.AccessCount)
+		}
+		return
+	}
+
 	if arg == "tag" && len(os.Args) > 3 {
 		noteArg := os.Args[2]
 		tags := os.Args[3:]
@@ -117,7 +187,26 @@ func main() {
 	}
 
 	if arg == "index" {
-		notes, err := note.IndexNotes(notesDir)
+		// Check if index exists
+		indexExists := false
+		if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), ".gote", "index.json")); err == nil {
+			indexExists = true
+		}
+		var notes []note.NoteMetadata
+		var err error
+		if indexExists {
+			fmt.Print("An existing index was detected. Do you want to try to salvage information from it? [y/N] ")
+			reader := bufio.NewReader(os.Stdin)
+			resp, _ := reader.ReadString('\n')
+			resp = strings.TrimSpace(resp)
+			if resp == "y" || resp == "Y" {
+				notes, err = note.RefreshIndex(notesDir, false)
+			} else {
+				notes, err = note.IndexNotes(notesDir)
+			}
+		} else {
+			notes, err = note.IndexNotes(notesDir)
+		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Index error: %v\n", err)
 			os.Exit(1)
@@ -130,7 +219,7 @@ func main() {
 		for _, n := range notes {
 			rel, _ := filepath.Rel(notesDir, n.Path)
 			tags := strings.Join(n.Tags, ", ")
-			fmt.Printf("- %s\n  Tags: %s\n  Last Modified: %s\n", rel, tags, time.Unix(n.LastModified, 0).Format("060102"))
+			fmt.Printf("- %s\n  Tags: %s\n  Created: %s  Last Modified: %s\n", rel, tags, n.CreatedStr, n.ModifiedStr)
 		}
 		return
 	}
@@ -447,9 +536,91 @@ func main() {
 		return
 	}
 
+	if arg == "links" && len(os.Args) > 2 {
+		noteArg := os.Args[2]
+		// Outbound links
+		outbound, err := note.FindOutboundLinks(notesDir, noteArg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error finding outbound links: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Outbound links from %s:\n", noteArg)
+		if len(outbound) == 0 {
+			fmt.Println("  (none)")
+		} else {
+			for _, l := range outbound {
+				fmt.Printf("  [[%s]]\n", l)
+			}
+		}
+		// Inbound links
+		inbound, err := note.FindInboundLinks(notesDir, noteArg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error finding inbound links: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Inbound links to %s:\n", noteArg)
+		if len(inbound) == 0 {
+			fmt.Println("  (none)")
+		} else {
+			for _, l := range inbound {
+				fmt.Printf("  %s\n", l)
+			}
+		}
+		return
+	}
+
+	if arg == "help" || arg == "h" {
+		fmt.Println(`gote - minimal fast note-taking
+
+Usage: gote <command|alias> [args]
+
+Main features:
+  - Create/open notes:         gote <note_name> [tags...]
+  - Tagging:                  gote tag <note> [tags...]      (alias: tag)
+  - Indexing:                 gote index                     (alias: i)
+  - Search:                   gote search <query>            (alias: s)
+  - Search by tags:           gote search --tags <tags...>
+  - List tags:                gote tags                      (alias: t)
+  - Recent notes:             gote recent                    (alias: r)
+  - Pin/unpin:                gote pin <note>                (alias: p)
+                              gote unpin <note>              (alias: u)
+  - List pinned:              gote pinned
+  - Archive:                  gote archive <note>            (alias: a)
+  - View note:                gote view <note>               (alias: v)
+  - Lint note:                gote lint <note>               (alias: l)
+  - Config dir:               gote config set-dir <path>     (alias: c)
+  - Edit config:              gote config
+  - Daily note:               gote today                     (alias: n)
+  - Popular notes:            gote popular [N]               (alias: x)
+  - Note links:               gote links <note>              (alias: k)
+  - Delete note:              gote delete <note>             (alias: d)
+
+Short aliases:
+  i  index      t  tags      s  search    r  recent
+  p  pin        u  unpin     a  archive   v  view
+  l  lint       c  config    n  today     k  links
+  x  popular    d  delete    h  help
+
+Other details:
+- Notes are markdown (.md) files, can be in subdirectories.
+- Tag line is always first, lowercased, delimited by ' . '.
+- [[note name]] links to other notes. Use 'gote links <note>' to see inbound/outbound links.
+- Creation and modification times are tracked (yymmdd.hhmmss).
+- All metadata is stored in ~/.gote/.
+- All commands print clear confirmation or error messages.
+`)
+		return
+	}
+
 	// For now, treat any argument as a note name.
 	noteArg := arg
 	tags := os.Args[2:]
+	// Track access count for note open/create
+	relPath := noteArg
+	if !strings.HasSuffix(relPath, ".md") {
+		relPath += ".md"
+	}
+	_ = note.IncrementAccess(relPath)
 	if err := openOrCreateNote(notesDir, noteArg, tags); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
