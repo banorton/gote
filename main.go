@@ -71,10 +71,35 @@ func resolveNotePath(notesDir, noteName string) (string, error) {
 	return fullPath, nil
 }
 
+func isReservedWord(arg string) bool {
+	reserved := map[string]struct{}{
+		"delete": {}, "d": {},
+		"index": {}, "i": {},
+		"tags": {}, "t": {},
+		"search": {}, "s": {},
+		"recent": {}, "r": {},
+		"pin": {}, "p": {},
+		"unpin": {}, "u": {},
+		"archive": {}, "a": {},
+		"view": {}, "v": {},
+		"lint": {}, "l": {},
+		"config": {}, "c": {},
+		"today": {}, "n": {},
+		"links": {}, "k": {},
+		"popular": {}, "x": {},
+		"move": {}, "mv": {}, "m": {},
+		"help": {}, "h": {},
+		"pinned": {},
+		"tag":    {},
+	}
+	_, ok := reserved[arg]
+	return ok
+}
+
 func main() {
 	notesDir := resolveNotesDir()
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: gote <command> [args]")
+		fmt.Println("Usage: gote <command|alias> [args]")
 		os.Exit(1)
 	}
 	arg := os.Args[1]
@@ -109,6 +134,14 @@ func main() {
 		arg = "links"
 	case "x":
 		arg = "popular"
+	case "m":
+		arg = "move"
+	case "mv":
+		arg = "move"
+	case "rn":
+		arg = "rename"
+	case "rename":
+		// already set
 	}
 
 	// gote popular [N]
@@ -612,7 +645,88 @@ Other details:
 		return
 	}
 
+	// gote move/mv <oldnote> <newnote>
+	if (arg == "move") && len(os.Args) > 3 {
+		oldArg := os.Args[2]
+		newArg := os.Args[3]
+		oldPath, err := resolveNotePath(notesDir, oldArg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid source note path: %v\n", err)
+			os.Exit(1)
+		}
+		newPath, err := resolveNotePath(notesDir, newArg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid destination note path: %v\n", err)
+			os.Exit(1)
+		}
+		if _, err := os.Stat(oldPath); os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "Source note does not exist: %s\n", oldArg)
+			os.Exit(1)
+		}
+		if _, err := os.Stat(newPath); err == nil {
+			fmt.Fprintf(os.Stderr, "Destination note already exists: %s\n", newArg)
+			os.Exit(1)
+		}
+		if err := os.MkdirAll(filepath.Dir(newPath), 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create destination directory: %v\n", err)
+			os.Exit(1)
+		}
+		if err := os.Rename(oldPath, newPath); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to move note: %v\n", err)
+			os.Exit(1)
+		}
+		// Move .created file if present
+		oldCreated := oldPath + ".created"
+		newCreated := newPath + ".created"
+		if _, err := os.Stat(oldCreated); err == nil {
+			_ = os.Rename(oldCreated, newCreated)
+		}
+		fmt.Printf("Moved note: %s -> %s\n", oldArg, newArg)
+		return
+	}
+
+	// gote rename/rn <oldname> <newname> (rename only, no move)
+	if arg == "rename" && len(os.Args) > 3 {
+		oldArg := os.Args[2]
+		newArg := os.Args[3]
+		oldPath, err := resolveNotePath(notesDir, oldArg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid source note path: %v\n", err)
+			os.Exit(1)
+		}
+		oldDir := filepath.Dir(oldPath)
+		newBase := filepath.Base(newArg)
+		if !strings.HasSuffix(newBase, ".md") {
+			newBase += ".md"
+		}
+		newPath := filepath.Join(oldDir, newBase)
+		if _, err := os.Stat(oldPath); os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "Source note does not exist: %s\n", oldArg)
+			os.Exit(1)
+		}
+		if _, err := os.Stat(newPath); err == nil {
+			fmt.Fprintf(os.Stderr, "Destination note already exists: %s\n", newBase)
+			os.Exit(1)
+		}
+		if err := os.Rename(oldPath, newPath); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to rename note: %v\n", err)
+			os.Exit(1)
+		}
+		// Move .created file if present
+		oldCreated := oldPath + ".created"
+		newCreated := newPath + ".created"
+		if _, err := os.Stat(oldCreated); err == nil {
+			_ = os.Rename(oldCreated, newCreated)
+		}
+		fmt.Printf("Renamed note: %s -> %s\n", filepath.Base(oldPath), newBase)
+		return
+	}
+
 	// For now, treat any argument as a note name.
+	if isReservedWord(arg) {
+		fmt.Fprintf(os.Stderr, "'%s' is a reserved command or alias and cannot be used as a note name.\n", arg)
+		os.Exit(1)
+	}
 	noteArg := arg
 	tags := os.Args[2:]
 	// Track access count for note open/create
