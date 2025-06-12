@@ -366,7 +366,7 @@ func main() {
 			if len(title) > 10 {
 				title = title[:10]
 			}
-			fmt.Printf("%-12s %s\n", title, time.Unix(n.LastModified, 0).Format("060102"))
+			fmt.Printf("%-12s %s\n", title, n.ModifiedStr)
 		}
 		return
 	}
