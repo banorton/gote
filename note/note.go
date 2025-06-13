@@ -116,20 +116,44 @@ func shouldSkipDir(name string) bool {
 	return false
 }
 
-// getOrCreateCreatedTime returns the creation time for a note, writing a .created file if needed
+// getCreatedFilePath returns the path to the .created file in ~/.gote/created/ for a given note path
+func getCreatedFilePath(notePath string) string {
+	home, _ := os.UserHomeDir()
+	// Find relative path from notes dir
+	cfgPath := filepath.Join(home, ".gote", "config.json")
+	cfgFile, err := os.Open(cfgPath)
+	var notesDir string
+	if err == nil {
+		var cfg struct {
+			NotesDir string `json:"notesDir"`
+		}
+		_ = json.NewDecoder(cfgFile).Decode(&cfg)
+		notesDir = cfg.NotesDir
+		cfgFile.Close()
+	}
+	if notesDir == "" {
+		notesDir = filepath.Join(home, "gotes")
+	}
+	rel, _ := filepath.Rel(notesDir, notePath)
+	return filepath.Join(home, ".gote", "created", rel)
+}
+
+// getOrCreateCreatedTime returns the creation time for a note, writing a .created file in ~/.gote/created/ if needed
 func getOrCreateCreatedTime(notePath string, modTime int64) (int64, string) {
-	createdPath := notePath + ".created"
+	createdPath := getCreatedFilePath(notePath)
 	if fi, err := os.Stat(createdPath); err == nil {
 		ts := fi.ModTime().Unix()
 		return ts, time.Unix(ts, 0).Format("060102.150405")
 	}
 	// If .created file doesn't exist, create it with current time
 	now := time.Now().Unix()
-	f, err := os.Create(createdPath)
-	if err == nil {
-		f.Close()
-		os.Chtimes(createdPath, time.Unix(now, 0), time.Unix(now, 0))
-		return now, time.Unix(now, 0).Format("060102.150405")
+	if err := os.MkdirAll(filepath.Dir(createdPath), 0755); err == nil {
+		f, err := os.Create(createdPath)
+		if err == nil {
+			f.Close()
+			os.Chtimes(createdPath, time.Unix(now, 0), time.Unix(now, 0))
+			return now, time.Unix(now, 0).Format("060102.150405")
+		}
 	}
 	// Fallback: use modTime
 	return modTime, time.Unix(modTime, 0).Format("060102.150405")
@@ -200,17 +224,19 @@ func IndexNotes(notesDir string) ([]NoteMetadata, error) {
 	return notes, nil
 }
 
-// When creating a new note, write a .created file with the current timestamp
+// When creating a new note, write a .created file in ~/.gote/created/
 func WriteCreatedFile(notePath string) {
-	createdPath := notePath + ".created"
+	createdPath := getCreatedFilePath(notePath)
 	if _, err := os.Stat(createdPath); err == nil {
 		return // already exists
 	}
 	now := time.Now().Unix()
-	f, err := os.Create(createdPath)
-	if err == nil {
-		f.Close()
-		os.Chtimes(createdPath, time.Unix(now, 0), time.Unix(now, 0))
+	if err := os.MkdirAll(filepath.Dir(createdPath), 0755); err == nil {
+		f, err := os.Create(createdPath)
+		if err == nil {
+			f.Close()
+			os.Chtimes(createdPath, time.Unix(now, 0), time.Unix(now, 0))
+		}
 	}
 }
 
