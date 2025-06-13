@@ -100,6 +100,36 @@ func isReservedWord(arg string) bool {
 }
 
 func main() {
+	// Quick note behavior: no args
+	if len(os.Args) == 1 {
+		notesDir := resolveNotesDir()
+		quickPath := filepath.Join(notesDir, "quick.md")
+		if _, err := os.Stat(quickPath); os.IsNotExist(err) {
+			if err := os.MkdirAll(filepath.Dir(quickPath), 0755); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to create note directory: %v\n", err)
+				os.Exit(1)
+			}
+			f, err := os.Create(quickPath)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to create quick note: %v\n", err)
+				os.Exit(1)
+			}
+			defer f.Close()
+			_, err = fmt.Fprintf(f, ".quick\n\n# Quick\n\n\n")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to write quick note template: %v\n", err)
+				os.Exit(1)
+			}
+		}
+		// Open in vim, cursor at end
+		cmd := exec.Command("vim", "+normal Go", quickPath)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		_ = cmd.Run()
+		os.Exit(0)
+	}
+
 	notesDir := resolveNotesDir()
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: gote <command|alias> [args]")
