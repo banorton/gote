@@ -1,3 +1,5 @@
+![Logo](assets/logo.png)
+
 # gote
 
 Minimal, fast, clean command-line note-taking.
