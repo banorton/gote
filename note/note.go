@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -23,6 +22,8 @@ type NoteMetadata struct {
 	CreatedStr   string // yymmdd.hhmmss format
 	ModifiedStr  string // yymmdd.hhmmss format
 	AccessCount  int    // number of times accessed
+	WordCount    int    // number of words in note
+	CharCount    int    // number of characters in note
 }
 
 func indexFilePath() string {
@@ -133,6 +134,30 @@ func getOrCreateCreatedTime(notePath string, modTime int64) (int64, string) {
 	return modTime, time.Unix(modTime, 0).Format("060102.150405")
 }
 
+// Helper to count words and chars in a file
+func CountWordsAndChars(path string) (int, int, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, 0, err
+	}
+	text := string(data)
+	// Remove tag line
+	if i := strings.IndexByte(text, '\n'); i >= 0 {
+		text = text[i+1:]
+	}
+	words := 0
+	inWord := false
+	for _, r := range text {
+		if r == ' ' || r == '\n' || r == '\t' {
+			inWord = false
+		} else if !inWord {
+			words++
+			inWord = true
+		}
+	}
+	return words, len([]rune(text)), nil
+}
+
 // IndexNotes walks notesDir recursively, skipping certain dirs, and returns all .md file metadata
 func IndexNotes(notesDir string) ([]NoteMetadata, error) {
 	var notes []NoteMetadata
@@ -154,6 +179,7 @@ func IndexNotes(notesDir string) ([]NoteMetadata, error) {
 		rel, _ := filepath.Rel(absNotesDir, path)
 		created, createdStr := getOrCreateCreatedTime(path, info.ModTime().Unix())
 		modStr := time.Unix(info.ModTime().Unix(), 0).Format("060102.150405")
+		wc, cc, _ := CountWordsAndChars(path)
 		notes = append(notes, NoteMetadata{
 			Name:         rel,
 			Path:         path,
@@ -162,6 +188,8 @@ func IndexNotes(notesDir string) ([]NoteMetadata, error) {
 			LastModified: info.ModTime().Unix(),
 			CreatedStr:   createdStr,
 			ModifiedStr:  modStr,
+			WordCount:    wc,
+			CharCount:    cc,
 		})
 		return nil
 	})
@@ -215,6 +243,7 @@ func RefreshIndex(notesDir string, force bool) ([]NoteMetadata, error) {
 		m, ok := metaMap[path]
 		created, createdStr := getOrCreateCreatedTime(path, info.ModTime().Unix())
 		modStr := time.Unix(info.ModTime().Unix(), 0).Format("060102.150405")
+		wc, cc, _ := CountWordsAndChars(path)
 		if !ok || m.LastModified != info.ModTime().Unix() {
 			tags, _ := ParseTagsFromFile(path)
 			m = NoteMetadata{
@@ -225,10 +254,14 @@ func RefreshIndex(notesDir string, force bool) ([]NoteMetadata, error) {
 				LastModified: info.ModTime().Unix(),
 				CreatedStr:   createdStr,
 				ModifiedStr:  modStr,
+				WordCount:    wc,
+				CharCount:    cc,
 			}
 		} else {
 			m.CreatedStr = createdStr
 			m.ModifiedStr = modStr
+			m.WordCount = wc
+			m.CharCount = cc
 		}
 		updated = append(updated, m)
 		return nil
@@ -441,71 +474,57 @@ func PopularNotes(notes []NoteMetadata, N int) []NoteMetadata {
 	return notes[:N]
 }
 
-// ExtractLinksFromNote returns a slice of note names linked from the given note file (outbound links)
-func ExtractLinksFromNote(path string) ([]string, error) {
-	data, err := os.ReadFile(path)
+// UpdateNoteInIndex updates the index entry for a single note, or reindexes all if links are involved.
+func UpdateNoteInIndex(notesDir, noteName string, forceFull bool) error {
+	index, err := LoadIndex()
 	if err != nil {
-		return nil, err
+		index = []NoteMetadata{}
 	}
-	linkRE := regexp.MustCompile(`\[\[([^\]]+)\]\]`)
-	matches := linkRE.FindAllStringSubmatch(string(data), -1)
-	var links []string
-	for _, m := range matches {
-		if len(m) > 1 {
-			name := strings.TrimSpace(m[1])
-			if name != "" {
-				links = append(links, name)
-			}
-		}
+	absNotesDir, _ := filepath.Abs(notesDir)
+	notePath := filepath.Join(absNotesDir, noteName)
+	if !strings.HasSuffix(notePath, ".md") {
+		notePath += ".md"
 	}
-	return links, nil
-}
-
-// FindInboundLinks returns a slice of note names that link to the given note (by name, not path)
-func FindInboundLinks(notesDir, targetName string) ([]string, error) {
-	index, err := IndexNotes(notesDir)
-	if err != nil {
-		return nil, err
-	}
-	var inbound []string
-	targetName = strings.TrimSuffix(targetName, ".md")
-	for _, n := range index {
-		links, err := ExtractLinksFromNote(n.Path)
+	// If forceFull, do a full reindex
+	if forceFull {
+		notes, err := IndexNotes(notesDir)
 		if err != nil {
-			continue
+			return err
 		}
-		for _, l := range links {
-			ln := strings.TrimSuffix(l, ".md")
-			if ln == targetName {
-				inbound = append(inbound, n.Name)
-				break
-			}
-		}
+		return SaveIndex(notes)
 	}
-	return inbound, nil
-}
-
-// FindOutboundLinks returns a slice of note names that the given note links to
-func FindOutboundLinks(notesDir, noteName string) ([]string, error) {
-	index, err := IndexNotes(notesDir)
+	// Otherwise, update just this note's metadata
+	info, err := os.Stat(notePath)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	var notePath string
-	noteName = strings.TrimSuffix(noteName, ".md")
-	for _, n := range index {
-		base := strings.TrimSuffix(filepath.Base(n.Name), ".md")
-		if base == noteName {
-			notePath = n.Path
+	tags, _ := ParseTagsFromFile(notePath)
+	rel, _ := filepath.Rel(absNotesDir, notePath)
+	created, createdStr := getOrCreateCreatedTime(notePath, info.ModTime().Unix())
+	modStr := time.Unix(info.ModTime().Unix(), 0).Format("060102.150405")
+	wc, cc, _ := CountWordsAndChars(notePath)
+	meta := NoteMetadata{
+		Name:         rel,
+		Path:         notePath,
+		Tags:         tags,
+		Created:      created,
+		LastModified: info.ModTime().Unix(),
+		CreatedStr:   createdStr,
+		ModifiedStr:  modStr,
+		WordCount:    wc,
+		CharCount:    cc,
+	}
+	// Replace or add in index
+	found := false
+	for i := range index {
+		if index[i].Name == rel {
+			index[i] = meta
+			found = true
 			break
 		}
 	}
-	if notePath == "" {
-		return nil, fmt.Errorf("note not found: %s", noteName)
+	if !found {
+		index = append(index, meta)
 	}
-	links, err := ExtractLinksFromNote(notePath)
-	if err != nil {
-		return nil, err
-	}
-	return links, nil
+	return SaveIndex(index)
 }

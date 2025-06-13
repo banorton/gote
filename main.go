@@ -74,7 +74,7 @@ func resolveNotePath(notesDir, noteName string) (string, error) {
 func isReservedWord(arg string) bool {
 	reserved := map[string]struct{}{
 		"delete": {}, "d": {},
-		"index": {}, "i": {},
+		"index": {}, "x": {},
 		"tags": {}, "t": {},
 		"search": {}, "s": {},
 		"recent": {}, "r": {},
@@ -86,11 +86,12 @@ func isReservedWord(arg string) bool {
 		"config": {}, "c": {},
 		"today": {}, "n": {},
 		"links": {}, "k": {},
-		"popular": {}, "x": {},
+		"popular": {}, "z": {},
 		"move": {}, "mv": {}, "m": {},
 		"help": {}, "h": {},
 		"pinned": {},
 		"tag":    {},
+		"info":   {}, "i": {},
 	}
 	_, ok := reserved[arg]
 	return ok
@@ -109,7 +110,7 @@ func main() {
 	case "d":
 		arg = "delete"
 	case "i":
-		arg = "index"
+		arg = "info"
 	case "t":
 		arg = "tags"
 	case "s":
@@ -132,7 +133,7 @@ func main() {
 		arg = "today"
 	case "k":
 		arg = "links"
-	case "x":
+	case "z":
 		arg = "popular"
 	case "m":
 		arg = "move"
@@ -142,6 +143,8 @@ func main() {
 		arg = "rename"
 	case "rename":
 		// already set
+	case "ii":
+		arg = "info"
 	}
 
 	// gote popular [N]
@@ -220,39 +223,34 @@ func main() {
 	}
 
 	if arg == "index" {
-		// Check if index exists
-		indexExists := false
-		if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), ".gote", "index.json")); err == nil {
-			indexExists = true
-		}
-		var notes []note.NoteMetadata
-		var err error
-		if indexExists {
-			fmt.Print("An existing index was detected. Do you want to try to salvage information from it? [y/N] ")
-			reader := bufio.NewReader(os.Stdin)
-			resp, _ := reader.ReadString('\n')
-			resp = strings.TrimSpace(resp)
-			if resp == "y" || resp == "Y" {
-				notes, err = note.RefreshIndex(notesDir, false)
-			} else {
-				notes, err = note.IndexNotes(notesDir)
+		if len(os.Args) > 2 {
+			noteArg := os.Args[2]
+			// notePath is not needed, just validate
+			if _, err := resolveNotePath(notesDir, noteArg); err != nil {
+				fmt.Fprintf(os.Stderr, "Invalid note path: %v\n", err)
+				os.Exit(1)
 			}
+			if err := note.UpdateNoteInIndex(notesDir, noteArg, false); err != nil {
+				fmt.Fprintf(os.Stderr, "Index error: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Printf("Index updated for note: %s\n", noteArg)
 		} else {
-			notes, err = note.IndexNotes(notesDir)
-		}
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Index error: %v\n", err)
-			os.Exit(1)
-		}
-		if err := note.SaveIndex(notes); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to save index: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Println("Indexed notes:")
-		for _, n := range notes {
-			rel, _ := filepath.Rel(notesDir, n.Path)
-			tags := strings.Join(n.Tags, ", ")
-			fmt.Printf("- %s\n  Tags: %s\n  Created: %s  Last Modified: %s\n", rel, tags, n.CreatedStr, n.ModifiedStr)
+			notes, err := note.IndexNotes(notesDir)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Index error: %v\n", err)
+				os.Exit(1)
+			}
+			if err := note.SaveIndex(notes); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to save index: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println("Indexed notes:")
+			for _, n := range notes {
+				rel, _ := filepath.Rel(notesDir, n.Path)
+				tags := strings.Join(n.Tags, ", ")
+				fmt.Printf("- %s\n  Tags: %s\n  Created: %s  Last Modified: %s\n", rel, tags, n.CreatedStr, n.ModifiedStr)
+			}
 		}
 		return
 	}
@@ -569,39 +567,6 @@ func main() {
 		return
 	}
 
-	if arg == "links" && len(os.Args) > 2 {
-		noteArg := os.Args[2]
-		// Outbound links
-		outbound, err := note.FindOutboundLinks(notesDir, noteArg)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error finding outbound links: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("Outbound links from %s:\n", noteArg)
-		if len(outbound) == 0 {
-			fmt.Println("  (none)")
-		} else {
-			for _, l := range outbound {
-				fmt.Printf("  [[%s]]\n", l)
-			}
-		}
-		// Inbound links
-		inbound, err := note.FindInboundLinks(notesDir, noteArg)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error finding inbound links: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("Inbound links to %s:\n", noteArg)
-		if len(inbound) == 0 {
-			fmt.Println("  (none)")
-		} else {
-			for _, l := range inbound {
-				fmt.Printf("  %s\n", l)
-			}
-		}
-		return
-	}
-
 	if arg == "help" || arg == "h" {
 		fmt.Println(`gote - minimal fast note-taking
 
@@ -625,7 +590,6 @@ Main features:
   - Edit config:              gote config
   - Daily note:               gote today                     (alias: n)
   - Popular notes:            gote popular [N]               (alias: x)
-  - Note links:               gote links <note>              (alias: k)
   - Delete note:              gote delete <note>             (alias: d)
 
 Short aliases:
@@ -642,6 +606,43 @@ Other details:
 - All metadata is stored in ~/.gote/.
 - All commands print clear confirmation or error messages.
 `)
+		return
+	}
+
+	// gote info <note>
+	if arg == "info" && len(os.Args) > 2 {
+		noteArg := os.Args[2]
+		notePath, err := resolveNotePath(notesDir, noteArg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid note path: %v\n", err)
+			os.Exit(1)
+		}
+		index, err := note.LoadIndex()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to load index: %v\n", err)
+			os.Exit(1)
+		}
+		accessMap, _ := note.LoadAccessLog()
+		index = note.MergeAccessCounts(index, accessMap)
+		rel, _ := filepath.Rel(notesDir, notePath)
+		var meta *note.NoteMetadata
+		for i := range index {
+			if index[i].Name == rel {
+				meta = &index[i]
+				break
+			}
+		}
+		if meta == nil {
+			fmt.Fprintf(os.Stderr, "Note not found in index: %s\n", rel)
+			os.Exit(1)
+		}
+		fmt.Printf("Info for %s\n", rel)
+		fmt.Printf("  Tags: %s\n", strings.Join(meta.Tags, ", "))
+		fmt.Printf("  Created:       %s\n", meta.CreatedStr)
+		fmt.Printf("  Last Modified: %s\n", meta.ModifiedStr)
+		fmt.Printf("  Word Count: %d\n", meta.WordCount)
+		fmt.Printf("  Char Count: %d\n", meta.CharCount)
+		fmt.Printf("  Access Count: %d\n", meta.AccessCount)
 		return
 	}
 
@@ -739,19 +740,8 @@ Other details:
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-	if len(tags) > 0 {
-		notePath, err := resolveNotePath(notesDir, noteArg)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid note path: %v\n", err)
-			os.Exit(1)
-		}
-		if err := note.SetTags(notePath, tags); err != nil {
-			fmt.Fprintf(os.Stderr, "Error setting tags: %v\n", err)
-			os.Exit(1)
-		}
-		rel, _ := filepath.Rel(notesDir, notePath)
-		fmt.Printf("Tags for %s set to: %s\n", rel, strings.Join(tags, " . "))
-	}
+	// Update index for this note after writing
+	note.UpdateNoteInIndex(notesDir, noteArg, false)
 }
 
 // openOrCreateNote ensures the note exists, creates it if needed, and opens it in Vim.
