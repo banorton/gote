@@ -260,6 +260,10 @@ func main() {
 	}
 
 	if arg == "tags" {
+		sortByPopular := false
+		if len(os.Args) > 2 && os.Args[2] == "--sort" && len(os.Args) > 3 && os.Args[3] == "popular" {
+			sortByPopular = true
+		}
 		tagCounts, err := note.TagsFrequency(notesDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error indexing tags: %v\n", err)
@@ -269,7 +273,18 @@ func main() {
 		for tag := range tagCounts {
 			tags = append(tags, tag)
 		}
-		sort.Strings(tags)
+		if sortByPopular {
+			sort.Slice(tags, func(i, j int) bool {
+				if tagCounts[tags[i]] == tagCounts[tags[j]] {
+					return tags[i] < tags[j]
+				}
+				return tagCounts[tags[i]] > tagCounts[tags[j]]
+			})
+			fmt.Println("Tags by popularity:")
+		} else {
+			sort.Strings(tags)
+			fmt.Println("Tags (alphabetical):")
+		}
 		for _, tag := range tags {
 			fmt.Printf("%s (%d)\n", tag, tagCounts[tag])
 		}
@@ -653,6 +668,8 @@ Main features:
   - Daily note:               gote today                     (alias: n)
   - Popular notes:            gote popular [N]               (alias: x)
   - Delete note:              gote delete <note>             (alias: d)
+  - Pack notes:               gote pack                      (alias: pack)
+  - Unpack notes:             gote unpack <zipfile> <destdir>
 
 Short aliases:
   i  index      t  tags      s  search    r  recent
@@ -851,6 +868,45 @@ Other details:
 			os.Exit(1)
 		}
 		fmt.Printf("Restored note: %s\n", noteArg)
+		return
+	}
+
+	if arg == "pack" {
+		notesDir := resolveNotesDir()
+		home, _ := os.UserHomeDir()
+		packDir := filepath.Join(home, ".gote")
+		zipPath := filepath.Join(packDir, "notes_pack.zip")
+		if err := os.MkdirAll(packDir, 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create pack dir: %v\n", err)
+			os.Exit(1)
+		}
+		zipCmd := exec.Command("zip", "-r", zipPath, ".", "--include", "*.md", "index.json", "access.json", "pinned.json")
+		zipCmd.Dir = notesDir
+		zipCmd.Stdout = os.Stdout
+		zipCmd.Stderr = os.Stderr
+		if err := zipCmd.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create zip: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Packed notes and metadata to %s\n", zipPath)
+		return
+	}
+
+	if arg == "unpack" && len(os.Args) > 3 {
+		zipFile := os.Args[2]
+		destDir := os.Args[3]
+		if err := os.MkdirAll(destDir, 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create destination dir: %v\n", err)
+			os.Exit(1)
+		}
+		unzipCmd := exec.Command("unzip", zipFile, "-d", destDir)
+		unzipCmd.Stdout = os.Stdout
+		unzipCmd.Stderr = os.Stderr
+		if err := unzipCmd.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to unzip: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Unpacked notes and metadata to %s\n", destDir)
 		return
 	}
 

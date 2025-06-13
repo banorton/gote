@@ -59,7 +59,7 @@ func LoadIndex() ([]NoteMetadata, error) {
 	return index, nil
 }
 
-// ParseTagsFromFile reads the first line of a note and returns tags split by ' . ', lowercased and trimmed.
+// ParseTagsFromFile reads the first line of a note and returns tags split by periods (with optional spaces), lowercased and trimmed.
 func ParseTagsFromFile(path string) ([]string, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -72,9 +72,10 @@ func ParseTagsFromFile(path string) ([]string, error) {
 		if strings.TrimSpace(line) == "" {
 			return nil, nil
 		}
-		tags := strings.Split(line, " . ")
+		// Split on periods with optional spaces around them
+		parts := strings.Split(line, ".")
 		var cleanTags []string
-		for _, tag := range tags {
+		for _, tag := range parts {
 			tag = strings.ToLower(strings.TrimSpace(tag))
 			if tag != "" {
 				cleanTags = append(cleanTags, tag)
