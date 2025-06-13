@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/logo.png" alt="Logo" width="120" />
+  <img src="assets/logo.png" alt="Logo" width="180" />
 </div>
 
 # gote
