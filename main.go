@@ -92,6 +92,8 @@ func isReservedWord(arg string) bool {
 		"pinned": {},
 		"tag":    {},
 		"info":   {}, "i": {},
+		"trash":   {},
+		"recover": {},
 	}
 	_, ok := reserved[arg]
 	return ok
@@ -196,12 +198,34 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: note file does not exist: %s\n", notePath)
 			os.Exit(1)
 		}
-		if err := note.SetTags(notePath, tags); err != nil {
+		// Load current tags
+		currentTags, _ := note.ParseTagsFromFile(notePath)
+		tagSet := make(map[string]struct{})
+		for _, t := range currentTags {
+			tagSet[t] = struct{}{}
+		}
+		added := false
+		for _, t := range tags {
+			t = strings.ToLower(strings.TrimSpace(t))
+			if t == "" {
+				continue
+			}
+			if _, exists := tagSet[t]; !exists {
+				currentTags = append(currentTags, t)
+				tagSet[t] = struct{}{}
+				added = true
+			}
+		}
+		if !added {
+			fmt.Printf("No new tags to add for %s\n", filepath.Base(notePath))
+			return
+		}
+		if err := note.SetTags(notePath, currentTags); err != nil {
 			fmt.Fprintf(os.Stderr, "Error setting tags: %v\n", err)
 			os.Exit(1)
 		}
 		rel, _ := filepath.Rel(notesDir, notePath)
-		fmt.Printf("Tags for %s set to: %s\n", rel, strings.Join(tags, " . "))
+		fmt.Printf("Tags for %s set to: %s\n", rel, strings.Join(currentTags, " . "))
 		return
 	}
 
@@ -380,7 +404,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Note does not exist: %s\n", noteArg)
 			os.Exit(1)
 		}
-		fmt.Printf("Delete note '%s'? [y/N] ", noteArg)
+		fmt.Printf("Move note '%s' to trash? [y/N] ", noteArg)
 		reader := bufio.NewReader(os.Stdin)
 		resp, _ := reader.ReadString('\n')
 		resp = strings.TrimSpace(resp)
@@ -388,11 +412,19 @@ func main() {
 			fmt.Println("Aborted.")
 			return
 		}
-		if err := os.Remove(notePath); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to delete note: %v\n", err)
+		// Move to trash
+		home, _ := os.UserHomeDir()
+		trashDir := filepath.Join(home, ".gote", "trash")
+		if err := os.MkdirAll(trashDir, 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create trash dir: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("Deleted note: %s\n", noteArg)
+		trashPath := filepath.Join(trashDir, filepath.Base(notePath))
+		if err := os.Rename(notePath, trashPath); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to move note to trash: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Moved note to trash: %s\n", noteArg)
 		return
 	}
 
@@ -723,7 +755,76 @@ Other details:
 		return
 	}
 
-	// For now, treat any argument as a note name.
+	if arg == "trash" {
+		home, _ := os.UserHomeDir()
+		trashDir := filepath.Join(home, ".gote", "trash")
+		entries, err := os.ReadDir(trashDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to read trash: %v\n", err)
+			os.Exit(1)
+		}
+		type trashEntry struct {
+			Name    string
+			ModTime time.Time
+		}
+		var files []trashEntry
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				info, err := entry.Info()
+				if err == nil {
+					files = append(files, trashEntry{entry.Name(), info.ModTime()})
+				}
+			}
+		}
+		sort.Slice(files, func(i, j int) bool {
+			return files[i].ModTime.After(files[j].ModTime)
+		})
+		if len(files) == 0 {
+			fmt.Println("Trash is empty.")
+			return
+		}
+		fmt.Println("Notes in trash (most recent first):")
+		for _, f := range files {
+			fmt.Printf("- %s (deleted: %s)\n", f.Name, f.ModTime.Format("2006-01-02 15:04:05"))
+		}
+		return
+	}
+
+	if arg == "recover" && len(os.Args) > 2 {
+		noteArg := os.Args[2]
+		if !strings.HasSuffix(noteArg, ".md") {
+			noteArg += ".md"
+		}
+		home, _ := os.UserHomeDir()
+		trashDir := filepath.Join(home, ".gote", "trash")
+		trashPath := filepath.Join(trashDir, noteArg)
+		if _, err := os.Stat(trashPath); os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "Note not found in trash: %s\n", noteArg)
+			os.Exit(1)
+		}
+		notesDir := resolveNotesDir()
+		restorePath, err := resolveNotePath(notesDir, noteArg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid restore path: %v\n", err)
+			os.Exit(1)
+		}
+		if _, err := os.Stat(restorePath); err == nil {
+			fmt.Fprintf(os.Stderr, "A note with this name already exists: %s\n", restorePath)
+			os.Exit(1)
+		}
+		if err := os.MkdirAll(filepath.Dir(restorePath), 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create directory: %v\n", err)
+			os.Exit(1)
+		}
+		if err := os.Rename(trashPath, restorePath); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to restore note: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Restored note: %s\n", noteArg)
+		return
+	}
+
+	// IMPORTANT: All command handlers must be placed before this reserved word check!
 	if isReservedWord(arg) {
 		fmt.Fprintf(os.Stderr, "'%s' is a reserved command or alias and cannot be used as a note name.\n", arg)
 		os.Exit(1)
