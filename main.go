@@ -357,6 +357,46 @@ func main() {
 		return
 	}
 
+	// gote search -d <dirname> or --dir <dirname>
+	if arg == "search" && len(os.Args) > 3 && (os.Args[2] == "-d" || os.Args[2] == "--dir") {
+		dirQuery := strings.Trim(strings.Trim(os.Args[3], "/"), " ")
+		index, err := LoadIndex()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to load index: %v\n", err)
+			os.Exit(1)
+		}
+		var matches []NoteMetadata
+		for _, n := range index {
+			rel, _ := filepath.Rel(notesDir, n.Path)
+			if strings.HasPrefix(rel, dirQuery+string(os.PathSeparator)) {
+				matches = append(matches, n)
+			}
+		}
+		if len(matches) == 0 {
+			fmt.Printf("No notes found in directory: %s\n", dirQuery)
+			return
+		}
+		colWidth := 20
+		termWidth := getTerminalWidth()
+		cols := termWidth / colWidth
+		if cols < 1 {
+			cols = 1
+		}
+		for i, n := range matches {
+			rel, _ := filepath.Rel(notesDir, n.Path)
+			title := strings.TrimSuffix(rel, ".md")
+			if len(title) > colWidth {
+				title = title[:colWidth]
+			}
+			fmt.Printf("%-*s", colWidth, title)
+			if (i+1)%cols == 0 {
+				fmt.Println()
+			}
+		}
+		fmt.Println()
+		return
+	}
+
 	if arg == "search" && len(os.Args) > 2 && os.Args[2] != "--tags" && os.Args[2] != "-t" {
 		query := strings.ToLower(os.Args[2])
 		index, err := LoadIndex()
