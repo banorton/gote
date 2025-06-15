@@ -338,15 +338,15 @@ func NotesWithAllTags(notes []NoteMetadata, tags []string) []NoteMetadata {
 	return result
 }
 
-// PrintTabular prints note names in a compact table, truncating to 10 chars per column.
+// PrintTabular prints note names in a compact table, truncating to 20 chars per column.
 func PrintTabular(notes []NoteMetadata) {
-	colWidth := 12
+	colWidth := 20
 	cols := 6
 	for i, n := range notes {
 		title := filepath.Base(n.Path)
 		title = strings.TrimSuffix(title, ".md")
-		if len(title) > 10 {
-			title = title[:10]
+		if len(title) > 20 {
+			title = title[:20]
 		}
 		fmt.Printf("%-*s", colWidth, title)
 		if (i+1)%cols == 0 {
