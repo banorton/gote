@@ -212,6 +212,41 @@ func main() {
 		arg = "info"
 	}
 
+	// --- INFO COMMAND HANDLER ---
+	if arg == "info" && len(os.Args) > 2 {
+		noteArg := os.Args[2]
+		notePath, err := resolveNotePath(notesDir, noteArg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid note path: %v\n", err)
+			os.Exit(1)
+		}
+		index, err := LoadIndex()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to load index: %v\n", err)
+			os.Exit(1)
+		}
+		var found *NoteMetadata
+		for _, n := range index {
+			if n.Path == notePath {
+				found = &n
+				break
+			}
+		}
+		if found == nil {
+			fmt.Fprintf(os.Stderr, "Note not found in index: %s\n", noteArg)
+			os.Exit(1)
+		}
+		fmt.Printf("Note: %s\n", noteArg)
+		fmt.Printf("  Path: %s\n", found.Path)
+		fmt.Printf("  Tags: %s\n", strings.Join(found.Tags, ", "))
+		fmt.Printf("  Created: %s\n", found.CreatedStr)
+		fmt.Printf("  Last Modified: %s\n", found.ModifiedStr)
+		fmt.Printf("  Access Count: %d\n", found.AccessCount)
+		fmt.Printf("  Word Count: %d\n", found.WordCount)
+		fmt.Printf("  Char Count: %d\n", found.CharCount)
+		return
+	}
+
 	// gote popular [N]
 	if arg == "popular" {
 		N := 10
@@ -244,6 +279,9 @@ func main() {
 			bar := strings.Repeat("█", barLen)
 			rel := n.Name
 			title := strings.TrimSuffix(filepath.Base(rel), ".md")
+			if len(title) > 20 {
+				title = title[:20]
+			}
 			fmt.Printf("%-20s | %-20s | %3d\n", title, bar, n.AccessCount)
 		}
 		return
@@ -886,9 +924,16 @@ func main() {
 	}
 
 	// IMPORTANT: All command handlers must be placed before this reserved word check!
-	if isReservedWord(arg) {
-		fmt.Fprintf(os.Stderr, "'%s' is a reserved command or alias and cannot be used as a note name.\n", arg)
-		os.Exit(1)
+	// Only check for reserved word if the user is trying to create/open a note (not running a command)
+	// That is, if the arg is not a known command/alias, treat it as a note name and check
+	knownCommands := map[string]struct{}{
+		"delete": {}, "d": {}, "index": {}, "x": {}, "tags": {}, "t": {}, "search": {}, "s": {}, "recent": {}, "r": {}, "pin": {}, "p": {}, "unpin": {}, "u": {}, "archive": {}, "a": {}, "view": {}, "v": {}, "lint": {}, "l": {}, "config": {}, "c": {}, "today": {}, "n": {}, "links": {}, "k": {}, "popular": {}, "z": {}, "move": {}, "mv": {}, "m": {}, "help": {}, "h": {}, "pinned": {}, "tag": {}, "info": {}, "i": {}, "trash": {}, "recover": {},
+	}
+	if _, isCmd := knownCommands[arg]; !isCmd {
+		if isReservedWord(arg) {
+			fmt.Fprintf(os.Stderr, "'%s' is a reserved command or alias and cannot be used as a note name.\n", arg)
+			os.Exit(1)
+		}
 	}
 	// Support note names with spaces and tags via -t/--tags
 	noteName, tags := parseNoteAndTags(os.Args[1:])
