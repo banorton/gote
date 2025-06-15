@@ -441,13 +441,14 @@ func main() {
 			return notes[i].LastModified > notes[j].LastModified
 		})
 		fmt.Println("Recent notes:")
+		colWidth := 20
 		for _, n := range notes {
 			rel, _ := filepath.Rel(notesDir, n.Path)
 			title := strings.TrimSuffix(rel, ".md")
-			if len(title) > 10 {
-				title = title[:10]
+			if len(title) > colWidth {
+				title = title[:colWidth]
 			}
-			fmt.Printf("%-12s %s\n", title, n.ModifiedStr)
+			fmt.Printf("%-*s %s\n", colWidth, title, n.ModifiedStr)
 		}
 		return
 	}
