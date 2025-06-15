@@ -112,6 +112,25 @@ func getEditor() string {
 	return "vim"
 }
 
+func parseNoteAndTags(args []string) (string, []string) {
+	noteParts := []string{}
+	tags := []string{}
+	tagMode := false
+	for _, arg := range args {
+		if arg == "-t" || arg == "--tags" {
+			tagMode = true
+			continue
+		}
+		if tagMode {
+			tags = append(tags, arg)
+		} else {
+			noteParts = append(noteParts, arg)
+		}
+	}
+	noteName := strings.Join(noteParts, " ")
+	return strings.TrimSpace(noteName), tags
+}
+
 func main() {
 	// Quick note behavior: no args
 	if len(os.Args) == 1 {
@@ -338,7 +357,7 @@ func main() {
 		return
 	}
 
-	if arg == "search" && len(os.Args) > 2 && os.Args[2] != "--tags" {
+	if arg == "search" && len(os.Args) > 2 && os.Args[2] != "--tags" && os.Args[2] != "-t" {
 		query := strings.ToLower(os.Args[2])
 		index, err := note.LoadIndex()
 		if err != nil {
@@ -361,14 +380,13 @@ func main() {
 				}
 			}
 		}
-		// Print relative paths in tabular format
-		colWidth := 12
+		colWidth := 20
 		cols := 6
 		for i, n := range matches {
 			rel, _ := filepath.Rel(notesDir, n.Path)
 			title := strings.TrimSuffix(rel, ".md")
-			if len(title) > 10 {
-				title = title[:10]
+			if len(title) > colWidth {
+				title = title[:colWidth]
 			}
 			fmt.Printf("%-*s", colWidth, title)
 			if (i+1)%cols == 0 {
@@ -379,7 +397,7 @@ func main() {
 		return
 	}
 
-	if arg == "search" && len(os.Args) > 2 && os.Args[2] == "--tags" && len(os.Args) > 3 {
+	if arg == "search" && len(os.Args) > 2 && (os.Args[2] == "--tags" || os.Args[2] == "-t") && len(os.Args) > 3 {
 		tags := os.Args[3:]
 		notes, err := note.IndexNotes(notesDir)
 		if err != nil {
@@ -387,14 +405,13 @@ func main() {
 			os.Exit(1)
 		}
 		matches := note.NotesWithAllTags(notes, tags)
-		// Print relative paths
-		colWidth := 12
+		colWidth := 20
 		cols := 6
 		for i, n := range matches {
 			rel, _ := filepath.Rel(notesDir, n.Path)
 			title := strings.TrimSuffix(rel, ".md")
-			if len(title) > 10 {
-				title = title[:10]
+			if len(title) > colWidth {
+				title = title[:colWidth]
 			}
 			fmt.Printf("%-*s", colWidth, title)
 			if (i+1)%cols == 0 {
@@ -942,20 +959,23 @@ Other details:
 		fmt.Fprintf(os.Stderr, "'%s' is a reserved command or alias and cannot be used as a note name.\n", arg)
 		os.Exit(1)
 	}
-	noteArg := arg
-	tags := os.Args[2:]
+	// Support note names with spaces and tags via -t/--tags
+	noteName, tags := parseNoteAndTags(os.Args[1:])
+	if noteName == "" {
+		fmt.Println("Usage: gote <note name> [-t|--tags <tags...>]")
+		os.Exit(1)
+	}
 	// Track access count for note open/create
-	relPath := noteArg
+	relPath := noteName
 	if !strings.HasSuffix(relPath, ".md") {
 		relPath += ".md"
 	}
 	_ = note.IncrementAccess(relPath)
-	if err := openOrCreateNote(notesDir, noteArg, tags); err != nil {
+	if err := openOrCreateNote(notesDir, noteName, tags); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-	// Update index for this note after writing
-	note.UpdateNoteInIndex(notesDir, noteArg, false)
+	note.UpdateNoteInIndex(notesDir, noteName, false)
 }
 
 // openOrCreateNote ensures the note exists, creates it if needed, and opens it in Vim.
