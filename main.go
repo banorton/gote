@@ -16,8 +16,9 @@ import (
 
 // Config holds user configuration.
 type Config struct {
-	NotesDir string `json:"notesDir"`
-	Editor   string `json:"editor,omitempty"`
+	NotesDir   string `json:"notesDir"`
+	Editor     string `json:"editor,omitempty"`
+	SafeDelete bool   `json:"safeDelete,omitempty"`
 }
 
 func configFilePath() string {
@@ -381,7 +382,11 @@ func main() {
 			}
 		}
 		colWidth := 20
-		cols := 6
+		termWidth := getTerminalWidth()
+		cols := termWidth / colWidth
+		if cols < 1 {
+			cols = 1
+		}
 		for i, n := range matches {
 			rel, _ := filepath.Rel(notesDir, n.Path)
 			title := strings.TrimSuffix(rel, ".md")
@@ -406,7 +411,11 @@ func main() {
 		}
 		matches := note.NotesWithAllTags(notes, tags)
 		colWidth := 20
-		cols := 6
+		termWidth := getTerminalWidth()
+		cols := termWidth / colWidth
+		if cols < 1 {
+			cols = 1
+		}
 		for i, n := range matches {
 			rel, _ := filepath.Rel(notesDir, n.Path)
 			title := strings.TrimSuffix(rel, ".md")
@@ -474,49 +483,51 @@ func main() {
 		noteArg := os.Args[2]
 		notePath, err := resolveNotePath(notesDir, noteArg)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid note path: %v\n", err)
+			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
 		if _, err := os.Stat(notePath); os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "Note does not exist: %s\n", noteArg)
+			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
-		fmt.Printf("Move note '%s' to trash? [y/N] ", noteArg)
-		reader := bufio.NewReader(os.Stdin)
-		resp, _ := reader.ReadString('\n')
-		resp = strings.TrimSpace(resp)
-		if resp != "y" && resp != "Y" {
-			fmt.Println("Aborted.")
-			return
+		cfg, _ := loadConfig()
+		if cfg.SafeDelete {
+			fmt.Print("delete? [y/n] ")
+			reader := bufio.NewReader(os.Stdin)
+			resp, _ := reader.ReadString('\n')
+			resp = strings.TrimSpace(resp)
+			if resp != "y" {
+				fmt.Println("aborted", noteArg)
+				return
+			}
 		}
-		// Move to trash
 		home, _ := os.UserHomeDir()
 		trashDir := filepath.Join(home, ".gote", "trash")
 		if err := os.MkdirAll(trashDir, 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to create trash dir: %v\n", err)
+			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
 		trashPath := filepath.Join(trashDir, filepath.Base(notePath))
 		if err := os.Rename(notePath, trashPath); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to move note to trash: %v\n", err)
+			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
-		fmt.Printf("Moved note to trash: %s\n", noteArg)
+		fmt.Println("deleted", noteArg)
 		return
 	}
 
 	if arg == "config" && len(os.Args) > 3 && os.Args[2] == "set-dir" {
 		path, err := filepath.Abs(os.Args[3])
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid path: %v\n", err)
+			fmt.Println("error", os.Args[3])
 			os.Exit(1)
 		}
 		cfg := Config{NotesDir: path}
 		if err := saveConfig(cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to save config: %v\n", err)
+			fmt.Println("error", path)
 			os.Exit(1)
 		}
-		fmt.Printf("Notes directory set to: %s\n", path)
+		fmt.Println("ok", path)
 		return
 	}
 
@@ -525,10 +536,37 @@ func main() {
 		cfg, _ := loadConfig()
 		cfg.Editor = editor
 		if err := saveConfig(cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to save config: %v\n", err)
+			fmt.Println("error", editor)
 			os.Exit(1)
 		}
-		fmt.Printf("Editor set to: %s\n", editor)
+		fmt.Println("ok", editor)
+		return
+	}
+
+	if arg == "config" && len(os.Args) > 2 && os.Args[2] == "safe-delete" {
+		cfg, _ := loadConfig()
+		if len(os.Args) > 3 {
+			val := strings.ToLower(os.Args[3])
+			if val == "on" || val == "true" {
+				cfg.SafeDelete = true
+			} else if val == "off" || val == "false" {
+				cfg.SafeDelete = false
+			} else {
+				fmt.Println("usage: gote config safe-delete [on|off]")
+				os.Exit(1)
+			}
+			if err := saveConfig(cfg); err != nil {
+				fmt.Println("error", os.Args[3])
+				os.Exit(1)
+			}
+			fmt.Println("ok", os.Args[3])
+			return
+		}
+		if cfg.SafeDelete {
+			fmt.Println("on")
+		} else {
+			fmt.Println("off")
+		}
 		return
 	}
 
@@ -544,20 +582,16 @@ func main() {
 	if arg == "pin" && len(os.Args) > 2 {
 		noteArg := os.Args[2]
 		notePath, err := resolveNotePath(notesDir, noteArg)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid note path: %v\n", err)
-			os.Exit(1)
-		}
-		if _, err := os.Stat(notePath); os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "Note does not exist: %s\n", noteArg)
+		if err != nil || os.IsNotExist(err) {
+			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
 		rel, _ := filepath.Rel(notesDir, notePath)
 		if err := note.PinNote(rel); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to pin note: %v\n", err)
+			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
-		fmt.Printf("Pinned: %s\n", rel)
+		fmt.Println("pinned", noteArg)
 		return
 	}
 
@@ -565,32 +599,15 @@ func main() {
 		noteArg := os.Args[2]
 		notePath, err := resolveNotePath(notesDir, noteArg)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid note path: %v\n", err)
+			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
 		rel, _ := filepath.Rel(notesDir, notePath)
 		if err := note.UnpinNote(rel); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to unpin note: %v\n", err)
+			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
-		fmt.Printf("Unpinned: %s\n", rel)
-		return
-	}
-
-	if arg == "pinned" {
-		pins, err := note.ListPinned()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to list pinned notes: %v\n", err)
-			os.Exit(1)
-		}
-		if len(pins) == 0 {
-			fmt.Println("No pinned notes.")
-			return
-		}
-		fmt.Println("Pinned notes:")
-		for _, rel := range pins {
-			fmt.Println("-", rel)
-		}
+		fmt.Println("unpinned", noteArg)
 		return
 	}
 
@@ -598,224 +615,100 @@ func main() {
 		noteArg := os.Args[2]
 		notePath, err := resolveNotePath(notesDir, noteArg)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid note path: %v\n", err)
+			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
 		rel, _ := filepath.Rel(notesDir, notePath)
 		if _, err := os.Stat(notePath); os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "Note does not exist: %s\n", noteArg)
+			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
 		if err := note.ArchiveNote(notesDir, rel); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to archive note: %v\n", err)
+			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
-		fmt.Printf("Archived: %s\n", rel)
+		fmt.Println("archived", noteArg)
 		return
 	}
 
-	if arg == "view" && len(os.Args) > 2 {
+	if arg == "recover" && len(os.Args) > 2 {
 		noteArg := os.Args[2]
-		notePath, err := resolveNotePath(notesDir, noteArg)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid note path: %v\n", err)
+		if !strings.HasSuffix(noteArg, ".md") {
+			noteArg += ".md"
+		}
+		home, _ := os.UserHomeDir()
+		trashDir := filepath.Join(home, ".gote", "trash")
+		trashPath := filepath.Join(trashDir, noteArg)
+		if _, err := os.Stat(trashPath); os.IsNotExist(err) {
+			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
-		data, err := os.ReadFile(notePath)
+		notesDir := resolveNotesDir()
+		restorePath, err := resolveNotePath(notesDir, noteArg)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to read note: %v\n", err)
+			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
-		lines := strings.Split(string(data), "\n")
-		for i, line := range lines {
-			if i == 0 {
-				fmt.Printf("\033[36m%s\033[0m\n", line) // Cyan for tags
-			} else if strings.HasPrefix(line, "# ") {
-				fmt.Printf("\033[1;33m%s\033[0m\n", line) // Bold yellow for H1
-			} else if strings.HasPrefix(line, "## ") {
-				fmt.Printf("\033[1;32m%s\033[0m\n", line) // Bold green for H2
-			} else if strings.HasPrefix(line, "### ") {
-				fmt.Printf("\033[1;34m%s\033[0m\n", line) // Bold blue for H3
-			} else if strings.HasPrefix(line, "-") || strings.HasPrefix(line, "* ") {
-				fmt.Printf("\033[35m%s\033[0m\n", line) // Magenta for lists
-			} else if strings.HasPrefix(line, "```") {
-				fmt.Printf("\033[1;37m%s\033[0m\n", line) // White for code block
-			} else {
-				fmt.Println(line)
-			}
+		if _, err := os.Stat(restorePath); err == nil {
+			fmt.Println("error", noteArg)
+			os.Exit(1)
 		}
+		if err := os.MkdirAll(filepath.Dir(restorePath), 0755); err != nil {
+			fmt.Println("error", noteArg)
+			os.Exit(1)
+		}
+		if err := os.Rename(trashPath, restorePath); err != nil {
+			fmt.Println("error", noteArg)
+			os.Exit(1)
+		}
+		fmt.Println("recovered", noteArg)
 		return
 	}
 
-	if arg == "lint" && len(os.Args) > 2 {
-		noteArg := os.Args[2]
-		notePath, err := resolveNotePath(notesDir, noteArg)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid note path: %v\n", err)
-			os.Exit(1)
-		}
-		data, err := os.ReadFile(notePath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to read note: %v\n", err)
-			os.Exit(1)
-		}
-		lines := strings.Split(string(data), "\n")
-		ok := true
-		if len(lines) == 0 || strings.TrimSpace(lines[0]) == "" {
-			fmt.Println("Lint: First line (tags) is empty.")
-			ok = false
-		}
-		titleFound := false
-		for _, line := range lines {
-			if strings.HasPrefix(line, "# ") {
-				titleFound = true
-				break
-			}
-		}
-		if !titleFound {
-			fmt.Println("Lint: No H1 title (line starting with '# ') found.")
-			ok = false
-		}
-		for i, line := range lines {
-			if strings.HasPrefix(line, "# ") && i > 0 && strings.TrimSpace(lines[i-1]) != "" {
-				fmt.Printf("Lint: Title (H1) at line %d should be preceded by a blank line.\n", i+1)
-				ok = false
-			}
-		}
-		if ok {
-			fmt.Println("No lint issues found.")
-		}
-		return
-	}
-
-	if arg == "help" || arg == "h" {
-		fmt.Println(`gote - minimal fast note-taking
-
-Usage: gote <command|alias> [args]
-
-Main features:
-  - Create/open notes:         gote <note_name> [tags...]
-  - Tagging:                  gote tag <note> [tags...]      (alias: tag)
-  - Indexing:                 gote index                     (alias: i)
-  - Search:                   gote search <query>            (alias: s)
-  - Search by tags:           gote search --tags <tags...>
-  - List tags:                gote tags                      (alias: t)
-  - Recent notes:             gote recent                    (alias: r)
-  - Pin/unpin:                gote pin <note>                (alias: p)
-                              gote unpin <note>              (alias: u)
-  - List pinned:              gote pinned
-  - Archive:                  gote archive <note>            (alias: a)
-  - View note:                gote view <note>               (alias: v)
-  - Lint note:                gote lint <note>               (alias: l)
-  - Config dir:               gote config set-dir <path>     (alias: c)
-  - Edit config:              gote config
-  - Daily note:               gote today                     (alias: n)
-  - Popular notes:            gote popular [N]               (alias: x)
-  - Delete note:              gote delete <note>             (alias: d)
-  - Pack notes:               gote pack                      (alias: pack)
-  - Unpack notes:             gote unpack <zipfile> <destdir>
-
-Short aliases:
-  i  index      t  tags      s  search    r  recent
-  p  pin        u  unpin     a  archive   v  view
-  l  lint       c  config    n  today     k  links
-  x  popular    d  delete    h  help
-
-Other details:
-- Notes are markdown (.md) files, can be in subdirectories.
-- Tag line is always first, lowercased, delimited by ' . '.
-- [[note name]] links to other notes. Use 'gote links <note>' to see inbound/outbound links.
-- Creation and modification times are tracked (yymmdd.hhmmss).
-- All metadata is stored in ~/.gote/.
-- All commands print clear confirmation or error messages.
-`)
-		return
-	}
-
-	// gote info <note>
-	if arg == "info" && len(os.Args) > 2 {
-		noteArg := os.Args[2]
-		notePath, err := resolveNotePath(notesDir, noteArg)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid note path: %v\n", err)
-			os.Exit(1)
-		}
-		index, err := note.LoadIndex()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to load index: %v\n", err)
-			os.Exit(1)
-		}
-		accessMap, _ := note.LoadAccessLog()
-		index = note.MergeAccessCounts(index, accessMap)
-		rel, _ := filepath.Rel(notesDir, notePath)
-		var meta *note.NoteMetadata
-		for i := range index {
-			if index[i].Name == rel {
-				meta = &index[i]
-				break
-			}
-		}
-		if meta == nil {
-			fmt.Fprintf(os.Stderr, "Note not found in index: %s\n", rel)
-			os.Exit(1)
-		}
-		fmt.Printf("Info for %s\n", rel)
-		fmt.Printf("  Tags: %s\n", strings.Join(meta.Tags, ", "))
-		fmt.Printf("  Created:       %s\n", meta.CreatedStr)
-		fmt.Printf("  Last Modified: %s\n", meta.ModifiedStr)
-		fmt.Printf("  Word Count: %d\n", meta.WordCount)
-		fmt.Printf("  Char Count: %d\n", meta.CharCount)
-		fmt.Printf("  Access Count: %d\n", meta.AccessCount)
-		return
-	}
-
-	// gote move/mv <oldnote> <newnote>
-	if (arg == "move") && len(os.Args) > 3 {
+	if arg == "move" && len(os.Args) > 3 {
 		oldArg := os.Args[2]
 		newArg := os.Args[3]
 		oldPath, err := resolveNotePath(notesDir, oldArg)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid source note path: %v\n", err)
+			fmt.Println("error", oldArg)
 			os.Exit(1)
 		}
 		newPath, err := resolveNotePath(notesDir, newArg)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid destination note path: %v\n", err)
+			fmt.Println("error", newArg)
 			os.Exit(1)
 		}
 		if _, err := os.Stat(oldPath); os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "Source note does not exist: %s\n", oldArg)
+			fmt.Println("error", oldArg)
 			os.Exit(1)
 		}
 		if _, err := os.Stat(newPath); err == nil {
-			fmt.Fprintf(os.Stderr, "Destination note already exists: %s\n", newArg)
+			fmt.Println("error", newArg)
 			os.Exit(1)
 		}
 		if err := os.MkdirAll(filepath.Dir(newPath), 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to create destination directory: %v\n", err)
+			fmt.Println("error", newArg)
 			os.Exit(1)
 		}
 		if err := os.Rename(oldPath, newPath); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to move note: %v\n", err)
+			fmt.Println("error", oldArg)
 			os.Exit(1)
 		}
-		// Move .created file if present
 		oldCreated := oldPath + ".created"
 		newCreated := newPath + ".created"
 		if _, err := os.Stat(oldCreated); err == nil {
 			_ = os.Rename(oldCreated, newCreated)
 		}
-		fmt.Printf("Moved note: %s -> %s\n", oldArg, newArg)
+		fmt.Println("moved", oldArg, newArg)
 		return
 	}
 
-	// gote rename/rn <oldname> <newname> (rename only, no move)
 	if arg == "rename" && len(os.Args) > 3 {
 		oldArg := os.Args[2]
 		newArg := os.Args[3]
 		oldPath, err := resolveNotePath(notesDir, oldArg)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid source note path: %v\n", err)
+			fmt.Println("error", oldArg)
 			os.Exit(1)
 		}
 		oldDir := filepath.Dir(oldPath)
@@ -825,24 +718,23 @@ Other details:
 		}
 		newPath := filepath.Join(oldDir, newBase)
 		if _, err := os.Stat(oldPath); os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "Source note does not exist: %s\n", oldArg)
+			fmt.Println("error", oldArg)
 			os.Exit(1)
 		}
 		if _, err := os.Stat(newPath); err == nil {
-			fmt.Fprintf(os.Stderr, "Destination note already exists: %s\n", newBase)
+			fmt.Println("error", newBase)
 			os.Exit(1)
 		}
 		if err := os.Rename(oldPath, newPath); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to rename note: %v\n", err)
+			fmt.Println("error", oldArg)
 			os.Exit(1)
 		}
-		// Move .created file if present
 		oldCreated := oldPath + ".created"
 		newCreated := newPath + ".created"
 		if _, err := os.Stat(oldCreated); err == nil {
 			_ = os.Rename(oldCreated, newCreated)
 		}
-		fmt.Printf("Renamed note: %s -> %s\n", filepath.Base(oldPath), newBase)
+		fmt.Println("renamed", oldArg, newBase)
 		return
 	}
 
@@ -890,28 +782,28 @@ Other details:
 		trashDir := filepath.Join(home, ".gote", "trash")
 		trashPath := filepath.Join(trashDir, noteArg)
 		if _, err := os.Stat(trashPath); os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "Note not found in trash: %s\n", noteArg)
+			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
 		notesDir := resolveNotesDir()
 		restorePath, err := resolveNotePath(notesDir, noteArg)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid restore path: %v\n", err)
+			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
 		if _, err := os.Stat(restorePath); err == nil {
-			fmt.Fprintf(os.Stderr, "A note with this name already exists: %s\n", restorePath)
+			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
 		if err := os.MkdirAll(filepath.Dir(restorePath), 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to create directory: %v\n", err)
+			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
 		if err := os.Rename(trashPath, restorePath); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to restore note: %v\n", err)
+			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
-		fmt.Printf("Restored note: %s\n", noteArg)
+		fmt.Println("recovered", noteArg)
 		return
 	}
 
@@ -1017,4 +909,25 @@ func openOrCreateNote(notesDir, noteName string, tags []string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+// getTerminalWidth returns the width of the terminal in columns, or 80 if unknown
+func getTerminalWidth() int {
+	if cols := os.Getenv("COLUMNS"); cols != "" {
+		if n, err := strconv.Atoi(cols); err == nil && n > 0 {
+			return n
+		}
+	}
+	cmd := exec.Command("stty", "size")
+	cmd.Stdin = os.Stdin
+	out, err := cmd.Output()
+	if err == nil {
+		parts := strings.Fields(string(out))
+		if len(parts) == 2 {
+			if n, err := strconv.Atoi(parts[1]); err == nil && n > 0 {
+				return n
+			}
+		}
+	}
+	return 80 // default fallback
 }
