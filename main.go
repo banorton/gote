@@ -363,7 +363,7 @@ func main() {
 	}
 
 	if arg == "index" {
-		if len(os.Args) > 2 {
+		if len(os.Args) > 2 && !strings.HasPrefix(os.Args[2], "-") {
 			noteArg := os.Args[2]
 			// notePath is not needed, just validate
 			if _, err := resolveNotePath(notesDir, noteArg); err != nil {
@@ -375,16 +375,26 @@ func main() {
 				os.Exit(1)
 			}
 			fmt.Printf("Index updated for note: %s\n", noteArg)
-		} else {
-			notes, err := IndexNotes(notesDir)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Index error: %v\n", err)
-				os.Exit(1)
+			return
+		}
+		notes, err := IndexNotes(notesDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Index error: %v\n", err)
+			os.Exit(1)
+		}
+		if err := SaveIndex(notes); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to save index: %v\n", err)
+			os.Exit(1)
+		}
+		// Only print indexed notes if --verbose or -v is present
+		verbose := false
+		for _, a := range os.Args[2:] {
+			if a == "--verbose" || a == "-v" {
+				verbose = true
+				break
 			}
-			if err := SaveIndex(notes); err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to save index: %v\n", err)
-				os.Exit(1)
-			}
+		}
+		if verbose {
 			fmt.Println("Indexed notes:")
 			for _, n := range notes {
 				rel, _ := filepath.Rel(notesDir, n.Path)
