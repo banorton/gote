@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"gotes/note"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -222,14 +221,14 @@ func main() {
 				N = n
 			}
 		}
-		idx, err := note.LoadIndex()
+		idx, err := LoadIndex()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to load index: %v\n", err)
 			os.Exit(1)
 		}
-		accessMap, _ := note.LoadAccessLog()
-		notes := note.MergeAccessCounts(idx, accessMap)
-		popular := note.PopularNotes(notes, N)
+		accessMap, _ := LoadAccessLog()
+		notes := MergeAccessCounts(idx, accessMap)
+		popular := PopularNotes(notes, N)
 		maxAccess := 1
 		for _, n := range popular {
 			if n.AccessCount > maxAccess {
@@ -263,7 +262,7 @@ func main() {
 			os.Exit(1)
 		}
 		// Load current tags
-		currentTags, _ := note.ParseTagsFromFile(notePath)
+		currentTags, _ := ParseTagsFromFile(notePath)
 		tagSet := make(map[string]struct{})
 		for _, t := range currentTags {
 			tagSet[t] = struct{}{}
@@ -284,7 +283,7 @@ func main() {
 			fmt.Printf("No new tags to add for %s\n", filepath.Base(notePath))
 			return
 		}
-		if err := note.SetTags(notePath, currentTags); err != nil {
+		if err := SetTags(notePath, currentTags); err != nil {
 			fmt.Fprintf(os.Stderr, "Error setting tags: %v\n", err)
 			os.Exit(1)
 		}
@@ -298,7 +297,7 @@ func main() {
 		if len(os.Args) > 2 && os.Args[2] == "--sort" && len(os.Args) > 3 && os.Args[3] == "popular" {
 			sortByPopular = true
 		}
-		tagCounts, err := note.TagsFrequency(notesDir)
+		tagCounts, err := TagsFrequency(notesDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error indexing tags: %v\n", err)
 			os.Exit(1)
@@ -333,18 +332,18 @@ func main() {
 				fmt.Fprintf(os.Stderr, "Invalid note path: %v\n", err)
 				os.Exit(1)
 			}
-			if err := note.UpdateNoteInIndex(notesDir, noteArg, false); err != nil {
+			if err := UpdateNoteInIndex(notesDir, noteArg, false); err != nil {
 				fmt.Fprintf(os.Stderr, "Index error: %v\n", err)
 				os.Exit(1)
 			}
 			fmt.Printf("Index updated for note: %s\n", noteArg)
 		} else {
-			notes, err := note.IndexNotes(notesDir)
+			notes, err := IndexNotes(notesDir)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Index error: %v\n", err)
 				os.Exit(1)
 			}
-			if err := note.SaveIndex(notes); err != nil {
+			if err := SaveIndex(notes); err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to save index: %v\n", err)
 				os.Exit(1)
 			}
@@ -360,12 +359,12 @@ func main() {
 
 	if arg == "search" && len(os.Args) > 2 && os.Args[2] != "--tags" && os.Args[2] != "-t" {
 		query := strings.ToLower(os.Args[2])
-		index, err := note.LoadIndex()
+		index, err := LoadIndex()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to load index: %v\n", err)
 			os.Exit(1)
 		}
-		var matches []note.NoteMetadata
+		var matches []NoteMetadata
 		for _, n := range index {
 			rel, _ := filepath.Rel(notesDir, n.Path)
 			title := strings.TrimSuffix(rel, ".md")
@@ -404,12 +403,12 @@ func main() {
 
 	if arg == "search" && len(os.Args) > 2 && (os.Args[2] == "--tags" || os.Args[2] == "-t") && len(os.Args) > 3 {
 		tags := os.Args[3:]
-		notes, err := note.IndexNotes(notesDir)
+		notes, err := IndexNotes(notesDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Search error: %v\n", err)
 			os.Exit(1)
 		}
-		matches := note.NotesWithAllTags(notes, tags)
+		matches := NotesWithAllTags(notes, tags)
 		colWidth := 20
 		termWidth := getTerminalWidth()
 		cols := termWidth / colWidth
@@ -458,7 +457,7 @@ func main() {
 	}
 
 	if arg == "recent" {
-		notes, err := note.IndexNotes(notesDir)
+		notes, err := IndexNotes(notesDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Recent error: %v\n", err)
 			os.Exit(1)
@@ -587,7 +586,7 @@ func main() {
 			os.Exit(1)
 		}
 		rel, _ := filepath.Rel(notesDir, notePath)
-		if err := note.PinNote(rel); err != nil {
+		if err := PinNote(rel); err != nil {
 			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
@@ -603,7 +602,7 @@ func main() {
 			os.Exit(1)
 		}
 		rel, _ := filepath.Rel(notesDir, notePath)
-		if err := note.UnpinNote(rel); err != nil {
+		if err := UnpinNote(rel); err != nil {
 			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
@@ -623,7 +622,7 @@ func main() {
 			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
-		if err := note.ArchiveNote(notesDir, rel); err != nil {
+		if err := ArchiveNote(notesDir, rel); err != nil {
 			fmt.Println("error", noteArg)
 			os.Exit(1)
 		}
@@ -862,12 +861,12 @@ func main() {
 	if !strings.HasSuffix(relPath, ".md") {
 		relPath += ".md"
 	}
-	_ = note.IncrementAccess(relPath)
+	_ = IncrementAccess(relPath)
 	if err := openOrCreateNote(notesDir, noteName, tags); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-	note.UpdateNoteInIndex(notesDir, noteName, false)
+	UpdateNoteInIndex(notesDir, noteName, false)
 }
 
 // openOrCreateNote ensures the note exists, creates it if needed, and opens it in Vim.
@@ -896,7 +895,7 @@ func openOrCreateNote(notesDir, noteName string, tags []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to write template: %w", err)
 		}
-		note.WriteCreatedFile(fullPath)
+		WriteCreatedFile(fullPath)
 	}
 	// Remove Vim swap file if it exists to avoid annoying warnings
 	swapFile := fullPath + ".swp"
