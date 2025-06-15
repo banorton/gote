@@ -59,17 +59,19 @@ func resolveNotesDir() string {
 
 // Returns the full absolute path for a note, ensuring it is inside notesDir.
 func resolveNotePath(notesDir, noteName string) (string, error) {
+	// Check if the noteName is a reserved word first
+	if isReservedWord(noteName) {
+		return "", fmt.Errorf("cannot create note named '%s' as it is a reserved command name", noteName)
+	}
+
 	noteName = filepath.Clean(noteName)
 	if !strings.HasSuffix(noteName, ".md") {
 		noteName += ".md"
 	}
-	fullPath := filepath.Join(notesDir, noteName)
-	absNotesDir, _ := filepath.Abs(notesDir)
-	absFullPath, _ := filepath.Abs(fullPath)
-	if !strings.HasPrefix(absFullPath, absNotesDir+string(os.PathSeparator)) && absFullPath != absNotesDir {
-		return "", fmt.Errorf("note path escapes notes directory")
+	if filepath.IsAbs(noteName) {
+		return "", fmt.Errorf("note name cannot be an absolute path")
 	}
-	return fullPath, nil
+	return filepath.Join(notesDir, noteName), nil
 }
 
 func isReservedWord(arg string) bool {
@@ -930,6 +932,23 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Printf("Unpacked notes and metadata to %s\n", destDir)
+		return
+	}
+
+	// --- VIEW COMMAND HANDLER ---
+	if arg == "view" && len(os.Args) > 2 {
+		noteArg := os.Args[2]
+		notePath, err := resolveNotePath(notesDir, noteArg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid note path: %v\n", err)
+			os.Exit(1)
+		}
+		data, err := os.ReadFile(notePath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to read note: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Print(string(data))
 		return
 	}
 
