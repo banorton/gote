@@ -17,6 +17,7 @@ import (
 // Config holds user configuration.
 type Config struct {
 	NotesDir string `json:"notesDir"`
+	Editor   string `json:"editor,omitempty"`
 }
 
 func configFilePath() string {
@@ -99,6 +100,18 @@ func isReservedWord(arg string) bool {
 	return ok
 }
 
+// getEditor returns the configured editor, $EDITOR, or 'vim' as fallback
+func getEditor() string {
+	cfg, _ := loadConfig()
+	if cfg.Editor != "" {
+		return cfg.Editor
+	}
+	if ed := os.Getenv("EDITOR"); ed != "" {
+		return ed
+	}
+	return "vim"
+}
+
 func main() {
 	// Quick note behavior: no args
 	if len(os.Args) == 1 {
@@ -115,14 +128,15 @@ func main() {
 				os.Exit(1)
 			}
 			defer f.Close()
-			_, err = fmt.Fprintf(f, ".quick\n\n# Quick\n\n\n")
+			_, err = fmt.Fprintf(f, ".quick\n\n# Quick\n")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to write quick note template: %v\n", err)
 				os.Exit(1)
 			}
 		}
 		// Open in vim, cursor at end
-		cmd := exec.Command("vim", "+normal Go", quickPath)
+		editor := getEditor()
+		cmd := exec.Command(editor, "+normal Go", quickPath)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -485,6 +499,18 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Printf("Notes directory set to: %s\n", path)
+		return
+	}
+
+	if arg == "config" && len(os.Args) > 3 && os.Args[2] == "set-editor" {
+		editor := os.Args[3]
+		cfg, _ := loadConfig()
+		cfg.Editor = editor
+		if err := saveConfig(cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to save config: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Editor set to: %s\n", editor)
 		return
 	}
 
@@ -964,7 +990,8 @@ func openOrCreateNote(notesDir, noteName string, tags []string) error {
 	if _, err := os.Stat(swapFile); err == nil {
 		_ = os.Remove(swapFile)
 	}
-	cmd := exec.Command("vim", fullPath)
+	editor := getEditor()
+	cmd := exec.Command(editor, fullPath)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
