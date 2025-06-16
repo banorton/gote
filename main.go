@@ -133,6 +133,122 @@ func parseNoteAndTags(args []string) (string, []string) {
 	return strings.TrimSpace(noteName), tags
 }
 
+// Handler for 'search' command (simple version with title truncation and date)
+func handleSearch(notesDir string, args []string) {
+	if len(args) < 2 {
+		fmt.Println("Usage: gote search <query>")
+		return
+	}
+	query := strings.ToLower(args[1])
+	index, err := LoadIndex()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to load index: %v\n", err)
+		os.Exit(1)
+	}
+	var matches []NoteMetadata
+	for _, n := range index {
+		title := strings.TrimSuffix(filepath.Base(n.Path), ".md")
+		titleLower := strings.ToLower(title)
+		if strings.Contains(titleLower, query) {
+			matches = append(matches, n)
+		}
+	}
+	if len(matches) == 0 {
+		fmt.Println("No notes found.")
+		return
+	}
+	titleWidth := 20
+	for _, n := range matches {
+		title := strings.TrimSuffix(filepath.Base(n.Path), ".md")
+		if len(title) > titleWidth {
+			title = title[:titleWidth]
+		}
+		fmt.Printf("%-*s %s\n", titleWidth, title, n.ModifiedStr)
+	}
+}
+
+// Handler for 'recent' command
+func handleRecent(notesDir string, args []string) {
+	notes, err := IndexNotes(notesDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Recent error: %v\n", err)
+		os.Exit(1)
+	}
+	sort.Slice(notes, func(i, j int) bool {
+		return notes[i].LastModified > notes[j].LastModified
+	})
+	N := len(notes)
+	if len(args) > 1 {
+		if n, err := strconv.Atoi(args[1]); err == nil && n > 0 && n < N {
+			N = n
+		}
+	}
+	fmt.Println("Recent notes:")
+	titleWidth := 20
+	dateWidth := 14
+	cellWidth := titleWidth + 1 + dateWidth + 2
+	termWidth := getTerminalWidth()
+	cols := termWidth / cellWidth
+	if cols < 1 {
+		cols = 1
+	}
+	for i, n := range notes[:N] {
+		title := strings.TrimSuffix(filepath.Base(n.Path), ".md")
+		if len(title) > titleWidth {
+			title = title[:titleWidth]
+		}
+		if i%cols == 0 {
+			fmt.Print("|")
+		}
+		fmt.Printf(" %-*s %-*s |", titleWidth, title, dateWidth, n.ModifiedStr)
+		if (i+1)%cols == 0 {
+			fmt.Println()
+		}
+	}
+	if N%cols != 0 {
+		fmt.Println()
+	}
+	return
+}
+
+// Handler for 'popular' command
+func handlePopular(notesDir string, args []string) {
+	N := 10
+	if len(args) > 1 {
+		if n, err := strconv.Atoi(args[1]); err == nil && n > 0 {
+			N = n
+		}
+	}
+	idx, err := LoadIndex()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to load index: %v\n", err)
+		os.Exit(1)
+	}
+	accessMap, _ := LoadAccessLog()
+	notes := MergeAccessCounts(idx, accessMap)
+	popular := PopularNotes(notes, N)
+	maxAccess := 1
+	for _, n := range popular {
+		if n.AccessCount > maxAccess {
+			maxAccess = n.AccessCount
+		}
+	}
+	fmt.Println("Popular notes:")
+	for _, n := range popular {
+		barLen := 0
+		if maxAccess > 0 {
+			barLen = n.AccessCount * 20 / maxAccess
+		}
+		bar := strings.Repeat("█", barLen)
+		title := strings.TrimSuffix(filepath.Base(n.Name), ".md")
+		if len(title) > 20 {
+			title = title[:20]
+		}
+		fmt.Printf("%-20s | %-20s\n", title, bar)
+	}
+	return
+}
+
 func main() {
 	// Quick note behavior: no args
 	if len(os.Args) == 1 {
@@ -257,40 +373,7 @@ func main() {
 
 	// gote popular [N]
 	if arg == "popular" {
-		N := 10
-		if len(os.Args) > 2 {
-			n, err := strconv.Atoi(os.Args[2])
-			if err == nil && n > 0 {
-				N = n
-			}
-		}
-		idx, err := LoadIndex()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to load index: %v\n", err)
-			os.Exit(1)
-		}
-		accessMap, _ := LoadAccessLog()
-		notes := MergeAccessCounts(idx, accessMap)
-		popular := PopularNotes(notes, N)
-		maxAccess := 1
-		for _, n := range popular {
-			if n.AccessCount > maxAccess {
-				maxAccess = n.AccessCount
-			}
-		}
-		fmt.Println("Popular notes:")
-		for _, n := range popular {
-			barLen := 0
-			if maxAccess > 0 {
-				barLen = n.AccessCount * 20 / maxAccess
-			}
-			bar := strings.Repeat("█", barLen)
-			title := strings.TrimSuffix(filepath.Base(n.Name), ".md")
-			if len(title) > 20 {
-				title = title[:20]
-			}
-			fmt.Printf("%-20s | %-20s\n", title, bar)
-		}
+		handlePopular(notesDir, os.Args[1:])
 		return
 	}
 
@@ -413,175 +496,8 @@ func main() {
 	}
 
 	// gote search -d <dirname> or --dir <dirname>
-	if arg == "search" && len(os.Args) > 3 && (os.Args[2] == "-d" || os.Args[2] == "--dir") {
-		dirQuery := strings.Trim(strings.Trim(os.Args[3], "/"), " ")
-		index, err := LoadIndex()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to load index: %v\n", err)
-			os.Exit(1)
-		}
-		accessMap, _ := LoadAccessLog()
-		var matches []NoteMetadata
-		for _, n := range index {
-			rel, _ := filepath.Rel(notesDir, n.Path)
-			if strings.HasPrefix(rel, dirQuery+string(os.PathSeparator)) {
-				matches = append(matches, n)
-			}
-		}
-		sort.Slice(matches, func(i, j int) bool {
-			if accessMap[matches[i].Name] == accessMap[matches[j].Name] {
-				return matches[i].LastModified > matches[j].LastModified
-			}
-			return accessMap[matches[i].Name] > accessMap[matches[j].Name]
-		})
-		N := len(matches)
-		if len(os.Args) > 4 {
-			if n, err := strconv.Atoi(os.Args[len(os.Args)-1]); err == nil && n > 0 && n < N {
-				N = n
-			}
-		}
-		if len(matches) == 0 {
-			fmt.Printf("No notes found in directory: %s\n", dirQuery)
-			return
-		}
-		titleWidth := 20
-		dateWidth := 14
-		cellWidth := titleWidth + 1 + dateWidth + 2
-		termWidth := getTerminalWidth()
-		cols := termWidth / cellWidth
-		if cols < 1 {
-			cols = 1
-		}
-		for i, n := range matches[:N] {
-			// Only print the note name, not the directory
-			title := strings.TrimSuffix(filepath.Base(n.Path), ".md")
-			if len(title) > titleWidth {
-				title = title[:titleWidth]
-			}
-			if i%cols == 0 {
-				fmt.Print("|")
-			}
-			fmt.Printf(" %-*s %-*s |", titleWidth, title, dateWidth, n.ModifiedStr)
-			if (i+1)%cols == 0 {
-				fmt.Println()
-			}
-		}
-		if N%cols != 0 {
-			fmt.Println()
-		}
-		return
-	}
-
-	if arg == "search" && len(os.Args) > 2 && os.Args[2] != "--tags" && os.Args[2] != "-t" {
-		query := strings.ToLower(os.Args[2])
-		index, err := LoadIndex()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to load index: %v\n", err)
-			os.Exit(1)
-		}
-		accessMap, _ := LoadAccessLog()
-		var matches []NoteMetadata
-		for _, n := range index {
-			rel, _ := filepath.Rel(notesDir, n.Path)
-			title := strings.TrimSuffix(rel, ".md")
-			titleLower := strings.ToLower(title)
-			if strings.Contains(titleLower, query) {
-				matches = append(matches, n)
-				continue
-			}
-			for _, word := range strings.FieldsFunc(titleLower, func(r rune) bool { return r == '/' || r == '_' || r == '-' || r == ' ' }) {
-				if strings.Contains(word, query) {
-					matches = append(matches, n)
-					break
-				}
-			}
-		}
-		sort.Slice(matches, func(i, j int) bool {
-			if accessMap[matches[i].Name] == accessMap[matches[j].Name] {
-				return matches[i].LastModified > matches[j].LastModified
-			}
-			return accessMap[matches[i].Name] > accessMap[matches[j].Name]
-		})
-		N := len(matches)
-		if len(os.Args) > 3 {
-			if n, err := strconv.Atoi(os.Args[len(os.Args)-1]); err == nil && n > 0 && n < N {
-				N = n
-			}
-		}
-		titleWidth := 20
-		dateWidth := 14
-		cellWidth := titleWidth + 1 + dateWidth + 2
-		termWidth := getTerminalWidth()
-		cols := termWidth / cellWidth
-		if cols < 1 {
-			cols = 1
-		}
-		for i, n := range matches[:N] {
-			rel, _ := filepath.Rel(notesDir, n.Path)
-			title := strings.TrimSuffix(rel, ".md")
-			if len(title) > titleWidth {
-				title = title[:titleWidth]
-			}
-			if i%cols == 0 {
-				fmt.Print("|")
-			}
-			fmt.Printf(" %-*s %-*s |", titleWidth, title, dateWidth, n.ModifiedStr)
-			if (i+1)%cols == 0 {
-				fmt.Println()
-			}
-		}
-		if N%cols != 0 {
-			fmt.Println()
-		}
-		return
-	}
-
-	if arg == "search" && len(os.Args) > 2 && (os.Args[2] == "--tags" || os.Args[2] == "-t") && len(os.Args) > 3 {
-		tags := os.Args[3:]
-		notes, err := IndexNotes(notesDir)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Search error: %v\n", err)
-			os.Exit(1)
-		}
-		accessMap, _ := LoadAccessLog()
-		matches := NotesWithAllTags(notes, tags)
-		sort.Slice(matches, func(i, j int) bool {
-			if accessMap[matches[i].Name] == accessMap[matches[j].Name] {
-				return matches[i].LastModified > matches[j].LastModified
-			}
-			return accessMap[matches[i].Name] > accessMap[matches[j].Name]
-		})
-		N := len(matches)
-		if len(os.Args) > 4 {
-			if n, err := strconv.Atoi(os.Args[len(os.Args)-1]); err == nil && n > 0 && n < N {
-				N = n
-			}
-		}
-		titleWidth := 20
-		dateWidth := 14
-		cellWidth := titleWidth + 1 + dateWidth + 2
-		termWidth := getTerminalWidth()
-		cols := termWidth / cellWidth
-		if cols < 1 {
-			cols = 1
-		}
-		for i, n := range matches[:N] {
-			rel, _ := filepath.Rel(notesDir, n.Path)
-			title := strings.TrimSuffix(rel, ".md")
-			if len(title) > titleWidth {
-				title = title[:titleWidth]
-			}
-			if i%cols == 0 {
-				fmt.Print("|")
-			}
-			fmt.Printf(" %-*s %-*s |", titleWidth, title, dateWidth, n.ModifiedStr)
-			if (i+1)%cols == 0 {
-				fmt.Println()
-			}
-		}
-		if N%cols != 0 {
-			fmt.Println()
-		}
+	if arg == "search" {
+		handleSearch(notesDir, os.Args[1:])
 		return
 	}
 
@@ -612,45 +528,7 @@ func main() {
 	}
 
 	if arg == "recent" {
-		notes, err := IndexNotes(notesDir)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Recent error: %v\n", err)
-			os.Exit(1)
-		}
-		sort.Slice(notes, func(i, j int) bool {
-			return notes[i].LastModified > notes[j].LastModified
-		})
-		N := len(notes)
-		if len(os.Args) > 2 {
-			if n, err := strconv.Atoi(os.Args[2]); err == nil && n > 0 && n < N {
-				N = n
-			}
-		}
-		fmt.Println("Recent notes:")
-		titleWidth := 20
-		dateWidth := 14
-		cellWidth := titleWidth + 1 + dateWidth + 2 // spaces and |
-		termWidth := getTerminalWidth()
-		cols := termWidth / cellWidth
-		if cols < 1 {
-			cols = 1
-		}
-		for i, n := range notes[:N] {
-			title := strings.TrimSuffix(filepath.Base(n.Path), ".md")
-			if len(title) > titleWidth {
-				title = title[:titleWidth]
-			}
-			if i%cols == 0 {
-				fmt.Print("|")
-			}
-			fmt.Printf(" %-*s %-*s |", titleWidth, title, dateWidth, n.ModifiedStr)
-			if (i+1)%cols == 0 {
-				fmt.Println()
-			}
-		}
-		if N%cols != 0 {
-			fmt.Println()
-		}
+		handleRecent(notesDir, os.Args[1:])
 		return
 	}
 
