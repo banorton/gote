@@ -155,9 +155,15 @@ func main() {
 				os.Exit(1)
 			}
 		}
-		// Open in vim, cursor at end
+		// Open in editor, position cursor consistently with other notes
 		editor := getEditor()
-		cmd := exec.Command(editor, "+normal Go", quickPath)
+		var cmd *exec.Cmd
+		if editor == "vim" || editor == "nvim" {
+			// Position cursor at start of title
+			cmd = exec.Command(editor, "+normal gg/^# \\<CR>n2l", quickPath)
+		} else {
+			cmd = exec.Command(editor, quickPath)
+		}
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -1017,7 +1023,20 @@ func openOrCreateNote(notesDir, noteName string, tags []string) error {
 		_ = os.Remove(swapFile)
 	}
 	editor := getEditor()
-	cmd := exec.Command(editor, fullPath)
+
+	// For Vim/Neovim, position cursor at start of title (after "# ")
+	var cmd *exec.Cmd
+	if editor == "vim" || editor == "nvim" {
+		// +normal commands:
+		// gg - go to start of file
+		// /^#<space> - search for "# " at start of line
+		// n - go to first match
+		// 2l - move 2 characters right (after "# ")
+		cmd = exec.Command(editor, "+normal gg/^# \\<CR>n2l", fullPath)
+	} else {
+		cmd = exec.Command(editor, fullPath)
+	}
+
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
