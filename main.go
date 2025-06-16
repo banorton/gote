@@ -285,12 +285,11 @@ func main() {
 				barLen = n.AccessCount * 20 / maxAccess
 			}
 			bar := strings.Repeat("█", barLen)
-			rel := n.Name
-			title := strings.TrimSuffix(filepath.Base(rel), ".md")
+			title := strings.TrimSuffix(filepath.Base(n.Name), ".md")
 			if len(title) > 20 {
 				title = title[:20]
 			}
-			fmt.Printf("%-20s | %-20s | %3d\n", title, bar, n.AccessCount)
+			fmt.Printf("%-20s | %-20s\n", title, bar)
 		}
 		return
 	}
@@ -421,6 +420,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Failed to load index: %v\n", err)
 			os.Exit(1)
 		}
+		accessMap, _ := LoadAccessLog()
 		var matches []NoteMetadata
 		for _, n := range index {
 			rel, _ := filepath.Rel(notesDir, n.Path)
@@ -428,28 +428,47 @@ func main() {
 				matches = append(matches, n)
 			}
 		}
+		sort.Slice(matches, func(i, j int) bool {
+			if accessMap[matches[i].Name] == accessMap[matches[j].Name] {
+				return matches[i].LastModified > matches[j].LastModified
+			}
+			return accessMap[matches[i].Name] > accessMap[matches[j].Name]
+		})
+		N := len(matches)
+		if len(os.Args) > 4 {
+			if n, err := strconv.Atoi(os.Args[len(os.Args)-1]); err == nil && n > 0 && n < N {
+				N = n
+			}
+		}
 		if len(matches) == 0 {
 			fmt.Printf("No notes found in directory: %s\n", dirQuery)
 			return
 		}
-		colWidth := 20
+		titleWidth := 20
+		dateWidth := 14
+		cellWidth := titleWidth + 1 + dateWidth + 2
 		termWidth := getTerminalWidth()
-		cols := termWidth / colWidth
+		cols := termWidth / cellWidth
 		if cols < 1 {
 			cols = 1
 		}
-		for i, n := range matches {
-			rel, _ := filepath.Rel(notesDir, n.Path)
-			title := strings.TrimSuffix(rel, ".md")
-			if len(title) > colWidth {
-				title = title[:colWidth]
+		for i, n := range matches[:N] {
+			// Only print the note name, not the directory
+			title := strings.TrimSuffix(filepath.Base(n.Path), ".md")
+			if len(title) > titleWidth {
+				title = title[:titleWidth]
 			}
-			fmt.Printf("%-*s", colWidth, title)
+			if i%cols == 0 {
+				fmt.Print("|")
+			}
+			fmt.Printf(" %-*s %-*s |", titleWidth, title, dateWidth, n.ModifiedStr)
 			if (i+1)%cols == 0 {
 				fmt.Println()
 			}
 		}
-		fmt.Println()
+		if N%cols != 0 {
+			fmt.Println()
+		}
 		return
 	}
 
@@ -460,6 +479,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Failed to load index: %v\n", err)
 			os.Exit(1)
 		}
+		accessMap, _ := LoadAccessLog()
 		var matches []NoteMetadata
 		for _, n := range index {
 			rel, _ := filepath.Rel(notesDir, n.Path)
@@ -476,24 +496,43 @@ func main() {
 				}
 			}
 		}
-		colWidth := 20
+		sort.Slice(matches, func(i, j int) bool {
+			if accessMap[matches[i].Name] == accessMap[matches[j].Name] {
+				return matches[i].LastModified > matches[j].LastModified
+			}
+			return accessMap[matches[i].Name] > accessMap[matches[j].Name]
+		})
+		N := len(matches)
+		if len(os.Args) > 3 {
+			if n, err := strconv.Atoi(os.Args[len(os.Args)-1]); err == nil && n > 0 && n < N {
+				N = n
+			}
+		}
+		titleWidth := 20
+		dateWidth := 14
+		cellWidth := titleWidth + 1 + dateWidth + 2
 		termWidth := getTerminalWidth()
-		cols := termWidth / colWidth
+		cols := termWidth / cellWidth
 		if cols < 1 {
 			cols = 1
 		}
-		for i, n := range matches {
+		for i, n := range matches[:N] {
 			rel, _ := filepath.Rel(notesDir, n.Path)
 			title := strings.TrimSuffix(rel, ".md")
-			if len(title) > colWidth {
-				title = title[:colWidth]
+			if len(title) > titleWidth {
+				title = title[:titleWidth]
 			}
-			fmt.Printf("%-*s", colWidth, title)
+			if i%cols == 0 {
+				fmt.Print("|")
+			}
+			fmt.Printf(" %-*s %-*s |", titleWidth, title, dateWidth, n.ModifiedStr)
 			if (i+1)%cols == 0 {
 				fmt.Println()
 			}
 		}
-		fmt.Println()
+		if N%cols != 0 {
+			fmt.Println()
+		}
 		return
 	}
 
@@ -504,25 +543,45 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Search error: %v\n", err)
 			os.Exit(1)
 		}
+		accessMap, _ := LoadAccessLog()
 		matches := NotesWithAllTags(notes, tags)
-		colWidth := 20
+		sort.Slice(matches, func(i, j int) bool {
+			if accessMap[matches[i].Name] == accessMap[matches[j].Name] {
+				return matches[i].LastModified > matches[j].LastModified
+			}
+			return accessMap[matches[i].Name] > accessMap[matches[j].Name]
+		})
+		N := len(matches)
+		if len(os.Args) > 4 {
+			if n, err := strconv.Atoi(os.Args[len(os.Args)-1]); err == nil && n > 0 && n < N {
+				N = n
+			}
+		}
+		titleWidth := 20
+		dateWidth := 14
+		cellWidth := titleWidth + 1 + dateWidth + 2
 		termWidth := getTerminalWidth()
-		cols := termWidth / colWidth
+		cols := termWidth / cellWidth
 		if cols < 1 {
 			cols = 1
 		}
-		for i, n := range matches {
+		for i, n := range matches[:N] {
 			rel, _ := filepath.Rel(notesDir, n.Path)
 			title := strings.TrimSuffix(rel, ".md")
-			if len(title) > colWidth {
-				title = title[:colWidth]
+			if len(title) > titleWidth {
+				title = title[:titleWidth]
 			}
-			fmt.Printf("%-*s", colWidth, title)
+			if i%cols == 0 {
+				fmt.Print("|")
+			}
+			fmt.Printf(" %-*s %-*s |", titleWidth, title, dateWidth, n.ModifiedStr)
 			if (i+1)%cols == 0 {
 				fmt.Println()
 			}
 		}
-		fmt.Println()
+		if N%cols != 0 {
+			fmt.Println()
+		}
 		return
 	}
 
@@ -561,15 +620,36 @@ func main() {
 		sort.Slice(notes, func(i, j int) bool {
 			return notes[i].LastModified > notes[j].LastModified
 		})
-		fmt.Println("Recent notes:")
-		colWidth := 20
-		for _, n := range notes {
-			rel, _ := filepath.Rel(notesDir, n.Path)
-			title := strings.TrimSuffix(rel, ".md")
-			if len(title) > colWidth {
-				title = title[:colWidth]
+		N := len(notes)
+		if len(os.Args) > 2 {
+			if n, err := strconv.Atoi(os.Args[2]); err == nil && n > 0 && n < N {
+				N = n
 			}
-			fmt.Printf("%-*s %s\n", colWidth, title, n.ModifiedStr)
+		}
+		fmt.Println("Recent notes:")
+		titleWidth := 20
+		dateWidth := 14
+		cellWidth := titleWidth + 1 + dateWidth + 2 // spaces and |
+		termWidth := getTerminalWidth()
+		cols := termWidth / cellWidth
+		if cols < 1 {
+			cols = 1
+		}
+		for i, n := range notes[:N] {
+			title := strings.TrimSuffix(filepath.Base(n.Path), ".md")
+			if len(title) > titleWidth {
+				title = title[:titleWidth]
+			}
+			if i%cols == 0 {
+				fmt.Print("|")
+			}
+			fmt.Printf(" %-*s %-*s |", titleWidth, title, dateWidth, n.ModifiedStr)
+			if (i+1)%cols == 0 {
+				fmt.Println()
+			}
+		}
+		if N%cols != 0 {
+			fmt.Println()
 		}
 		return
 	}

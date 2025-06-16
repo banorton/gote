@@ -72,8 +72,13 @@ func ParseTagsFromFile(path string) ([]string, error) {
 		if strings.TrimSpace(line) == "" {
 			return nil, nil
 		}
+		// Remove #, [, ], and | characters from the line before splitting
+		cleanLine := strings.ReplaceAll(line, "#", "")
+		cleanLine = strings.ReplaceAll(cleanLine, "[", "")
+		cleanLine = strings.ReplaceAll(cleanLine, "]", "")
+		cleanLine = strings.ReplaceAll(cleanLine, "|", "")
 		// Split on periods with optional spaces around them
-		parts := strings.Split(line, ".")
+		parts := strings.Split(cleanLine, ".")
 		var cleanTags []string
 		for _, tag := range parts {
 			tag = strings.ToLower(strings.TrimSpace(tag))
