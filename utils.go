@@ -1,5 +1,10 @@
 package main
 
+import (
+	"fmt"
+	"encoding/json"
+)
+
 func isReserved(arg string) bool {
 	var reservedWords = map[string]struct{}{
 		"delete": {}, "d": {},
@@ -27,3 +32,13 @@ func isReserved(arg string) bool {
 	_, ok := reservedWords[arg]
 	return ok
 }
+
+func prettyPrintJSON(v interface{}) {
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		fmt.Println(v)
+		return
+	}
+	fmt.Println(string(data))
+}
+

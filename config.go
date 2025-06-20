@@ -39,7 +39,17 @@ func saveConfig(cfg Config) error {
 		return fmt.Errorf("unable to create config file: %w", err)
 	}
 	defer f.Close()
-	return json.NewEncoder(f).Encode(cfg)
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("unable to marshal config: %w", err)
+	}
+	if _, err := f.Write(data); err != nil {
+		return fmt.Errorf("unable to write config: %w", err)
+	}
+	if _, err := f.Write([]byte("\n")); err != nil {
+		return fmt.Errorf("unable to write newline: %w", err)
+	}
+	return nil
 }
 
 func loadConfig() (Config, error) {
@@ -68,4 +78,24 @@ func loadConfig() (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func formatConfigFile() error {
+	cfgPath := configPath()
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		return fmt.Errorf("could not read config file: %w", err)
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		return fmt.Errorf("could not parse config file: %w", err)
+	}
+	pretty, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return fmt.Errorf("could not marshal pretty config: %w", err)
+	}
+	if err := os.WriteFile(cfgPath, pretty, 0644); err != nil {
+		return fmt.Errorf("could not write pretty config: %w", err)
+	}
+	return nil
 }
