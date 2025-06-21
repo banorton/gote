@@ -99,3 +99,37 @@ func formatConfigFile() error {
 	}
 	return nil
 }
+
+func openConfigInEditor() {
+	cfgPath := configPath()
+	cfg, err := loadConfig()
+	if err != nil {
+		fmt.Println("Error loading config:", err)
+		return
+	}
+
+	editor := cfg.Editor
+	if editor == "" {
+		editor = "vim"
+	}
+
+	cmd := exec.Command(editor, cfgPath)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		fmt.Println("Error opening editor:", err)
+	}
+}
+
+func printConfig() {
+	cfg, err := loadConfig()
+	if err != nil {
+		fmt.Println("Error loading config:", err.Error())
+		return
+	}
+
+	fmt.Println("Config settings:")
+	prettyPrintJSON(cfg)
+}

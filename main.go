@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 )
 
 func main() {
@@ -61,40 +60,22 @@ func scratch() {
 }
 
 func config(args []string) {
-	if len(args) > 0 && args[0] == "edit" {
-		cfgPath := configPath()
-		cfg, err := loadConfig()
-		if err != nil {
-			fmt.Println("Error loading config:", err)
-			return
-		}
-		editor := cfg.Editor
-		if editor == "" {
-			editor = "vim"
-		}
-		cmd := exec.Command(editor, cfgPath)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			fmt.Println("Error opening editor:", err)
-		}
+	if len(args) == 0 {
+		printConfig()
 		return
-	} else if len(args) > 0 && args[0] == "format" {
+	}
+
+	switch args[0] {
+	case "edit":
+		openConfigInEditor()
+	case "format":
 		err := formatConfigFile()
 		if err != nil {
 			fmt.Println("Error formatting config:", err)
 			return
 		}
 		fmt.Println("Config file formatted.")
-		return
-	} else {
-		cfg, err := loadConfig()
-		if err != nil {
-			fmt.Println("Error loading config:", err.Error())
-			return
-		}
-		fmt.Println("Config settings:")
-		prettyPrintJSON(cfg)
+	default:
+		printConfig()
 	}
 }
