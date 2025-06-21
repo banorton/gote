@@ -42,3 +42,13 @@ func prettyPrintJSON(v interface{}) {
 	fmt.Println(string(data))
 }
 
+func openFileInEditor(editor, filePath string) error {
+    cmd := exec.Command(editor, filePath)
+    cmd.Stdin = os.Stdin
+    cmd.Stdout = os.Stdout
+    cmd.Stderr = os.Stderr
+    if err := cmd.Run(); err != nil {
+        return fmt.Errorf("error opening editor: %w", err)
+    }
+    return nil
+}

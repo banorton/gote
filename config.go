@@ -113,13 +113,8 @@ func openConfigInEditor() {
 		editor = "vim"
 	}
 
-	cmd := exec.Command(editor, cfgPath)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		fmt.Println("Error opening editor:", err)
+	if err := openFileInEditor(editor, cfgPath), err != nil {
+		fmt.Println(err)
 	}
 }
 
