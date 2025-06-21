@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 )
 
@@ -71,7 +70,7 @@ func note(args []string) {
 		fmt.Println("No editor specified in config.")
 	}
 
-	if err := openFileInEditor(editor, notePath), err != nil {
+	if err := openFileInEditor(editor, notePath); err != nil {
 		fmt.Println(err)
 	}
 }
@@ -108,7 +107,21 @@ func config(args []string) {
 
 	switch args[0] {
 	case "edit":
-		openConfigInEditor()
+		cfgPath := configPath()
+		cfg, err := loadConfig()
+		if err != nil {
+			fmt.Println("Error loading config:", err)
+			return
+		}
+
+		editor := cfg.Editor
+		if editor == "" {
+			editor = "vim"
+		}
+
+		if err := openFileInEditor(editor, cfgPath); err != nil {
+			fmt.Println(err)
+		}
 	case "format":
 		err := formatConfigFile()
 		if err != nil {
