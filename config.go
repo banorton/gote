@@ -100,24 +100,6 @@ func formatConfigFile() error {
 	return nil
 }
 
-func openConfigInEditor() {
-	cfgPath := configPath()
-	cfg, err := loadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
-		return
-	}
-
-	editor := cfg.Editor
-	if editor == "" {
-		editor = "vim"
-	}
-
-	if err := openFileInEditor(editor, cfgPath), err != nil {
-		fmt.Println(err)
-	}
-}
-
 func printConfig() {
 	cfg, err := loadConfig()
 	if err != nil {

@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"encoding/json"
+	"os"
+	"os/exec"
 )
 
 func isReserved(arg string) bool {
