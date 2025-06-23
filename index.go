@@ -120,7 +120,10 @@ func indexNote(notePath string) error {
 		return err
 	}
 	defer f.Close()
-	return json.NewEncoder(f).Encode(notes)
+	if err := json.NewEncoder(f).Encode(notes); err != nil {
+		return err
+	}
+	return updateTagsIndex(notes)
 }
 
 func formatIndexFile() error {
