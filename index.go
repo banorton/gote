@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,12 +10,13 @@ import (
 )
 
 type NoteMeta struct {
-	FilePath  string `json:"filePath"`
-	Title     string `json:"title"`
-	Created   string `json:"created"`
-	Modified  string `json:"modified"`
-	WordCount int    `json:"wordCount"`
-	CharCount int    `json:"charCount"`
+	FilePath  string   `json:"filePath"`
+	Title     string   `json:"title"`
+	Created   string   `json:"created"`
+	Modified  string   `json:"modified"`
+	WordCount int      `json:"wordCount"`
+	CharCount int      `json:"charCount"`
+	Tags      []string `json:"tags"`
 }
 
 func indexPath() string {
@@ -44,6 +46,23 @@ func indexNotes() error {
 	})
 }
 
+func parseTags(line string) []string {
+	clean := strings.ReplaceAll(line, "#", "")
+	clean = strings.ReplaceAll(clean, "[", "")
+	clean = strings.ReplaceAll(clean, "]", "")
+	clean = strings.ReplaceAll(clean, "|", "")
+	parts := strings.Split(clean, ".")
+	var tags []string
+	for _, part := range parts {
+		tag := strings.ToLower(part)
+		tag = strings.TrimSpace(tag)
+		if tag != "" {
+			tags = append(tags, tag)
+		}
+	}
+	return tags
+}
+
 func indexNote(notePath string) error {
 	indexFile := indexPath()
 	var notes []NoteMeta
@@ -55,10 +74,12 @@ func indexNote(notePath string) error {
 	if err != nil {
 		return err
 	}
+
 	data, err := os.ReadFile(notePath)
 	if err != nil {
 		return err
 	}
+
 	text := string(data)
 	title := strings.TrimSuffix(filepath.Base(notePath), ".md")
 	wordCount := len(strings.Fields(text))
@@ -66,6 +87,12 @@ func indexNote(notePath string) error {
 
 	created := info.ModTime().Format("060102.150405")
 	modified := info.ModTime().Format("060102.150405")
+	firstLine := ""
+	scanner := bufio.NewScanner(strings.NewReader(text))
+	if scanner.Scan() {
+		firstLine = scanner.Text()
+	}
+	tags := parseTags(firstLine)
 	meta := NoteMeta{
 		FilePath:  notePath,
 		Title:     title,
@@ -73,6 +100,7 @@ func indexNote(notePath string) error {
 		Modified:  modified,
 		WordCount: wordCount,
 		CharCount: charCount,
+		Tags:      tags,
 	}
 
 	updated := false
