@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 func isReserved(arg string) bool {
@@ -35,6 +36,11 @@ func isReserved(arg string) bool {
 	return ok
 }
 
+func goteDir() string {
+	homeDir, _ := os.UserHomeDir()
+	return filepath.Join(homeDir, ".gote")
+}
+
 func prettyPrintJSON(v interface{}) {
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
@@ -44,13 +50,19 @@ func prettyPrintJSON(v interface{}) {
 	fmt.Println(string(data))
 }
 
-func openFileInEditor(editor, filePath string) error {
-    cmd := exec.Command(editor, filePath)
-    cmd.Stdin = os.Stdin
-    cmd.Stdout = os.Stdout
-    cmd.Stderr = os.Stderr
-    if err := cmd.Run(); err != nil {
-        return fmt.Errorf("error opening editor: %w", err)
-    }
-    return nil
+func openFileInEditor(filePath string) error {
+	cfg, _ := loadConfig()
+	editor := cfg.Editor
+	if editor == "" {
+		fmt.Println("No editor specified in config.")
+	}
+
+	cmd := exec.Command(editor, filePath)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("Error opening editor: %w", err)
+	}
+	return nil
 }
