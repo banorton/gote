@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -19,7 +21,7 @@ func main() {
 	case "quick":
 		quick(args[2:])
 	case "recent":
-		recent()
+		recent(args[2:])
 	case "popular":
 		popular()
 	case "index":
@@ -146,8 +148,33 @@ func index(args []string) {
 	}
 }
 
-func recent() {
+func recent(args []string) {
+	indexFile := indexPath()
+	var notes []NoteMeta
+	if data, err := os.ReadFile(indexFile); err == nil {
+		_ = json.Unmarshal(data, &notes)
+	} else {
+		fmt.Println("Could not read index file:", err)
+		return
+	}
 
+	sort.Slice(notes, func(i, j int) bool {
+		return notes[i].Modified > notes[j].Modified
+	})
+
+	n := 10
+	if len(args) > 0 {
+		if v, err := strconv.Atoi(args[0]); err == nil && v > 0 {
+			n = v
+		}
+	}
+	if n > len(notes) {
+		n = len(notes)
+	}
+
+	for i := 0; i < n; i++ {
+		fmt.Println(notes[i].Title)
+	}
 }
 
 func popular() {
