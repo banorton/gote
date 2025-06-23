@@ -20,13 +20,8 @@ func defaultConfig() Config {
 	}
 }
 
-func configDir() string {
-	homeDir, _ := os.UserHomeDir()
-	return filepath.Join(homeDir, ".gote")
-}
-
 func configPath() string {
-	return filepath.Join(configDir(), "config.json")
+	return filepath.Join(goteDir(), "config.json")
 }
 
 func saveConfig(cfg Config) error {
@@ -98,6 +93,15 @@ func formatConfigFile() error {
 		return fmt.Errorf("could not write pretty config: %w", err)
 	}
 	return nil
+}
+
+func noteDir() string {
+	cfg, err := loadConfig()
+	if err != nil {
+		fmt.Println("Error loading config:", err.Error())
+		return ""
+	}
+	return cfg.NoteDir
 }
 
 func printConfig() {

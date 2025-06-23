@@ -1,26 +1,29 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func main() {
 	args := os.Args
 
 	if len(args) == 1 {
-		note(nil)
-		return
+		quick(args)
 	}
 
 	switch args[1] {
+	case "quick":
+		quick(args[2:])
 	case "recent":
 		recent()
 	case "popular":
 		popular()
 	case "index":
-		index()
+		index(args[2:])
 	case "tags":
 		tags()
 	case "tag":
@@ -33,11 +36,6 @@ func main() {
 }
 
 func note(args []string) {
-	if len(args) < 1 {
-		fmt.Println("Usage: gote <note-name>")
-		return
-	}
-
 	noteName := args[0]
 	cfg, err := loadConfig()
 	if err != nil {
@@ -65,18 +63,88 @@ func note(args []string) {
 		f.Close()
 	}
 
-	editor := cfg.Editor
-	if editor == "" {
-		fmt.Println("No editor specified in config.")
-	}
-
-	if err := openFileInEditor(editor, notePath); err != nil {
-		fmt.Println(err)
-	}
 }
 
-func index() {
+func quick(args []string) {
+	if len(args) > 0 {
+		fmt.Printf("gote quick does not take extra args. Got: %v\n", args)
+		return
+	}
+	note([]string{"quick"})
+}
 
+func index(args []string) {
+	if len(args) == 0 {
+		if err := indexNotes(); err != nil {
+			fmt.Println("Error indexing notes:", err)
+		} else {
+			fmt.Println("All notes indexed.")
+		}
+		return
+	}
+
+	switch args[0] {
+	case "edit":
+		if err := formatIndexFile(); err != nil {
+			fmt.Println("Error trying to format index file. Got:", err.Error())
+		}
+		if err := openFileInEditor(indexPath()); err != nil {
+			fmt.Println("Error trying to edit index file. Got:", err.Error())
+		}
+	default:
+		noteName := args[0]
+		indexFile := indexPath()
+		var notes []NoteMeta
+		if data, err := os.ReadFile(indexFile); err == nil {
+			_ = json.Unmarshal(data, &notes)
+		}
+		var foundPath string
+		for _, n := range notes {
+			base := strings.TrimSuffix(filepath.Base(n.FilePath), ".md")
+			if base == noteName {
+				foundPath = n.FilePath
+				break
+			}
+		}
+		if foundPath != "" {
+			if err := indexNote(foundPath); err != nil {
+				fmt.Println("Error updating index for note:", err)
+			} else {
+				fmt.Println("Index updated for note:", noteName)
+			}
+			return
+		}
+		// Not found in index, search notes dir
+		notesDir := noteDir()
+		var notePath string
+		err := filepath.Walk(notesDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() || filepath.Ext(path) != ".md" {
+				return nil
+			}
+			base := strings.TrimSuffix(filepath.Base(path), ".md")
+			if base == noteName {
+				notePath = path
+				return filepath.SkipDir // found, stop walking
+			}
+			return nil
+		})
+		if err != nil {
+			fmt.Println("Error searching notes directory:", err)
+			return
+		}
+		if notePath != "" {
+			if err := indexNote(notePath); err != nil {
+				fmt.Println("Error indexing note:", err)
+			} else {
+				fmt.Println("Index created for note:", noteName)
+			}
+			return
+		}
+		fmt.Println("Note not found:", noteName)
+	}
 }
 
 func recent() {
@@ -119,7 +187,7 @@ func config(args []string) {
 			editor = "vim"
 		}
 
-		if err := openFileInEditor(editor, cfgPath); err != nil {
+		if err := openFileInEditor(cfgPath); err != nil {
 			fmt.Println(err)
 		}
 	case "format":
