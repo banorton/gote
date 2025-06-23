@@ -114,7 +114,6 @@ func index(args []string) {
 			}
 			return
 		}
-		// Not found in index, search notes dir
 		notesDir := noteDir()
 		var notePath string
 		err := filepath.Walk(notesDir, func(path string, info os.FileInfo, err error) error {
@@ -127,7 +126,7 @@ func index(args []string) {
 			base := strings.TrimSuffix(filepath.Base(path), ".md")
 			if base == noteName {
 				notePath = path
-				return filepath.SkipDir // found, stop walking
+				return filepath.SkipDir
 			}
 			return nil
 		})
