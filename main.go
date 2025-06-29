@@ -38,7 +38,8 @@ func main() {
 		unpin(args[2:])
 	case "pinned", "pd":
 		pinned(args[2:])
-	case "delete", "d":
+	case "delete", "d", "del", "trash":
+		del(args[2:])
 	case "rename", "mv", "rn":
 	case "help", "h":
 	case "view", "v":
@@ -50,6 +51,8 @@ func main() {
 	case "transfer":
 	case "calendar", "cal":
 	case "lint", "l":
+	case "recover":
+		recoverCmd(args[2:])
 	default:
 		note(args[1:])
 	}
@@ -384,6 +387,11 @@ func config(args []string) {
 }
 
 func search(args []string) {
+	if len(args) > 0 && args[0] == "trash" {
+		searchTrash(args[1:])
+		return
+	}
+
 	if len(args) == 0 {
 		fmt.Println("Usage: gote search <query> OR gote search -t <tag1> ... [-n <number>]")
 		return
@@ -589,4 +597,30 @@ func unpin(args []string) {
 		return
 	}
 	fmt.Println("Unpinned note:", noteName)
+}
+
+func del(args []string) {
+	if len(args) == 0 {
+		fmt.Println("Usage: gote delete <note name>")
+		return
+	}
+	noteName := strings.Join(args, " ")
+	if err := trashNote(noteName); err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("Note moved to trash:", noteName)
+}
+
+func recoverCmd(args []string) {
+	if len(args) == 0 {
+		fmt.Println("Usage: gote recover <note name>")
+		return
+	}
+	noteName := strings.Join(args, " ")
+	if err := recoverNote(noteName); err != nil {
+		fmt.Println("Error recovering note:", err)
+		return
+	}
+	fmt.Println("Note recovered:", noteName)
 }
