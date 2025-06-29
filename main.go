@@ -383,19 +383,108 @@ func config(args []string) {
 
 func search(args []string) {
 	if len(args) == 0 {
-		fmt.Println("Usage: gote search <query>")
+		fmt.Println("Usage: gote search <query> OR gote search -t <tag1> ... [-n <number>]")
 		return
 	}
-	query := strings.ToLower(strings.Join(args, " "))
-	index := loadIndex()
-	found := false
-	for title := range index {
-		if strings.Contains(strings.ToLower(title), query) {
-			fmt.Println(title)
-			found = true
+
+	n := -1 // -1 means print all by default
+	tagsMode := false
+	tags := []string{}
+	// Parse flags
+	for i := 0; i < len(args); i++ {
+		if args[i] == "-n" {
+			if n == -1 {
+				n = 10
+			} // if -n is present but no number, default to 10
+			if i+1 < len(args) {
+				if v, err := strconv.Atoi(args[i+1]); err == nil && v > 0 {
+					n = v
+					i++ // skip next arg
+				}
+			}
+		} else if args[i] == "-t" {
+			tagsMode = true
+			// All following args until -n or end are tags
+			for j := i + 1; j < len(args) && args[j] != "-n"; j++ {
+				tags = append(tags, args[j])
+				i = j
+			}
 		}
 	}
-	if !found {
+
+	if tagsMode {
+		if len(tags) == 0 {
+			fmt.Println("Usage: gote search -t <tag1> ... [-n <number>]")
+			return
+		}
+		tagsFile := tagsPath()
+		data, err := os.ReadFile(tagsFile)
+		if err != nil {
+			fmt.Println("Could not read tags file:", err)
+			return
+		}
+		var tagsMap map[string]TagMeta
+		if err := json.Unmarshal(data, &tagsMap); err != nil {
+			fmt.Println("Could not parse tags file:", err)
+			return
+		}
+
+		noteCount := make(map[string]int)
+		for _, tag := range tags {
+			tm, exists := tagsMap[tag]
+			if !exists {
+				continue
+			}
+			for _, note := range tm.Notes {
+				noteCount[note]++
+			}
+		}
+
+		type noteHit struct {
+			NotePath string
+			Count    int
+		}
+		var noteHits []noteHit
+		for note, count := range noteCount {
+			noteHits = append(noteHits, noteHit{NotePath: note, Count: count})
+		}
+		sort.Slice(noteHits, func(i, j int) bool {
+			return noteHits[i].Count > noteHits[j].Count
+		})
+
+		if len(noteHits) == 0 {
+			fmt.Println("No notes found for the given tags.")
+			return
+		}
+
+		if n == -1 || n > len(noteHits) {
+			n = len(noteHits)
+		}
+		fmt.Println("Notes matching the most tags (most hits first):")
+		for i := 0; i < n; i++ {
+			nh := noteHits[i]
+			title := strings.TrimSuffix(filepath.Base(nh.NotePath), ".md")
+			fmt.Printf("%s (matched %d tags)\n", title, nh.Count)
+		}
+		return
+	}
+
+	query := strings.ToLower(strings.Join(args, " "))
+	index := loadIndex()
+	var results []string
+	for title := range index {
+		if strings.Contains(strings.ToLower(title), query) {
+			results = append(results, title)
+		}
+	}
+	if len(results) == 0 {
 		fmt.Println("No matching note titles found.")
+		return
+	}
+	if n == -1 || n > len(results) {
+		n = len(results)
+	}
+	for i := 0; i < n; i++ {
+		fmt.Println(results[i])
 	}
 }
