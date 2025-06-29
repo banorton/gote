@@ -46,7 +46,7 @@ func main() {
 		renameCmd(args[2:])
 	case "info", "i":
 		infoCmd(args[2:])
-	case "help", "h", 'man':
+	case "help", "h", "man":
 		helpCmd(args[2:])
 	case "view", "v":
 	case "popular", "pop":
