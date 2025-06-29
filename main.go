@@ -46,7 +46,8 @@ func main() {
 		renameCmd(args[2:])
 	case "info", "i":
 		infoCmd(args[2:])
-	case "help", "h":
+	case "help", "h", 'man':
+		helpCmd(args[2:])
 	case "view", "v":
 	case "popular", "pop":
 	case "today":
@@ -248,7 +249,6 @@ func tags(args []string) {
 			fmt.Println("Could not parse tags file:", err)
 			return
 		}
-		// Convert map to slice for sorting
 		var tagSlice []TagMeta
 		for _, tag := range tags {
 			tagSlice = append(tagSlice, tag)
@@ -338,7 +338,6 @@ func tag(args []string) {
 		return
 	}
 
-	// Write updated tags to first line, preserve rest of note
 	newFirstLine := strings.Join(existingTags, ".")
 	newContent := newFirstLine
 	if rest != "" {
@@ -350,7 +349,6 @@ func tag(args []string) {
 		return
 	}
 
-	// Update the note's index
 	if err := indexNote(notePath); err != nil {
 		fmt.Println("Tags updated, but failed to update index:", err)
 		return
@@ -397,7 +395,6 @@ func search(args []string) {
 	n := -1 // -1 means print all by default
 	tagsMode := false
 	tags := []string{}
-	// Parse flags
 	for i := 0; i < len(args); i++ {
 		if args[i] == "-n" {
 			if n == -1 {
@@ -406,12 +403,11 @@ func search(args []string) {
 			if i+1 < len(args) {
 				if v, err := strconv.Atoi(args[i+1]); err == nil && v > 0 {
 					n = v
-					i++ // skip next arg
+					i++
 				}
 			}
 		} else if args[i] == "-t" {
 			tagsMode = true
-			// All following args until -n or end are tags
 			for j := i + 1; j < len(args) && args[j] != "-n"; j++ {
 				tags = append(tags, args[j])
 				i = j
@@ -508,7 +504,6 @@ func pin(args []string) {
 	}
 
 	if len(args) == 0 {
-		// Show all pinned notes
 		pins, err := loadPins()
 		if err != nil {
 			fmt.Println("Error loading pins:", err)
@@ -627,7 +622,6 @@ func renameCmd(args []string) {
 		fmt.Println("Usage: gote rename <notename> -n <newnotename>")
 		return
 	}
-	// Find -n flag and split args
 	nIdx := -1
 	for i, arg := range args {
 		if arg == "-n" {
@@ -658,7 +652,6 @@ func renameCmd(args []string) {
 		fmt.Println("Error renaming note:", err)
 		return
 	}
-	// Update index
 	delete(index, oldName)
 	meta.Title = newName
 	meta.FilePath = newPath
@@ -667,7 +660,6 @@ func renameCmd(args []string) {
 		fmt.Println("Error updating index:", err)
 		return
 	}
-	// Update pins if present
 	pins, err := loadPins()
 	if err == nil {
 		if _, pinned := pins[oldName]; pinned {
