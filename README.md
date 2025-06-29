@@ -78,6 +78,9 @@ $ gote info mynote
 
 # Show help
 $ gote help
+
+# Edit config
+$ gote config edit
 ```
 
 ## Tag Syntax
