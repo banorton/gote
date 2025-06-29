@@ -18,38 +18,38 @@ func main() {
 	}
 
 	switch args[1] {
-	case "quick":
+	case "quick", "q":
 		quick(args[2:])
-	case "recent":
+	case "recent", "r":
 		recent(args[2:])
-	case "popular":
-		popular()
-	case "index":
+	case "index", "idx":
 		index(args[2:])
-	case "tags":
+	case "tags", "ts":
 		tags(args[2:])
-	case "tag":
+	case "tag", "t":
 		tag(args[2:])
-	case "config":
+	case "config", "c":
 		config(args[2:])
-	case "search":
+	case "search", "s":
 		search(args[2:])
-	case "pin":
+	case "pin", "p":
 		pin(args[2:])
-	case "unpin":
+	case "unpin", "u", "up":
 		unpin(args[2:])
-	case "pinned":
+	case "pinned", "pd":
 		pinned(args[2:])
-	case "delete":
-	case "rename":
-	case "help":
-	case "view":
-	case "info":
+	case "delete", "d":
+	case "rename", "mv", "rn":
+	case "help", "h":
+	case "view", "v":
+	case "info", "i":
+	case "popular", "pop":
+		popular()
 	case "today":
-	case "journal":
+	case "journal", "j":
 	case "transfer":
-	case "calendar":
-	case "lint":
+	case "calendar", "cal":
+	case "lint", "l":
 	default:
 		note(args[1:])
 	}
