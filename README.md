@@ -6,7 +6,7 @@
 
 Minimal, fast, clean command-line note-taking.
 
-Features include instant note creation, powerful tag system, trash bin, quick notes, metadata tracking, and cross-platform support (macOS, Linux, Windows). All features use only the Go standard library—no dependencies.
+Features include instant note creation, tag system, trash bin, quick notes, metadata tracking, and cross-platform support (macOS, Linux, Windows). All features use only the Go standard library.
 
 ## Features
 
