@@ -1,23 +1,23 @@
 package main
 
 import (
-	"path/filepath"
-	"os"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 )
 
 type TagMeta struct {
-	Tag      string   `json:"tag"`
-	Notes    []string `json:"notes"`
-	Count    int      `json:"count"`
+	Tag   string   `json:"tag"`
+	Notes []string `json:"notes"`
+	Count int      `json:"count"`
 }
 
 func tagsPath() string {
 	return filepath.Join(goteDir(), "tags.json")
 }
 
-func updateTagsIndex(notes []NoteMeta) error {
+func updateTagsIndex(notes map[string]NoteMeta) error {
 	tagMap := make(map[string]*TagMeta)
 	for _, note := range notes {
 		for _, tag := range note.Tags {
@@ -30,25 +30,25 @@ func updateTagsIndex(notes []NoteMeta) error {
 			tm.Count++
 		}
 	}
-	var tags []TagMeta
-	for _, tm := range tagMap {
-		tags = append(tags, *tm)
+	tagsOut := make(map[string]TagMeta)
+	for k, v := range tagMap {
+		tagsOut[k] = *v
 	}
 	f, err := os.Create(tagsPath())
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	return json.NewEncoder(f).Encode(tags)
+	return json.NewEncoder(f).Encode(tagsOut)
 }
 
 func formatTagsFile() error {
 	tagPath := tagsPath()
 	data, err := os.ReadFile(tagPath)
 	if err != nil {
-		return fmt.Errorf("could not read config file: %w", err)
+		return fmt.Errorf("could not read tags file: %w", err)
 	}
-	var m []TagMeta
+	var m map[string]TagMeta
 	if err := json.Unmarshal(data, &m); err != nil {
 		return fmt.Errorf("could not parse tags file: %w", err)
 	}
@@ -61,4 +61,3 @@ func formatTagsFile() error {
 	}
 	return nil
 }
-

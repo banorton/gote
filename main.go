@@ -52,13 +52,11 @@ func main() {
 func note(args []string) {
 	noteName := strings.Join(args, " ")
 
-	var notePath string
-	indexNotes := loadIndex()
-	for _, n := range indexNotes {
-		if n.Title == noteName {
-			notePath = n.FilePath
-			break
-		}
+	index := loadIndex()
+	noteMeta, exists := index[noteName]
+	notePath := ""
+	if exists {
+		notePath = noteMeta.FilePath
 	}
 
 	cfg, err := loadConfig()
@@ -118,18 +116,11 @@ func index(args []string) {
 		}
 	default:
 		noteName := args[0]
-		indexFile := indexPath()
-		var notes []NoteMeta
-		if data, err := os.ReadFile(indexFile); err == nil {
-			_ = json.Unmarshal(data, &notes)
-		}
-		var foundPath string
-		for _, n := range notes {
-			base := strings.TrimSuffix(filepath.Base(n.FilePath), ".md")
-			if base == noteName {
-				foundPath = n.FilePath
-				break
-			}
+		index := loadIndex()
+		noteMeta, exists := index[noteName]
+		foundPath := ""
+		if exists {
+			foundPath = noteMeta.FilePath
 		}
 		if foundPath != "" {
 			if err := indexNote(foundPath); err != nil {
@@ -172,13 +163,10 @@ func index(args []string) {
 }
 
 func recent(args []string) {
-	indexFile := indexPath()
+	index := loadIndex()
 	var notes []NoteMeta
-	if data, err := os.ReadFile(indexFile); err == nil {
-		_ = json.Unmarshal(data, &notes)
-	} else {
-		fmt.Println("Could not read index file:", err)
-		return
+	for _, n := range index {
+		notes = append(notes, n)
 	}
 
 	sort.Slice(notes, func(i, j int) bool {
@@ -212,6 +200,7 @@ func tags(args []string) {
 			fmt.Println("Could not read tags file:", err)
 			return
 		}
+
 		var tags []TagMeta
 		if err := json.Unmarshal(data, &tags); err != nil {
 			fmt.Println("Could not parse tags file:", err)
@@ -290,12 +279,11 @@ func tag(args []string) {
 	noteName := strings.Join(args[:tFlag], " ")
 	tagsToAdd := args[tFlag+1:]
 
-	var notePath string
-	for _, n := range loadIndex() {
-		if n.Title == noteName {
-			notePath = n.FilePath
-			break
-		}
+	index := loadIndex()
+	noteMeta, exists := index[noteName]
+	notePath := ""
+	if exists {
+		notePath = noteMeta.FilePath
 	}
 	if notePath == "" {
 		fmt.Println("Note path missing. Need to manually call gote index <note>.", noteName)
