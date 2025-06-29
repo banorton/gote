@@ -40,19 +40,19 @@ func main() {
 		pinned(args[2:])
 	case "delete", "d", "del", "trash":
 		del(args[2:])
+	case "recover":
+		recoverCmd(args[2:])
 	case "rename", "mv", "rn":
+		renameCmd(args[2:])
 	case "help", "h":
 	case "view", "v":
 	case "info", "i":
 	case "popular", "pop":
-		popular()
 	case "today":
 	case "journal", "j":
 	case "transfer":
 	case "calendar", "cal":
 	case "lint", "l":
-	case "recover":
-		recoverCmd(args[2:])
 	default:
 		note(args[1:])
 	}
@@ -195,10 +195,6 @@ func recent(args []string) {
 	for i := 0; i < n; i++ {
 		fmt.Println(notes[i].Title)
 	}
-}
-
-func popular() {
-
 }
 
 func tags(args []string) {
@@ -623,4 +619,69 @@ func recoverCmd(args []string) {
 		return
 	}
 	fmt.Println("Note recovered:", noteName)
+}
+
+func renameCmd(args []string) {
+	if len(args) < 3 {
+		fmt.Println("Usage: gote rename <notename> -n <newnotename>")
+		return
+	}
+	// Find -n flag and split args
+	nIdx := -1
+	for i, arg := range args {
+		if arg == "-n" {
+			nIdx = i
+			break
+		}
+	}
+	if nIdx == -1 || nIdx == 0 || nIdx == len(args)-1 {
+		fmt.Println("Usage: gote rename <notename> -n <newnotename>")
+		return
+	}
+	oldName := strings.Join(args[:nIdx], " ")
+	newName := strings.Join(args[nIdx+1:], " ")
+
+	index := loadIndex()
+	meta, exists := index[oldName]
+	if !exists {
+		fmt.Println("Note not found:", oldName)
+		return
+	}
+	oldPath := meta.FilePath
+	newPath := filepath.Join(noteDir(), newName+".md")
+	if _, err := os.Stat(newPath); err == nil {
+		fmt.Println("A note with the new name already exists:", newName)
+		return
+	}
+	if err := os.Rename(oldPath, newPath); err != nil {
+		fmt.Println("Error renaming note:", err)
+		return
+	}
+	// Update index
+	delete(index, oldName)
+	meta.Title = newName
+	meta.FilePath = newPath
+	index[newName] = meta
+	if err := os.WriteFile(indexPath(), mustJson(index), 0644); err != nil {
+		fmt.Println("Error updating index:", err)
+		return
+	}
+	// Update pins if present
+	pins, err := loadPins()
+	if err == nil {
+		if _, pinned := pins[oldName]; pinned {
+			delete(pins, oldName)
+			pins[newName] = emptyStruct{}
+			savePins(pins)
+		}
+	}
+	fmt.Printf("Renamed note '%s' to '%s'\n", oldName, newName)
+}
+
+func mustJson(v any) []byte {
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	return data
 }
