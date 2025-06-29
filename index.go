@@ -46,23 +46,6 @@ func indexNotes() error {
 	})
 }
 
-func parseTags(line string) []string {
-	clean := strings.ReplaceAll(line, "#", "")
-	clean = strings.ReplaceAll(clean, "[", "")
-	clean = strings.ReplaceAll(clean, "]", "")
-	clean = strings.ReplaceAll(clean, "|", "")
-	parts := strings.Split(clean, ".")
-	var tags []string
-	for _, part := range parts {
-		tag := strings.ToLower(part)
-		tag = strings.TrimSpace(tag)
-		if tag != "" {
-			tags = append(tags, tag)
-		}
-	}
-	return tags
-}
-
 func indexNote(notePath string) error {
 	indexFile := indexPath()
 	var notes []NoteMeta
@@ -124,6 +107,23 @@ func indexNote(notePath string) error {
 		return err
 	}
 	return updateTagsIndex(notes)
+}
+
+func parseTags(line string) []string {
+	clean := strings.ReplaceAll(line, "#", "")
+	clean = strings.ReplaceAll(clean, "[", "")
+	clean = strings.ReplaceAll(clean, "]", "")
+	clean = strings.ReplaceAll(clean, "|", "")
+	parts := strings.Split(clean, ".")
+	var tags []string
+	for _, part := range parts {
+		tag := strings.ToLower(part)
+		tag = strings.TrimSpace(tag)
+		if tag != "" {
+			tags = append(tags, tag)
+		}
+	}
+	return tags
 }
 
 func formatIndexFile() error {

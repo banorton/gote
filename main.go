@@ -29,16 +29,38 @@ func main() {
 	case "tags":
 		tags(args[2:])
 	case "tag":
-		tag()
+		tag(args[2:])
 	case "config":
 		config(args[2:])
+	case "search":
+	case "journal":
+	case "today":
+	case "calendar":
+	case "transfer":
+	case "pin":
+	case "pinned":
+	case "archive":
+	case "view":
+	case "lint":
+	case "export":
+	case "delete":
 	default:
 		note(args[1:])
 	}
 }
 
 func note(args []string) {
-	noteName := args[0]
+	noteName := strings.Join(args, " ")
+
+	var notePath string
+	indexNotes := loadIndex()
+	for _, n := range indexNotes {
+		if n.Title == noteName {
+			notePath = n.FilePath
+			break
+		}
+	}
+
 	cfg, err := loadConfig()
 	if err != nil {
 		fmt.Println("Error loading config:", err)
@@ -46,23 +68,25 @@ func note(args []string) {
 	}
 
 	noteDir := cfg.NoteDir
-	if noteDir == "" {
-		noteDir = defaultConfig().NoteDir
-	}
-
 	if err := os.MkdirAll(noteDir, 0755); err != nil {
 		fmt.Println("Error creating notes directory:", err)
 		return
 	}
 
-	notePath := filepath.Join(noteDir, noteName+".md")
-	if _, err := os.Stat(notePath); os.IsNotExist(err) {
-		f, err := os.Create(notePath)
-		if err != nil {
-			fmt.Println("Error creating note:", err)
-			return
+	if notePath == "" {
+		notePath = filepath.Join(noteDir, noteName+".md")
+		if _, err := os.Stat(notePath); os.IsNotExist(err) {
+			f, err := os.Create(notePath)
+			if err != nil {
+				fmt.Println("Error creating note:", err)
+				return
+			}
+			f.Close()
 		}
-		f.Close()
+	}
+
+	if err := openFileInEditor(notePath); err != nil {
+		fmt.Println("Error opening note in editor:", err)
 	}
 }
 
@@ -245,8 +269,95 @@ func tags(args []string) {
 	}
 }
 
-func tag() {
+func tag(args []string) {
+	if len(args) < 3 {
+		fmt.Println("Usage: gote tag <note name> -t <tag1> <tag2> ... <tagN>")
+		return
+	}
 
+	tFlag := -1
+	for i, arg := range args {
+		if arg == "-t" {
+			tFlag = i
+			break
+		}
+	}
+	if tFlag == -1 || tFlag == 0 || tFlag == len(args)-1 {
+		fmt.Println("Usage: gote tag <note name> -t <tag1> <tag2> ... <tagN>")
+		return
+	}
+
+	noteName := strings.Join(args[:tFlag], " ")
+	tagsToAdd := args[tFlag+1:]
+
+	var notePath string
+	for _, n := range loadIndex() {
+		if n.Title == noteName {
+			notePath = n.FilePath
+			break
+		}
+	}
+	if notePath == "" {
+		fmt.Println("Note path missing. Need to manually call gote index <note>.", noteName)
+		return
+	}
+
+	data, err := os.ReadFile(notePath)
+	if err != nil {
+		fmt.Println("Error reading note:", err)
+		return
+	}
+	lines := strings.SplitN(string(data), "\n", 2)
+	firstLine := ""
+	rest := ""
+	if len(lines) > 0 {
+		firstLine = lines[0]
+	}
+	if len(lines) > 1 {
+		rest = lines[1]
+	}
+
+	existingTags := parseTags(firstLine)
+	tagSet := make(map[string]struct{})
+	for _, t := range existingTags {
+		tagSet[t] = struct{}{}
+	}
+	added := false
+	for _, t := range tagsToAdd {
+		t = strings.ToLower(strings.TrimSpace(t))
+		if t == "" {
+			continue
+		}
+		if _, exists := tagSet[t]; !exists {
+			existingTags = append(existingTags, t)
+			tagSet[t] = struct{}{}
+			added = true
+		}
+	}
+	if !added {
+		fmt.Println("No new tags to add.")
+		return
+	}
+
+	// Write updated tags to first line, preserve rest of note
+	newFirstLine := strings.Join(existingTags, ".")
+	newContent := newFirstLine
+	if rest != "" {
+		newContent += "\n" + rest
+	}
+	err = os.WriteFile(notePath, []byte(newContent), 0644)
+	if err != nil {
+		fmt.Println("Error writing note:", err)
+		return
+	}
+
+	// Update the note's index
+	if err := indexNote(notePath); err != nil {
+		fmt.Println("Tags updated, but failed to update index:", err)
+		return
+	}
+
+	fmt.Println("Tags updated for note:", noteName)
 }
 
 func config(args []string) {
