@@ -44,9 +44,10 @@ func main() {
 		recoverCmd(args[2:])
 	case "rename", "mv", "rn":
 		renameCmd(args[2:])
+	case "info", "i":
+		infoCmd(args[2:])
 	case "help", "h":
 	case "view", "v":
-	case "info", "i":
 	case "popular", "pop":
 	case "today":
 	case "journal", "j":
@@ -676,6 +677,26 @@ func renameCmd(args []string) {
 		}
 	}
 	fmt.Printf("Renamed note '%s' to '%s'\n", oldName, newName)
+}
+
+func infoCmd(args []string) {
+	if len(args) == 0 {
+		fmt.Println("Usage: gote info <note name>")
+		return
+	}
+	noteName := strings.Join(args, " ")
+	index := loadIndex()
+	meta, exists := index[noteName]
+	if !exists {
+		fmt.Println("Note not found:", noteName)
+		return
+	}
+	b, err := json.MarshalIndent(meta, "", "  ")
+	if err != nil {
+		fmt.Println("Error marshaling note metadata:", err)
+		return
+	}
+	fmt.Println(string(b))
 }
 
 func mustJson(v any) []byte {
