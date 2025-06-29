@@ -44,6 +44,9 @@ func main() {
 	case "lint":
 	case "export":
 	case "delete":
+	case "rename":
+	case "help":
+	case "info":
 	default:
 		note(args[1:])
 	}
@@ -201,13 +204,13 @@ func tags(args []string) {
 			return
 		}
 
-		var tags []TagMeta
+		var tags map[string]TagMeta
 		if err := json.Unmarshal(data, &tags); err != nil {
 			fmt.Println("Could not parse tags file:", err)
 			return
 		}
-		for _, tag := range tags {
-			fmt.Printf("%s (%d)\n", tag.Tag, tag.Count)
+		for tagName, tag := range tags {
+			fmt.Printf("%s (%d)\n", tagName, tag.Count)
 		}
 		return
 	}
@@ -237,20 +240,25 @@ func tags(args []string) {
 			fmt.Println("Could not read tags file:", err)
 			return
 		}
-		var tags []TagMeta
+		var tags map[string]TagMeta
 		if err := json.Unmarshal(data, &tags); err != nil {
 			fmt.Println("Could not parse tags file:", err)
 			return
 		}
-		sort.Slice(tags, func(i, j int) bool {
-			return tags[i].Count > tags[j].Count
+		// Convert map to slice for sorting
+		var tagSlice []TagMeta
+		for _, tag := range tags {
+			tagSlice = append(tagSlice, tag)
+		}
+		sort.Slice(tagSlice, func(i, j int) bool {
+			return tagSlice[i].Count > tagSlice[j].Count
 		})
-		if n > len(tags) {
-			n = len(tags)
+		if n > len(tagSlice) {
+			n = len(tagSlice)
 		}
 		fmt.Printf("Top %d tags by usage:\n", n)
 		for i := 0; i < n; i++ {
-			tag := tags[i]
+			tag := tagSlice[i]
 			fmt.Printf("%s (%d)\n", tag.Tag, tag.Count)
 		}
 	default:
