@@ -33,6 +33,7 @@ func main() {
 	case "config":
 		config(args[2:])
 	case "search":
+		search(args[2:])
 	case "journal":
 	case "today":
 	case "calendar":
@@ -377,5 +378,24 @@ func config(args []string) {
 		fmt.Println("Config file formatted.")
 	default:
 		printConfig()
+	}
+}
+
+func search(args []string) {
+	if len(args) == 0 {
+		fmt.Println("Usage: gote search <query>")
+		return
+	}
+	query := strings.ToLower(strings.Join(args, " "))
+	index := loadIndex()
+	found := false
+	for title := range index {
+		if strings.Contains(strings.ToLower(title), query) {
+			fmt.Println(title)
+			found = true
+		}
+	}
+	if !found {
+		fmt.Println("No matching note titles found.")
 	}
 }
