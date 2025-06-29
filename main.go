@@ -34,20 +34,22 @@ func main() {
 		config(args[2:])
 	case "search":
 		search(args[2:])
-	case "journal":
-	case "today":
-	case "calendar":
-	case "transfer":
 	case "pin":
+		pin(args[2:])
+	case "unpin":
+		unpin(args[2:])
 	case "pinned":
-	case "archive":
-	case "view":
-	case "lint":
-	case "export":
+		pinned(args[2:])
 	case "delete":
 	case "rename":
 	case "help":
+	case "view":
 	case "info":
+	case "today":
+	case "journal":
+	case "transfer":
+	case "calendar":
+	case "lint":
 	default:
 		note(args[1:])
 	}
@@ -487,4 +489,104 @@ func search(args []string) {
 	for i := 0; i < n; i++ {
 		fmt.Println(results[i])
 	}
+}
+
+func pin(args []string) {
+	if len(args) == 1 && args[0] == "format" {
+		err := formatPinsFile()
+		if err != nil {
+			fmt.Println("Error formatting pins:", err)
+			return
+		}
+		fmt.Println("Pins file formatted.")
+		return
+	}
+
+	if len(args) == 0 {
+		// Show all pinned notes
+		pins, err := loadPins()
+		if err != nil {
+			fmt.Println("Error loading pins:", err)
+			return
+		}
+		if len(pins) == 0 {
+			fmt.Println("No pinned notes.")
+			return
+		}
+		fmt.Println("Pinned notes:")
+		for title := range pins {
+			fmt.Println(title)
+		}
+		return
+	}
+
+	noteName := strings.Join(args, " ")
+	index := loadIndex()
+	_, exists := index[noteName]
+	if !exists {
+		fmt.Println("Note not found:", noteName)
+		return
+	}
+
+	pins, err := loadPins()
+	if err != nil {
+		fmt.Println("Error loading pins:", err)
+		return
+	}
+	if _, already := pins[noteName]; already {
+		fmt.Println("Note already pinned:", noteName)
+		return
+	}
+	pins[noteName] = emptyStruct{}
+	if err := savePins(pins); err != nil {
+		fmt.Println("Error saving pins:", err)
+		return
+	}
+	fmt.Println("Pinned note:", noteName)
+}
+
+func pinned(args []string) {
+	pins, err := loadPins()
+	if err != nil {
+		fmt.Println("Error loading pins:", err)
+		return
+	}
+	if len(pins) == 0 {
+		fmt.Println("No pinned notes.")
+		return
+	}
+	fmt.Println("Pinned notes:")
+	for title := range pins {
+		fmt.Println(title)
+	}
+}
+
+func unpin(args []string) {
+	if len(args) == 0 {
+		fmt.Println("Usage: gote unpin <note name>")
+		return
+	}
+	noteName := strings.Join(args, " ")
+	index := loadIndex()
+	_, exists := index[noteName]
+	if !exists {
+		fmt.Println("Note not found:", noteName)
+		return
+	}
+
+	pins, err := loadPins()
+	if err != nil {
+		fmt.Println("Error loading pins:", err)
+		return
+	}
+	if _, pinned := pins[noteName]; !pinned {
+		fmt.Println("Note was not pinned:", noteName)
+		return
+	}
+	delete(pins, noteName)
+	if err := savePins(pins); err != nil {
+		fmt.Println("Error saving pins:", err)
+		return
+	}
+	fmt.Println("Unpinned note:", noteName)
 }
