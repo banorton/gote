@@ -23,51 +23,96 @@ func indexPath() string {
 	return filepath.Join(goteDir(), "index.json")
 }
 
-func loadIndex() []NoteMeta {
-	var notes []NoteMeta
+func loadIndex() map[string]NoteMeta {
+	index := make(map[string]NoteMeta)
 	if data, err := os.ReadFile(indexPath()); err == nil {
-		_ = json.Unmarshal(data, &notes)
+		_ = json.Unmarshal(data, &index)
 	} else {
 		fmt.Println("Error reading file during loadIndex:", err.Error())
 	}
-	return notes
+	return index
 }
 
 func indexNotes() error {
 	notesDir := noteDir()
-	return filepath.Walk(notesDir, func(path string, info os.FileInfo, err error) error {
+	index := make(map[string]NoteMeta)
+	err := filepath.Walk(notesDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
+
 		if info.IsDir() || filepath.Ext(path) != ".md" {
 			return nil
 		}
-		return indexNote(path)
+
+		meta, err := buildNoteMeta(path, info)
+		if err != nil {
+			return err
+		}
+
+		index[meta.Title] = meta
+		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create(indexPath())
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+	if err := json.NewEncoder(f).Encode(index); err != nil {
+		return err
+	}
+
+	if err := updateTagsIndex(index); err != nil {
+		return err
+	}
+
+	if err := formatTagsFile(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func indexNote(notePath string) error {
-	indexFile := indexPath()
-	var notes []NoteMeta
-	if data, err := os.ReadFile(indexFile); err == nil {
-		_ = json.Unmarshal(data, &notes)
-	}
-
+	index := loadIndex()
 	info, err := os.Stat(notePath)
 	if err != nil {
 		return err
 	}
 
-	data, err := os.ReadFile(notePath)
+	meta, err := buildNoteMeta(notePath, info)
 	if err != nil {
 		return err
 	}
 
+	index[meta.Title] = meta
+	f, err := os.Create(indexPath())
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+	if err := json.NewEncoder(f).Encode(index); err != nil {
+		return err
+	}
+
+	return updateTagsIndex(index)
+}
+
+func buildNoteMeta(notePath string, info os.FileInfo) (NoteMeta, error) {
+	data, err := os.ReadFile(notePath)
+	if err != nil {
+		return NoteMeta{}, err
+	}
 	text := string(data)
 	title := strings.TrimSuffix(filepath.Base(notePath), ".md")
 	wordCount := len(strings.Fields(text))
 	charCount := len([]rune(text))
-
 	created := info.ModTime().Format("060102.150405")
 	modified := info.ModTime().Format("060102.150405")
 	firstLine := ""
@@ -85,28 +130,7 @@ func indexNote(notePath string) error {
 		CharCount: charCount,
 		Tags:      tags,
 	}
-
-	updated := false
-	for i, n := range notes {
-		if n.FilePath == notePath {
-			notes[i] = meta
-			updated = true
-			break
-		}
-	}
-	if !updated {
-		notes = append(notes, meta)
-	}
-
-	f, err := os.Create(indexFile)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	if err := json.NewEncoder(f).Encode(notes); err != nil {
-		return err
-	}
-	return updateTagsIndex(notes)
+	return meta, nil
 }
 
 func parseTags(line string) []string {
@@ -130,18 +154,18 @@ func formatIndexFile() error {
 	indPath := indexPath()
 	data, err := os.ReadFile(indPath)
 	if err != nil {
-		return fmt.Errorf("could not read config file: %w", err)
+		return fmt.Errorf("could not read index file: %w", err)
 	}
-	var m []NoteMeta
+	var m map[string]NoteMeta
 	if err := json.Unmarshal(data, &m); err != nil {
-		return fmt.Errorf("could not parse config file: %w", err)
+		return fmt.Errorf("could not parse index file: %w", err)
 	}
 	pretty, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
-		return fmt.Errorf("could not marshal pretty config: %w", err)
+		return fmt.Errorf("could not marshal pretty index: %w", err)
 	}
 	if err := os.WriteFile(indPath, pretty, 0644); err != nil {
-		return fmt.Errorf("could not write pretty config: %w", err)
+		return fmt.Errorf("could not write pretty index: %w", err)
 	}
 	return nil
 }

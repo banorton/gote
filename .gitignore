@@ -1,0 +1,3 @@
+# Ignore all .txt files in the repository
+*.txt
+gote
