@@ -97,6 +97,22 @@ func note(args []string) {
 	if err := openFileInEditor(notePath); err != nil {
 		fmt.Println("Error opening note in editor:", err)
 	}
+
+	// After editor closes update index for note
+	info, err := os.Stat(notePath)
+	if err != nil {
+		fmt.Println("Error stating note after edit:", err)
+		return
+	}
+	meta, err := buildNoteMeta(notePath, info)
+	if err != nil {
+		fmt.Println("Error building note metadata:", err)
+		return
+	}
+	index[noteName] = meta
+	if err := os.WriteFile(indexPath(), mustJson(index), 0644); err != nil {
+		fmt.Println("Error updating index:", err)
+	}
 }
 
 func quick(args []string) {
