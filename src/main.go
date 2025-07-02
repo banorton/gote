@@ -20,8 +20,12 @@ func main() {
 	switch args[1] {
 	case "quick", "q":
 		quick(args[2:])
-	case "recent", "r":
-		recent(args[2:])
+	case "recent", "r", "ro":
+		if args[1] == "ro" {
+			recent(append(args[2:], "--open"))
+		} else {
+			recent(args[2:])
+		}
 	case "index", "idx":
 		index(args[2:])
 	case "tags", "ts":
@@ -30,8 +34,12 @@ func main() {
 		tag(args[2:])
 	case "config", "c":
 		config(args[2:])
-	case "search", "s":
-		search(args[2:])
+	case "search", "s", "so":
+		if args[1] == "so" {
+			search(append(args[2:], "--open"))
+		} else {
+			search(args[2:])
+		}
 	case "pin", "p":
 		pin(args[2:])
 	case "unpin", "u", "up":
@@ -201,8 +209,11 @@ func recent(args []string) {
 	})
 
 	n := 10
-	if len(args) > 0 {
-		if v, err := strconv.Atoi(args[0]); err == nil && v > 0 {
+	openMode := false
+	for _, arg := range args {
+		if arg == "--open" || arg == "-o" {
+			openMode = true
+		} else if v, err := strconv.Atoi(arg); err == nil && v > 0 {
 			n = v
 		}
 	}
@@ -210,8 +221,51 @@ func recent(args []string) {
 		n = len(notes)
 	}
 
-	for i := 0; i < n; i++ {
-		fmt.Println(notes[i].Title)
+	homerow := []rune{'a', 's', 'd', 'f', 'j', 'k', 'l', ';', 'g', 'h'}
+	page := 0
+	pageSize := 10
+	totalPages := (n + pageSize - 1) / pageSize
+	for {
+		start := page * pageSize
+		end := start + pageSize
+		if end > n {
+			end = n
+		}
+		if start >= end {
+			break
+		}
+		if page > 0 {
+			fmt.Println()
+		}
+		fmt.Printf("Page (%d/%d):\n", page+1, totalPages)
+		for i := start; i < end; i++ {
+			if openMode && i-start < len(homerow) {
+				fmt.Printf("[%c] %s\n", homerow[i-start], notes[i].Title)
+			} else {
+				fmt.Println(notes[i].Title)
+			}
+		}
+		if !openMode {
+			break
+		}
+		fmt.Print("(n) next page / (enter) quit: ")
+		var input string
+		fmt.Scanln(&input)
+		if input == "" {
+			break
+		}
+		if input == "n" {
+			page++
+			continue
+		}
+		for i := start; i < end && i-start < len(homerow); i++ {
+			if input == string(homerow[i-start]) {
+				notePath := notes[i].FilePath
+				_ = openFileInEditor(notePath)
+				return
+			}
+		}
+		fmt.Println("Invalid input.")
 	}
 }
 
@@ -403,7 +457,17 @@ func search(args []string) {
 		return
 	}
 
-	if len(args) == 0 {
+	openMode := false
+	var filteredArgs []string
+	for _, arg := range args {
+		if arg == "--open" || arg == "-o" {
+			openMode = true
+		} else {
+			filteredArgs = append(filteredArgs, arg)
+		}
+	}
+
+	if len(filteredArgs) == 0 {
 		fmt.Println("Usage: gote search <query> OR gote search -t <tag1> ... [-n <number>]")
 		return
 	}
@@ -411,21 +475,21 @@ func search(args []string) {
 	n := -1 // -1 means print all by default
 	tagsMode := false
 	tags := []string{}
-	for i := 0; i < len(args); i++ {
-		if args[i] == "-n" {
+	for i := 0; i < len(filteredArgs); i++ {
+		if filteredArgs[i] == "-n" {
 			if n == -1 {
 				n = 10
 			} // if -n is present but no number, default to 10
-			if i+1 < len(args) {
-				if v, err := strconv.Atoi(args[i+1]); err == nil && v > 0 {
+			if i+1 < len(filteredArgs) {
+				if v, err := strconv.Atoi(filteredArgs[i+1]); err == nil && v > 0 {
 					n = v
 					i++
 				}
 			}
-		} else if args[i] == "-t" {
+		} else if filteredArgs[i] == "-t" {
 			tagsMode = true
-			for j := i + 1; j < len(args) && args[j] != "-n"; j++ {
-				tags = append(tags, args[j])
+			for j := i + 1; j < len(filteredArgs) && filteredArgs[j] != "-n"; j++ {
+				tags = append(tags, filteredArgs[j])
 				i = j
 			}
 		}
@@ -479,16 +543,57 @@ func search(args []string) {
 		if n == -1 || n > len(noteHits) {
 			n = len(noteHits)
 		}
-		fmt.Println("Notes matching the most tags (most hits first):")
-		for i := 0; i < n; i++ {
-			nh := noteHits[i]
-			title := strings.TrimSuffix(filepath.Base(nh.NotePath), ".md")
-			fmt.Printf("%s (matched %d tags)\n", title, nh.Count)
+
+		homerow := []rune{'a', 's', 'd', 'f', 'j', 'k', 'l', ';', 'g', 'h'}
+		page := 0
+		pageSize := 10
+		totalPages := (n + pageSize - 1) / pageSize
+		for {
+			if page > 0 {
+				fmt.Println()
+			}
+			start := page * pageSize
+			end := start + pageSize
+			if end > n {
+				end = n
+			}
+			if start >= end {
+				break
+			}
+			fmt.Printf("Page (%d/%d):\n", page+1, totalPages)
+			for i := start; i < end; i++ {
+				title := strings.TrimSuffix(filepath.Base(noteHits[i].NotePath), ".md")
+				if openMode && i-start < len(homerow) {
+					fmt.Printf("[%c] %s (matched %d tags)\n", homerow[i-start], title, noteHits[i].Count)
+				} else {
+					fmt.Printf("%s (matched %d tags)\n", title, noteHits[i].Count)
+				}
+			}
+			if !openMode {
+				break
+			}
+			fmt.Print("(n) next page / (enter) quit: ")
+			var input string
+			fmt.Scanln(&input)
+			if input == "" {
+				break
+			}
+			if input == "n" {
+				page++
+				continue
+			}
+			for i := start; i < end && i-start < len(homerow); i++ {
+				if input == string(homerow[i-start]) {
+					_ = openFileInEditor(noteHits[i].NotePath)
+					return
+				}
+			}
+			fmt.Println("Invalid input.")
 		}
 		return
 	}
 
-	query := strings.ToLower(strings.Join(args, " "))
+	query := strings.ToLower(strings.Join(filteredArgs, " "))
 	index := loadIndex()
 	var results []string
 	for title := range index {
@@ -503,8 +608,56 @@ func search(args []string) {
 	if n == -1 || n > len(results) {
 		n = len(results)
 	}
-	for i := 0; i < n; i++ {
-		fmt.Println(results[i])
+
+	homerow := []rune{'a', 's', 'd', 'f', 'j', 'k', 'l', ';', 'g', 'h'}
+	page := 0
+	pageSize := 10
+	totalPages := (n + pageSize - 1) / pageSize
+	for {
+		if page > 0 {
+			fmt.Println()
+		}
+		start := page * pageSize
+		end := start + pageSize
+		if end > n {
+			end = n
+		}
+		if start >= end {
+			break
+		}
+		fmt.Printf("Page (%d/%d):\n", page+1, totalPages)
+		for i := start; i < end; i++ {
+			if openMode && i-start < len(homerow) {
+				fmt.Printf("[%c] %s\n", homerow[i-start], results[i])
+			} else {
+				fmt.Println(results[i])
+			}
+		}
+		if !openMode {
+			break
+		}
+		fmt.Print("(n) next page / (enter) quit: ")
+		var input string
+		fmt.Scanln(&input)
+		if input == "" {
+			break
+		}
+		if input == "n" {
+			page++
+			continue
+		}
+		for i := start; i < end && i-start < len(homerow); i++ {
+			if input == string(homerow[i-start]) {
+				// Find file path for this note
+				index := loadIndex()
+				meta, exists := index[results[i]]
+				if exists {
+					_ = openFileInEditor(meta.FilePath)
+				}
+				return
+			}
+		}
+		fmt.Println("Invalid input.")
 	}
 }
 
