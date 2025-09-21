@@ -248,7 +248,7 @@ func recent(args []string) {
 		if !openMode {
 			break
 		}
-		fmt.Print("(n) next page / (enter) quit: ")
+		fmt.Print("[n] next page\n[enter] quit\n: ")
 		var input string
 		fmt.Scanln(&input)
 		if input == "" {
