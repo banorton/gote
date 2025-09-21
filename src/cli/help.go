@@ -1,16 +1,12 @@
-package main
+package cli
 
 import "fmt"
 
-func helpCmd(args []string) {
-	if len(args) == 0 {
-		printDefaultHelp()
-		return
-	}
-	printDefaultHelp()
+func HelpCommand(args []string) {
+	PrintDefaultHelp()
 }
 
-func printDefaultHelp() {
+func PrintDefaultHelp() {
 	fmt.Println(`gote: A simple, extensible CLI note-taking tool
 
 Usage:
