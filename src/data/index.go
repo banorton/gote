@@ -1,4 +1,4 @@
-package main
+package data
 
 import (
 	"bufio"
@@ -19,13 +19,13 @@ type NoteMeta struct {
 	Tags      []string `json:"tags"`
 }
 
-func indexPath() string {
-	return filepath.Join(goteDir(), "index.json")
+func IndexPath() string {
+	return filepath.Join(GoteDir(), "index.json")
 }
 
-func loadIndex() map[string]NoteMeta {
+func LoadIndex() map[string]NoteMeta {
 	index := make(map[string]NoteMeta)
-	if data, err := os.ReadFile(indexPath()); err == nil {
+	if data, err := os.ReadFile(IndexPath()); err == nil {
 		_ = json.Unmarshal(data, &index)
 	} else {
 		fmt.Println("Error reading file during loadIndex:", err.Error())
@@ -33,8 +33,16 @@ func loadIndex() map[string]NoteMeta {
 	return index
 }
 
-func indexNotes() error {
-	notesDir := noteDir()
+func SaveIndex(index map[string]NoteMeta) error {
+	f, err := os.Create(IndexPath())
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return json.NewEncoder(f).Encode(index)
+}
+
+func IndexNotes(notesDir string) error {
 	index := make(map[string]NoteMeta)
 	err := filepath.Walk(notesDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -45,7 +53,7 @@ func indexNotes() error {
 			return nil
 		}
 
-		meta, err := buildNoteMeta(path, info)
+		meta, err := BuildNoteMeta(path, info)
 		if err != nil {
 			return err
 		}
@@ -57,54 +65,38 @@ func indexNotes() error {
 		return err
 	}
 
-	f, err := os.Create(indexPath())
-	if err != nil {
+	if err := SaveIndex(index); err != nil {
 		return err
 	}
 
-	defer f.Close()
-	if err := json.NewEncoder(f).Encode(index); err != nil {
+	if err := UpdateTagsIndex(index); err != nil {
 		return err
 	}
 
-	if err := updateTagsIndex(index); err != nil {
-		return err
-	}
-
-	if err := formatTagsFile(); err != nil {
-		return err
-	}
-
-	return nil
+	return FormatTagsFile()
 }
 
-func indexNote(notePath string) error {
-	index := loadIndex()
+func IndexNote(notePath string) error {
+	index := LoadIndex()
 	info, err := os.Stat(notePath)
 	if err != nil {
 		return err
 	}
 
-	meta, err := buildNoteMeta(notePath, info)
+	meta, err := BuildNoteMeta(notePath, info)
 	if err != nil {
 		return err
 	}
 
 	index[meta.Title] = meta
-	f, err := os.Create(indexPath())
-	if err != nil {
+	if err := SaveIndex(index); err != nil {
 		return err
 	}
 
-	defer f.Close()
-	if err := json.NewEncoder(f).Encode(index); err != nil {
-		return err
-	}
-
-	return updateTagsIndex(index)
+	return UpdateTagsIndex(index)
 }
 
-func buildNoteMeta(notePath string, info os.FileInfo) (NoteMeta, error) {
+func BuildNoteMeta(notePath string, info os.FileInfo) (NoteMeta, error) {
 	data, err := os.ReadFile(notePath)
 	if err != nil {
 		return NoteMeta{}, err
@@ -120,7 +112,7 @@ func buildNoteMeta(notePath string, info os.FileInfo) (NoteMeta, error) {
 	if scanner.Scan() {
 		firstLine = scanner.Text()
 	}
-	tags := parseTags(firstLine)
+	tags := ParseTags(firstLine)
 	meta := NoteMeta{
 		FilePath:  notePath,
 		Title:     title,
@@ -133,7 +125,7 @@ func buildNoteMeta(notePath string, info os.FileInfo) (NoteMeta, error) {
 	return meta, nil
 }
 
-func parseTags(line string) []string {
+func ParseTags(line string) []string {
 	clean := strings.ReplaceAll(line, "#", "")
 	clean = strings.ReplaceAll(clean, "[", "")
 	clean = strings.ReplaceAll(clean, "]", "")
@@ -150,8 +142,8 @@ func parseTags(line string) []string {
 	return tags
 }
 
-func formatIndexFile() error {
-	indPath := indexPath()
+func FormatIndexFile() error {
+	indPath := IndexPath()
 	data, err := os.ReadFile(indPath)
 	if err != nil {
 		return fmt.Errorf("could not read index file: %w", err)

@@ -1,4 +1,4 @@
-package main
+package data
 
 import (
 	"encoding/json"
@@ -7,18 +7,18 @@ import (
 	"path/filepath"
 )
 
-type emptyStruct struct{}
+type EmptyStruct struct{}
 
-func pinsPath() string {
-	return filepath.Join(goteDir(), "pins.json")
+func PinsPath() string {
+	return filepath.Join(GoteDir(), "pins.json")
 }
 
-func loadPins() (map[string]emptyStruct, error) {
-	pins := make(map[string]emptyStruct)
-	f, err := os.Open(pinsPath())
+func LoadPins() (map[string]EmptyStruct, error) {
+	pins := make(map[string]EmptyStruct)
+	f, err := os.Open(PinsPath())
 	if err != nil {
 		if os.IsNotExist(err) {
-			return pins, nil // no pins yet
+			return pins, nil
 		}
 		return nil, err
 	}
@@ -29,8 +29,8 @@ func loadPins() (map[string]emptyStruct, error) {
 	return pins, nil
 }
 
-func savePins(pins map[string]emptyStruct) error {
-	f, err := os.Create(pinsPath())
+func SavePins(pins map[string]EmptyStruct) error {
+	f, err := os.Create(PinsPath())
 	if err != nil {
 		return err
 	}
@@ -38,13 +38,13 @@ func savePins(pins map[string]emptyStruct) error {
 	return json.NewEncoder(f).Encode(pins)
 }
 
-func formatPinsFile() error {
-	pinsPath := pinsPath()
+func FormatPinsFile() error {
+	pinsPath := PinsPath()
 	data, err := os.ReadFile(pinsPath)
 	if err != nil {
 		return fmt.Errorf("could not read pins file: %w", err)
 	}
-	var pins map[string]emptyStruct
+	var pins map[string]EmptyStruct
 	if err := json.Unmarshal(data, &pins); err != nil {
 		return fmt.Errorf("could not parse pins file: %w", err)
 	}

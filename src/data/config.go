@@ -1,4 +1,4 @@
-package main
+package data
 
 import (
 	"encoding/json"
@@ -8,11 +8,11 @@ import (
 )
 
 type Config struct {
-	NoteDir string
-	Editor  string
+	NoteDir string `json:"noteDir"`
+	Editor  string `json:"editor"`
 }
 
-func defaultConfig() Config {
+func DefaultConfig() Config {
 	homeDir, _ := os.UserHomeDir()
 	return Config{
 		NoteDir: filepath.Join(homeDir, "gotes"),
@@ -20,11 +20,16 @@ func defaultConfig() Config {
 	}
 }
 
-func configPath() string {
-	return filepath.Join(goteDir(), "config.json")
+func GoteDir() string {
+	homeDir, _ := os.UserHomeDir()
+	return filepath.Join(homeDir, ".gote")
 }
 
-func saveConfig(cfg Config) error {
+func configPath() string {
+	return filepath.Join(GoteDir(), "config.json")
+}
+
+func SaveConfig(cfg Config) error {
 	dir := filepath.Dir(configPath())
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("unable to create config directory: %w", err)
@@ -47,7 +52,7 @@ func saveConfig(cfg Config) error {
 	return nil
 }
 
-func loadConfig() (Config, error) {
+func LoadConfig() (Config, error) {
 	var cfg Config
 
 	goteDir := filepath.Dir(configPath())
@@ -57,25 +62,25 @@ func loadConfig() (Config, error) {
 
 	f, err := os.Open(configPath())
 	if os.IsNotExist(err) {
-		if err := saveConfig(defaultConfig()); err != nil {
-			return defaultConfig(), err
+		if err := SaveConfig(DefaultConfig()); err != nil {
+			return DefaultConfig(), err
 		}
-		return defaultConfig(), nil
+		return DefaultConfig(), nil
 	} else if err != nil {
-		return defaultConfig(), err
+		return DefaultConfig(), err
 	}
 
 	defer f.Close()
 
 	if err := json.NewDecoder(f).Decode(&cfg); err != nil {
-		_ = saveConfig(defaultConfig())
-		return defaultConfig(), nil
+		_ = SaveConfig(DefaultConfig())
+		return DefaultConfig(), nil
 	}
 
 	return cfg, nil
 }
 
-func formatConfigFile() error {
+func FormatConfigFile() error {
 	cfgPath := configPath()
 	data, err := os.ReadFile(cfgPath)
 	if err != nil {
@@ -93,24 +98,4 @@ func formatConfigFile() error {
 		return fmt.Errorf("could not write pretty config: %w", err)
 	}
 	return nil
-}
-
-func noteDir() string {
-	cfg, err := loadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err.Error())
-		return ""
-	}
-	return cfg.NoteDir
-}
-
-func printConfig() {
-	cfg, err := loadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err.Error())
-		return
-	}
-
-	fmt.Println("Config settings:")
-	prettyPrintJSON(cfg)
 }

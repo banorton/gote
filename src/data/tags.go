@@ -1,4 +1,4 @@
-package main
+package data
 
 import (
 	"encoding/json"
@@ -13,11 +13,11 @@ type TagMeta struct {
 	Count int      `json:"count"`
 }
 
-func tagsPath() string {
-	return filepath.Join(goteDir(), "tags.json")
+func TagsPath() string {
+	return filepath.Join(GoteDir(), "tags.json")
 }
 
-func updateTagsIndex(notes map[string]NoteMeta) error {
+func UpdateTagsIndex(notes map[string]NoteMeta) error {
 	tagMap := make(map[string]*TagMeta)
 	for _, note := range notes {
 		for _, tag := range note.Tags {
@@ -34,7 +34,7 @@ func updateTagsIndex(notes map[string]NoteMeta) error {
 	for k, v := range tagMap {
 		tagsOut[k] = *v
 	}
-	f, err := os.Create(tagsPath())
+	f, err := os.Create(TagsPath())
 	if err != nil {
 		return err
 	}
@@ -42,8 +42,21 @@ func updateTagsIndex(notes map[string]NoteMeta) error {
 	return json.NewEncoder(f).Encode(tagsOut)
 }
 
-func formatTagsFile() error {
-	tagPath := tagsPath()
+func LoadTags() (map[string]TagMeta, error) {
+	data, err := os.ReadFile(TagsPath())
+	if err != nil {
+		return nil, err
+	}
+
+	var tags map[string]TagMeta
+	if err := json.Unmarshal(data, &tags); err != nil {
+		return nil, err
+	}
+	return tags, nil
+}
+
+func FormatTagsFile() error {
+	tagPath := TagsPath()
 	data, err := os.ReadFile(tagPath)
 	if err != nil {
 		return fmt.Errorf("could not read tags file: %w", err)
@@ -56,7 +69,7 @@ func formatTagsFile() error {
 	if err != nil {
 		return fmt.Errorf("could not marshal pretty tags: %w", err)
 	}
-	if err := os.WriteFile(tagsPath(), pretty, 0644); err != nil {
+	if err := os.WriteFile(TagsPath(), pretty, 0644); err != nil {
 		return fmt.Errorf("could not write pretty tags: %w", err)
 	}
 	return nil
