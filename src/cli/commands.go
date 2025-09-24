@@ -16,11 +16,7 @@ func NoteCommand(args []string) {
 	}
 }
 
-func QuickCommand(args []string) {
-	if len(args) > 0 {
-		fmt.Printf("gote quick does not take extra args. Got: %v\n", args)
-		return
-	}
+func QuickCommand() {
 	NoteCommand([]string{"quick"})
 }
 
