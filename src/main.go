@@ -10,13 +10,13 @@ func main() {
 	args := os.Args
 
 	if len(args) == 1 {
-		cli.QuickCommand(args)
+		cli.QuickCommand()
 		return
 	}
 
 	switch args[1] {
 	case "quick", "q":
-		cli.QuickCommand(args[2:])
+		cli.QuickCommand()
 	case "recent", "r", "ro":
 		if args[1] == "ro" {
 			cli.RecentCommand(append(args[2:], "--open"))
