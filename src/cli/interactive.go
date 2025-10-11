@@ -15,24 +15,23 @@ func displayPaginatedResults(results []string, openMode bool, onSelect func(stri
 		return
 	}
 
-	homerow := []rune{'a', 's', 'd', 'f', 'j', 'k', 'l', ';', 'g', 'h'}
+	homerow := []rune{'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'}
 	page := 0
 	pageSize := 10
 	totalPages := (len(results) + pageSize - 1) / pageSize
 
 	for {
 		start := page * pageSize
-		end := start + pageSize
-		if end > len(results) {
-			end = len(results)
-		}
+		end := min(start+pageSize, len(results))
+
 		if start >= end {
 			break
 		}
+
 		if page > 0 {
 			fmt.Println()
 		}
-		fmt.Printf("Page (%d/%d):\n", page+1, totalPages)
+
 		for i := start; i < end; i++ {
 			if openMode && i-start < len(homerow) {
 				fmt.Printf("[%c] %s\n", homerow[i-start], results[i])
@@ -40,19 +39,22 @@ func displayPaginatedResults(results []string, openMode bool, onSelect func(stri
 				fmt.Println(results[i])
 			}
 		}
+
 		if !openMode {
 			break
 		}
-		fmt.Print("[n] next page\n[enter] quit\n: ")
+
+		fmt.Printf("\n[n] next page (%d/%d)\n[q] quit\n: ", page+1, totalPages)
+
 		var input string
 		fmt.Scanln(&input)
-		if input == "" {
+		if input == "q" {
 			break
-		}
-		if input == "n" {
+		} else if input == "n" {
 			page++
 			continue
 		}
+
 		for i := start; i < end && i-start < len(homerow); i++ {
 			if input == string(homerow[i-start]) {
 				onSelect(results[i])
@@ -69,24 +71,23 @@ func displayPaginatedSearchResults(results []core.SearchResult, openMode bool) {
 		return
 	}
 
-	homerow := []rune{'a', 's', 'd', 'f', 'j', 'k', 'l', ';', 'g', 'h'}
+	homerow := []rune{'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'}
 	page := 0
 	pageSize := 10
 	totalPages := (len(results) + pageSize - 1) / pageSize
 
 	for {
 		start := page * pageSize
-		end := start + pageSize
-		if end > len(results) {
-			end = len(results)
-		}
+		end := min(start + pageSize, len(results))
+
 		if start >= end {
 			break
 		}
+
 		if page > 0 {
 			fmt.Println()
 		}
-		fmt.Printf("Page (%d/%d):\n", page+1, totalPages)
+
 		for i := start; i < end; i++ {
 			result := results[i]
 			if openMode && i-start < len(homerow) {
@@ -103,16 +104,18 @@ func displayPaginatedSearchResults(results []core.SearchResult, openMode bool) {
 				}
 			}
 		}
+
 		if !openMode {
 			break
 		}
-		fmt.Print("(n) next page / (enter) quit: ")
+
+		fmt.Printf("\n[n] next page (%d/%d)\n[q] quit\n: ", page+1, totalPages)
+
 		var input string
 		fmt.Scanln(&input)
-		if input == "" {
+		if input == "q" {
 			break
-		}
-		if input == "n" {
+		} else if input == "n" {
 			page++
 			continue
 		}
@@ -256,3 +259,4 @@ func SearchCommand(args []string) {
 	}
 	displayPaginatedSearchResults(results, openMode)
 }
+
