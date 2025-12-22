@@ -6,36 +6,62 @@ func HelpCommand(args []string) {
 	PrintDefaultHelp()
 }
 
+func NotImplementedCommand(name string) {
+	fmt.Printf("%s: not implemented\n", name)
+}
+
 func PrintDefaultHelp() {
-	fmt.Println(`gote: A simple, extensible CLI note-taking tool
+	fmt.Println(`gote: A simple CLI note-taking tool
 
 Usage:
   gote <note name>                Create or open a note
-  gote                            (no args) runs quick note
-  gote quick | q                  Create/open a quick note
-  gote recent | r                 Show recently modified notes
-  gote index | idx                Rebuild the note index
-  gote tags | ts                  List all tags
-  gote tag | t <tag>              Show notes with a tag
-  gote config | c                 Edit or show config
-  gote search | s <query>         Search notes by title
-  gote search -t <tag> ...        Search notes by tags
-  gote search trash <query>       Search trashed notes
-  gote pin | p <note>             Pin a note
-  gote pins | pinned | pd         List pinned notes
-  gote unpin | u <note>           Unpin a note
-  gote delete | d <note>          Move note to trash
-  gote recover <note>             Restore note from trash
-  gote rename <note> -n <new>     Rename a note
-  gote info | i <note>            Show note metadata
-  gote help | h                   Show this help message
+  gote                            Open quick note (default)
+  gote quick | q                  Open quick note
 
-Example:
-  gote
-  gote mynote
-  gote quick
-  gote search project
-  gote pin mynote
-  gote rename mynote -n project-notes
-`)
+Notes:
+  gote recent | r [-n <size>]     List recent notes
+  gote ro [-n <size>]             Recent + open mode
+  gote rd [-n <size>]             Recent + delete mode
+  gote info | i <note>            Show note metadata
+  gote rename | mv | rn <note> -n <new>  Rename a note
+
+Search:
+  gote search | s <query>         Search notes by title
+  gote so <query>                 Search + open mode
+  gote sd <query>                 Search + delete mode
+  gote search -t <tag1> <tag2>    Search by tags
+
+Tags:
+  gote tags | ts                  List all tags
+  gote tags popular [-n <limit>]  Show most used tags
+  gote tags edit                  Edit tags file
+  gote tags format                Format tags file
+  gote tag | t <note> -t <tags>   Add tags to a note
+
+Pins:
+  gote pin | p <note>             Pin a note
+  gote pin                        List pinned notes
+  gote pinned | pd [-n <size>]    List pinned notes
+  gote po [-n <size>]             Pinned + open mode
+  gote unpin | u | up <note>      Unpin a note
+
+Trash:
+  gote delete | d | del <note>    Move note to trash
+  gote trash                      List trashed notes
+  gote trash <note>               Move note to trash
+  gote trash empty                Permanently delete all trash
+  gote trash search <query>       Search trashed notes
+  gote recover <note>             Restore note from trash
+
+Index:
+  gote index | idx                Rebuild the note index
+  gote index edit                 Edit index file
+  gote index format               Format index file
+
+Config:
+  gote config | c                 Show config
+  gote config edit                Edit config (uses vim)
+  gote config format              Format config file
+
+  gote help | h | man             Show this help message`)
 }
