@@ -8,99 +8,117 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 
 ## Commands
 
-| Command   | Aliases           | Description                                 |
-|-----------|-------------------|---------------------------------------------|
-| (no args) |                   | Open/create a quick note                    |
-| quick     | q                 | Open/create a quick note                    |
-| <note>    |                   | Create or open a note by name               |
-| help      | h                 | Show help message                           |
-| recent    | r                 | Show recently modified notes                |
-| index     | idx               | Rebuild the note index                      |
-| tags      | ts                | List all tags                               |
-| tag       | t                 | Show notes with a tag                       |
-| config    | c                 | Edit or show config                         |
-| search    | s                 | Search notes by title                       |
-| search -t | s -t              | Search notes by tags                        |
-| pin       | p                 | Pin a note                                  |
-| pins      | pinned, pd        | List pinned notes                           |
-| unpin     | u, up             | Unpin a note                                |
-| delete    | d, del, trash     | Move note to trash                          |
-| recover   |                   | Restore note from trash                     |
-| rename    | mv, rn            | Rename a note                               |
-| info      | i                 | Show note metadata                          |
+| Command | Aliases | Description |
+|---------|---------|-------------|
+| `gote` | | Open quick note (default) |
+| `gote <note>` | | Create or open a note by name |
+| `gote quick` | `q` | Open quick note |
+| `gote recent` | `r` | List recent notes |
+| `gote ro` | | Recent + open mode |
+| `gote rd` | | Recent + delete mode |
+| `gote search <query>` | `s` | Search notes by title |
+| `gote search -t <tags>` | | Search notes by tags |
+| `gote so <query>` | | Search + open mode |
+| `gote sd <query>` | | Search + delete mode |
+| `gote tags` | `ts` | List all tags |
+| `gote tags popular` | | Show most used tags |
+| `gote tag <note> -t <tags>` | `t` | Add tags to a note |
+| `gote pin <note>` | `p` | Pin a note |
+| `gote pin` | | List pinned notes |
+| `gote pinned` | `pd` | List pinned notes |
+| `gote po` | | Pinned + open mode |
+| `gote unpin <note>` | `u`, `up` | Unpin a note |
+| `gote delete <note>` | `d`, `del` | Move note to trash |
+| `gote trash` | | List trashed notes |
+| `gote trash <note>` | | Move note to trash |
+| `gote trash empty` | | Permanently delete all trash |
+| `gote trash search <query>` | | Search trashed notes |
+| `gote recover <note>` | | Restore note from trash |
+| `gote rename <note> -n <new>` | `mv`, `rn` | Rename a note |
+| `gote info <note>` | `i` | Show note metadata |
+| `gote index` | `idx` | Rebuild the note index |
+| `gote config` | `c` | Show config |
+| `gote config edit` | | Edit config (uses vim) |
+| `gote help` | `h`, `man` | Show help message |
 
 ## Examples
 
-```
+```bash
 # Create or open a note
-$ gote mynote
+gote mynote
 
-# Quick note (no args or 'quick')
-$ gote
-$ gote quick
+# Quick note
+gote
+gote quick
 
-# Show recent notes
-$ gote recent
+# Recent notes
+gote recent          # list recent
+gote ro              # list + select to open
+gote rd              # list + select to delete
 
-# List all tags
-$ gote tags
+# Search
+gote search meeting  # search by title
+gote so meeting      # search + open
+gote sd meeting      # search + delete
+gote search -t work  # search by tags
 
-# Show notes with a tag
-$ gote tag project
+# Tags
+gote tags            # list all tags
+gote tags popular    # most used tags
+gote tag mynote -t work urgent  # add tags to note
 
-# Search notes by title
-$ gote search meeting
+# Pins
+gote pin mynote      # pin a note
+gote pin             # list pinned
+gote po              # list + select to open
+gote unpin mynote    # unpin
 
-# Search notes by tags
-$ gote search -t project urgent
+# Trash
+gote delete mynote   # move to trash
+gote trash           # list trashed notes
+gote trash empty     # permanently delete all
+gote recover mynote  # restore from trash
 
-# Search trashed notes
-$ gote search trash old
-
-# Pin and unpin notes
-$ gote pin mynote
-$ gote unpin mynote
-
-# List pinned notes
-$ gote pins
-
-# Move note to trash
-$ gote delete mynote
-
-# Recover a trashed note
-$ gote recover mynote
-
-# Rename a note
-$ gote rename mynote -n project-notes
-
-# Show note metadata
-$ gote info mynote
-
-# Show help
-$ gote help
-
-# Edit config
-$ gote config edit
+# Other
+gote rename mynote -n project-notes
+gote info mynote
+gote config edit
+gote help
 ```
 
 ## Tag Syntax
-- Tags are specified on the first line of a note, separated by periods, e.g.:
-  ```
-  .project.urgent.personal
-  ```
-- Tags are automatically indexed and searchable.
+
+Tags are specified on the first line of a note, separated by periods:
+
+```
+.project.urgent.work
+```
+
+Tags are automatically indexed and searchable.
 
 ## Data Storage
-- Notes: Markdown files in your notes directory (default: `~/gotes`)
-- Index: `.gote/index.json` (metadata for fast lookup)
-- Tags: `.gote/tags.json` (tag metadata)
-- Pins: `.gote/pins.json` (set of pinned notes)
-- Trash: `.gote/trash/` (trashed notes)
-- Config: `.gote/config.json` (user config)
+
+| File | Location | Purpose |
+|------|----------|---------|
+| Notes | `~/gotes/*.md` | Your markdown notes |
+| Index | `~/.gote/index.json` | Note metadata for fast lookup |
+| Tags | `~/.gote/tags.json` | Tag index |
+| Pins | `~/.gote/pins.json` | Pinned notes |
+| Trash | `~/.gote/trash/` | Deleted notes |
+| Config | `~/.gote/config.json` | User configuration |
+
+## Installation
+
+```bash
+go build -o gote ./src
+mv gote /usr/local/bin/  # or add to PATH
+```
 
 ## Requirements
+
 - Go 1.18+
-- Unix-like OS (macOS, Linux, WSL recommended)
+- Unix-like OS (macOS, Linux, WSL)
 
 ## License
+
 MIT
