@@ -18,7 +18,7 @@ func PrettyPrintJSON(v interface{}) {
 
 func OpenFileInEditor(filePath, editor string) error {
 	if editor == "" {
-		fmt.Println("No editor specified in config.")
+		return fmt.Errorf("no editor specified in config")
 	}
 
 	cmd := exec.Command(editor, filePath)
@@ -31,10 +31,3 @@ func OpenFileInEditor(filePath, editor string) error {
 	return nil
 }
 
-func MustJson(v interface{}) []byte {
-	data, err := json.Marshal(v)
-	if err != nil {
-		panic(err)
-	}
-	return data
-}

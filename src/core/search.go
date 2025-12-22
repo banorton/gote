@@ -8,6 +8,13 @@ import (
 	"gote/src/data"
 )
 
+// sortResultsByTitle sorts search results alphabetically by title
+func sortResultsByTitle(results []SearchResult) {
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Title < results[j].Title
+	})
+}
+
 type SearchResult struct {
 	Title    string
 	FilePath string
@@ -29,6 +36,8 @@ func SearchNotesByTitle(query string, limit int) ([]SearchResult, error) {
 			})
 		}
 	}
+
+	sortResultsByTitle(results)
 
 	if limit > 0 && limit < len(results) {
 		results = results[:limit]

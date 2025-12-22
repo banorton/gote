@@ -13,7 +13,6 @@ type NoteMeta struct {
 	FilePath  string   `json:"filePath"`
 	Title     string   `json:"title"`
 	Created   string   `json:"created"`
-	Modified  string   `json:"modified"`
 	WordCount int      `json:"wordCount"`
 	CharCount int      `json:"charCount"`
 	Tags      []string `json:"tags"`
@@ -25,10 +24,16 @@ func IndexPath() string {
 
 func LoadIndex() map[string]NoteMeta {
 	index := make(map[string]NoteMeta)
-	if data, err := os.ReadFile(IndexPath()); err == nil {
-		_ = json.Unmarshal(data, &index)
-	} else {
-		fmt.Println("Error reading file during loadIndex:", err.Error())
+	data, err := os.ReadFile(IndexPath())
+	if os.IsNotExist(err) {
+		return index
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error reading index file:", err.Error())
+		return index
+	}
+	if err := json.Unmarshal(data, &index); err != nil {
+		fmt.Fprintln(os.Stderr, "Error parsing index file:", err.Error())
 	}
 	return index
 }
@@ -43,6 +48,7 @@ func SaveIndex(index map[string]NoteMeta) error {
 }
 
 func IndexNotes(notesDir string) error {
+	existingIndex := LoadIndex()
 	index := make(map[string]NoteMeta)
 	err := filepath.Walk(notesDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -56,6 +62,10 @@ func IndexNotes(notesDir string) error {
 		meta, err := BuildNoteMeta(path, info)
 		if err != nil {
 			return err
+		}
+
+		if existing, ok := existingIndex[meta.Title]; ok && existing.Created != "" {
+			meta.Created = existing.Created
 		}
 
 		index[meta.Title] = meta
@@ -88,6 +98,10 @@ func IndexNote(notePath string) error {
 		return err
 	}
 
+	if existing, ok := index[meta.Title]; ok && existing.Created != "" {
+		meta.Created = existing.Created
+	}
+
 	index[meta.Title] = meta
 	if err := SaveIndex(index); err != nil {
 		return err
@@ -106,7 +120,6 @@ func BuildNoteMeta(notePath string, info os.FileInfo) (NoteMeta, error) {
 	wordCount := len(strings.Fields(text))
 	charCount := len([]rune(text))
 	created := info.ModTime().Format("060102.150405")
-	modified := info.ModTime().Format("060102.150405")
 	firstLine := ""
 	scanner := bufio.NewScanner(strings.NewReader(text))
 	if scanner.Scan() {
@@ -117,7 +130,6 @@ func BuildNoteMeta(notePath string, info os.FileInfo) (NoteMeta, error) {
 		FilePath:  notePath,
 		Title:     title,
 		Created:   created,
-		Modified:  modified,
 		WordCount: wordCount,
 		CharCount: charCount,
 		Tags:      tags,
