@@ -51,7 +51,10 @@ func CreateOrOpenNote(noteName string) error {
 		return fmt.Errorf("error building note metadata: %w", err)
 	}
 	index[noteName] = meta
-	return data.SaveIndex(index)
+	if err := data.SaveIndex(index); err != nil {
+		return err
+	}
+	return data.UpdateTagsIndex(index)
 }
 
 func GetNoteInfo(noteName string) (data.NoteMeta, error) {
@@ -93,13 +96,18 @@ func RenameNote(oldName, newName string) error {
 	if err := data.SaveIndex(index); err != nil {
 		return fmt.Errorf("error updating index: %w", err)
 	}
+	if err := data.UpdateTagsIndex(index); err != nil {
+		return fmt.Errorf("error updating tags index: %w", err)
+	}
 
 	pins, err := data.LoadPins()
 	if err == nil {
 		if _, pinned := pins[oldName]; pinned {
 			delete(pins, oldName)
 			pins[newName] = data.EmptyStruct{}
-			data.SavePins(pins)
+			if err := data.SavePins(pins); err != nil {
+				return fmt.Errorf("error saving pins: %w", err)
+			}
 		}
 	}
 
@@ -156,7 +164,7 @@ func AddTagsToNote(noteName string, tagsToAdd []string) error {
 		return fmt.Errorf("no new tags to add")
 	}
 
-	newFirstLine := strings.Join(existingTags, ".")
+	newFirstLine := "." + strings.Join(existingTags, ".")
 	newContent := newFirstLine
 	if rest != "" {
 		newContent += "\n" + rest
