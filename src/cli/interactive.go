@@ -9,15 +9,18 @@ import (
 	"gote/src/data"
 )
 
-func displayPaginatedResults(results []string, openMode bool, onSelect func(string)) {
+func displayPaginatedResults(results []string, interactive bool, pageSize int, onSelect func(string)) {
 	if len(results) == 0 {
 		fmt.Println("No results found.")
 		return
 	}
 
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+
 	homerow := []rune{'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'}
 	page := 0
-	pageSize := 10
 	totalPages := (len(results) + pageSize - 1) / pageSize
 
 	for {
@@ -33,14 +36,14 @@ func displayPaginatedResults(results []string, openMode bool, onSelect func(stri
 		}
 
 		for i := start; i < end; i++ {
-			if openMode && i-start < len(homerow) {
+			if interactive && i-start < len(homerow) {
 				fmt.Printf("[%c] %s\n", homerow[i-start], results[i])
 			} else {
 				fmt.Println(results[i])
 			}
 		}
 
-		if !openMode {
+		if !interactive {
 			break
 		}
 
@@ -65,20 +68,23 @@ func displayPaginatedResults(results []string, openMode bool, onSelect func(stri
 	}
 }
 
-func displayPaginatedSearchResults(results []core.SearchResult, openMode bool) {
+func displayPaginatedSearchResultsWithMode(results []core.SearchResult, interactive bool, deleteMode bool, pageSize int) {
 	if len(results) == 0 {
 		fmt.Println("No results found.")
 		return
 	}
 
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+
 	homerow := []rune{'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'}
 	page := 0
-	pageSize := 10
 	totalPages := (len(results) + pageSize - 1) / pageSize
 
 	for {
 		start := page * pageSize
-		end := min(start + pageSize, len(results))
+		end := min(start+pageSize, len(results))
 
 		if start >= end {
 			break
@@ -90,7 +96,7 @@ func displayPaginatedSearchResults(results []core.SearchResult, openMode bool) {
 
 		for i := start; i < end; i++ {
 			result := results[i]
-			if openMode && i-start < len(homerow) {
+			if interactive && i-start < len(homerow) {
 				if result.Score > 1 {
 					fmt.Printf("[%c] %s (matched %d tags)\n", homerow[i-start], result.Title, result.Score)
 				} else {
@@ -105,7 +111,7 @@ func displayPaginatedSearchResults(results []core.SearchResult, openMode bool) {
 			}
 		}
 
-		if !openMode {
+		if !interactive {
 			break
 		}
 
@@ -121,12 +127,20 @@ func displayPaginatedSearchResults(results []core.SearchResult, openMode bool) {
 		}
 		for i := start; i < end && i-start < len(homerow); i++ {
 			if input == string(homerow[i-start]) {
-				cfg, err := data.LoadConfig()
-				if err != nil {
-					fmt.Println("Error loading config:", err)
-					return
+				if deleteMode {
+					if err := core.DeleteNote(results[i].Title); err != nil {
+						fmt.Println("Error:", err)
+						return
+					}
+					fmt.Println("Note moved to trash:", results[i].Title)
+				} else {
+					cfg, err := data.LoadConfig()
+					if err != nil {
+						fmt.Println("Error loading config:", err)
+						return
+					}
+					data.OpenFileInEditor(results[i].FilePath, cfg.Editor)
 				}
-				data.OpenFileInEditor(results[i].FilePath, cfg.Editor)
 				return
 			}
 		}
@@ -134,18 +148,20 @@ func displayPaginatedSearchResults(results []core.SearchResult, openMode bool) {
 	}
 }
 
-func RecentCommand(args []string) {
-	n := 10
-	openMode := false
-	for _, arg := range args {
-		if arg == "--open" || arg == "-o" {
-			openMode = true
-		} else if v, err := strconv.Atoi(arg); err == nil && v > 0 {
-			n = v
+func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool) {
+	args := ParseArgs(rawArgs)
+	openMode := defaultOpen || args.Has("o", "open")
+	deleteMode := defaultDelete || args.Has("d", "delete")
+	pageSize := args.IntOr(10, "n", "limit")
+
+	// Support bare number as first positional arg (e.g., "gote r 5")
+	if pageSize == 10 && args.First() != "" {
+		if v, err := strconv.Atoi(args.First()); err == nil && v > 0 {
+			pageSize = v
 		}
 	}
 
-	notes, err := core.GetRecentNotes(n)
+	notes, err := core.GetRecentNotes(-1) // Get all
 	if err != nil {
 		fmt.Println("Error getting recent notes:", err)
 		return
@@ -156,7 +172,18 @@ func RecentCommand(args []string) {
 		titles = append(titles, note.Title)
 	}
 
-	displayPaginatedResults(titles, openMode, func(title string) {
+	if deleteMode {
+		displayPaginatedResults(titles, true, pageSize, func(title string) {
+			if err := core.DeleteNote(title); err != nil {
+				fmt.Println("Error:", err)
+				return
+			}
+			fmt.Println("Note moved to trash:", title)
+		})
+		return
+	}
+
+	displayPaginatedResults(titles, openMode, pageSize, func(title string) {
 		cfg, err := data.LoadConfig()
 		if err != nil {
 			fmt.Println("Error loading config:", err)
@@ -169,13 +196,16 @@ func RecentCommand(args []string) {
 	})
 }
 
-func SearchCommand(args []string) {
-	if len(args) > 0 && args[0] == "trash" {
-		if len(args) < 2 {
+func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool) {
+	args := ParseArgs(rawArgs)
+
+	// Handle "search trash <query>" subcommand
+	if args.First() == "trash" {
+		query := strings.ToLower(strings.Join(args.Rest(), " "))
+		if query == "" {
 			fmt.Println("Usage: gote search trash <query>")
 			return
 		}
-		query := strings.ToLower(strings.Join(args[1:], " "))
 		results, err := core.SearchTrash(query)
 		if err != nil {
 			fmt.Println("Could not read trash:", err)
@@ -191,50 +221,15 @@ func SearchCommand(args []string) {
 		return
 	}
 
-	openMode := false
-	var filteredArgs []string
-	for _, arg := range args {
-		if arg == "--open" || arg == "-o" {
-			openMode = true
-		} else {
-			filteredArgs = append(filteredArgs, arg)
-		}
-	}
+	openMode := defaultOpen || args.Has("o", "open")
+	deleteMode := defaultDelete || args.Has("d", "delete")
+	interactive := openMode || deleteMode
+	pageSize := args.IntOr(10, "n", "limit")
+	tags := args.List("t", "tags")
 
-	if len(filteredArgs) == 0 {
-		fmt.Println("Usage: gote search <query> OR gote search -t <tag1> ... [-n <number>]")
-		return
-	}
-
-	n := -1
-	tagsMode := false
-	tags := []string{}
-	for i := 0; i < len(filteredArgs); i++ {
-		if filteredArgs[i] == "-n" {
-			if n == -1 {
-				n = 10
-			}
-			if i+1 < len(filteredArgs) {
-				if v, err := strconv.Atoi(filteredArgs[i+1]); err == nil && v > 0 {
-					n = v
-					i++
-				}
-			}
-		} else if filteredArgs[i] == "-t" {
-			tagsMode = true
-			for j := i + 1; j < len(filteredArgs) && filteredArgs[j] != "-n"; j++ {
-				tags = append(tags, filteredArgs[j])
-				i = j
-			}
-		}
-	}
-
-	if tagsMode {
-		if len(tags) == 0 {
-			fmt.Println("Usage: gote search -t <tag1> ... [-n <number>]")
-			return
-		}
-		results, err := core.SearchNotesByTags(tags, n)
+	// Tag search mode
+	if len(tags) > 0 {
+		results, err := core.SearchNotesByTags(tags, -1) // Get all
 		if err != nil {
 			fmt.Println("Error searching by tags:", err)
 			return
@@ -243,12 +238,18 @@ func SearchCommand(args []string) {
 			fmt.Println("No notes found for the given tags.")
 			return
 		}
-		displayPaginatedSearchResults(results, openMode)
+		displayPaginatedSearchResultsWithMode(results, interactive, deleteMode, pageSize)
 		return
 	}
 
-	query := strings.ToLower(strings.Join(filteredArgs, " "))
-	results, err := core.SearchNotesByTitle(query, n)
+	// Title search mode
+	query := strings.ToLower(args.Joined())
+	if query == "" {
+		fmt.Println("Usage: gote search <query> OR gote search -t <tag1> ... [-n <pageSize>]")
+		return
+	}
+
+	results, err := core.SearchNotesByTitle(query, -1) // Get all
 	if err != nil {
 		fmt.Println("Error searching notes:", err)
 		return
@@ -257,6 +258,6 @@ func SearchCommand(args []string) {
 		fmt.Println("No matching note titles found.")
 		return
 	}
-	displayPaginatedSearchResults(results, openMode)
+	displayPaginatedSearchResultsWithMode(results, interactive, deleteMode, pageSize)
 }
 
