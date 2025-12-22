@@ -28,3 +28,7 @@ func RecoverNote(noteName string) error {
 func ListTrashedNotes() ([]string, error) {
 	return data.ListTrashedNotes()
 }
+
+func EmptyTrash() (int, error) {
+	return data.EmptyTrash()
+}

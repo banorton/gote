@@ -26,13 +26,18 @@ func TrashNote(noteName string, noteMeta NoteMeta) error {
 	if err == nil {
 		if _, pinned := pins[noteName]; pinned {
 			delete(pins, noteName)
-			SavePins(pins)
+			if err := SavePins(pins); err != nil {
+				return fmt.Errorf("error saving pins: %w", err)
+			}
 		}
 	}
 
 	index := LoadIndex()
 	delete(index, noteName)
-	return SaveIndex(index)
+	if err := SaveIndex(index); err != nil {
+		return err
+	}
+	return UpdateTagsIndex(index)
 }
 
 func ListTrashedNotes() ([]string, error) {
@@ -75,7 +80,10 @@ func RecoverNote(noteName, notesDir string) error {
 		return fmt.Errorf("error indexing restored note: %w", err)
 	}
 	index[noteName] = meta
-	return SaveIndex(index)
+	if err := SaveIndex(index); err != nil {
+		return err
+	}
+	return UpdateTagsIndex(index)
 }
 
 func SearchTrash(query string) ([]string, error) {
@@ -95,4 +103,28 @@ func SearchTrash(query string) ([]string, error) {
 		}
 	}
 	return results, nil
+}
+
+func EmptyTrash() (int, error) {
+	trashDir := TrashPath()
+	files, err := os.ReadDir(trashDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
+		return 0, err
+	}
+
+	count := 0
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+		filePath := filepath.Join(trashDir, f.Name())
+		if err := os.Remove(filePath); err != nil {
+			return count, fmt.Errorf("error removing %s: %w", f.Name(), err)
+		}
+		count++
+	}
+	return count, nil
 }
