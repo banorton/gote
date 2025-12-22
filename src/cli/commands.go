@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -20,8 +21,12 @@ func QuickCommand() {
 	NoteCommand([]string{"quick"})
 }
 
-func IndexCommand(args []string) {
-	if len(args) == 0 {
+func IndexCommand(rawArgs []string) {
+	args := ParseArgs(rawArgs)
+	sub := args.First()
+
+	switch sub {
+	case "":
 		cfg, err := data.LoadConfig()
 		if err != nil {
 			fmt.Println("Error loading config:", err)
@@ -32,10 +37,6 @@ func IndexCommand(args []string) {
 		} else {
 			fmt.Println("All notes indexed.")
 		}
-		return
-	}
-
-	switch args[0] {
 	case "edit":
 		if err := data.FormatIndexFile(); err != nil {
 			fmt.Println("Error trying to format index file. Got:", err.Error())
@@ -55,12 +56,17 @@ func IndexCommand(args []string) {
 		}
 		fmt.Println("Index file formatted.")
 	default:
-		fmt.Println("Error: gote index doesn't support arg:", args[0])
+		fmt.Println("Unknown subcommand:", sub)
+		fmt.Println("Usage: gote index [edit|format]")
 	}
 }
 
-func TagsCommand(args []string) {
-	if len(args) == 0 {
+func TagsCommand(rawArgs []string) {
+	args := ParseArgs(rawArgs)
+	sub := args.First()
+
+	switch sub {
+	case "":
 		tags, err := core.ListTags()
 		if err != nil {
 			fmt.Println("Could not read tags file:", err)
@@ -69,10 +75,6 @@ func TagsCommand(args []string) {
 		for tagName, tag := range tags {
 			fmt.Printf("%s (%d)\n", tagName, tag.Count)
 		}
-		return
-	}
-
-	switch args[0] {
 	case "edit":
 		cfg, err := data.LoadConfig()
 		if err != nil {
@@ -89,9 +91,10 @@ func TagsCommand(args []string) {
 		}
 		fmt.Println("Tags file formatted.")
 	case "popular":
-		n := 10
-		if len(args) > 1 {
-			if v, err := strconv.Atoi(args[1]); err == nil && v > 0 {
+		n := args.IntOr(10, "n", "limit")
+		// Also support bare number: "gote tags popular 5"
+		if n == 10 && len(args.Rest()) > 0 {
+			if v, err := strconv.Atoi(args.Rest()[0]); err == nil && v > 0 {
 				n = v
 			}
 		}
@@ -105,30 +108,20 @@ func TagsCommand(args []string) {
 			fmt.Printf("%s (%d)\n", tag.Tag, tag.Count)
 		}
 	default:
-		fmt.Println("Error: gote tags doesn't support arg:", args[0])
+		fmt.Println("Unknown subcommand:", sub)
+		fmt.Println("Usage: gote tags [edit|format|popular]")
 	}
 }
 
-func TagCommand(args []string) {
-	if len(args) < 3 {
-		fmt.Println("Usage: gote tag <note name> -t <tag1> <tag2> ... <tagN>")
+func TagCommand(rawArgs []string) {
+	args := ParseArgs(rawArgs)
+	noteName := args.Joined()
+	tagsToAdd := args.List("t", "tags")
+
+	if noteName == "" || len(tagsToAdd) == 0 {
+		fmt.Println("Usage: gote tag <note name> -t <tag1> <tag2> ...")
 		return
 	}
-
-	tFlag := -1
-	for i, arg := range args {
-		if arg == "-t" {
-			tFlag = i
-			break
-		}
-	}
-	if tFlag == -1 || tFlag == 0 || tFlag == len(args)-1 {
-		fmt.Println("Usage: gote tag <note name> -t <tag1> <tag2> ... <tagN>")
-		return
-	}
-
-	noteName := strings.Join(args[:tFlag], " ")
-	tagsToAdd := args[tFlag+1:]
 
 	if err := core.AddTagsToNote(noteName, tagsToAdd); err != nil {
 		fmt.Println("Error:", err)
@@ -138,8 +131,12 @@ func TagCommand(args []string) {
 	fmt.Println("Tags updated for note:", noteName)
 }
 
-func ConfigCommand(args []string) {
-	if len(args) == 0 {
+func ConfigCommand(rawArgs []string) {
+	args := ParseArgs(rawArgs)
+	sub := args.First()
+
+	switch sub {
+	case "", "show":
 		cfg, err := data.LoadConfig()
 		if err != nil {
 			fmt.Println("Error loading config:", err.Error())
@@ -147,18 +144,9 @@ func ConfigCommand(args []string) {
 		}
 		fmt.Println("Config settings:")
 		data.PrettyPrintJSON(cfg)
-		return
-	}
-
-	switch args[0] {
 	case "edit":
-		cfg, err := data.LoadConfig()
-		if err != nil {
-			fmt.Println("Error loading config:", err)
-			return
-		}
-		configPath := data.GoteDir() + "/config.json"
-		if err := data.OpenFileInEditor(configPath, cfg.Editor); err != nil {
+		configPath := filepath.Join(data.GoteDir(), "config.json")
+		if err := data.OpenFileInEditor(configPath, "vim"); err != nil {
 			fmt.Println(err)
 		}
 	case "format":
@@ -168,12 +156,7 @@ func ConfigCommand(args []string) {
 		}
 		fmt.Println("Config file formatted.")
 	default:
-		cfg, err := data.LoadConfig()
-		if err != nil {
-			fmt.Println("Error loading config:", err.Error())
-			return
-		}
-		fmt.Println("Config settings:")
-		data.PrettyPrintJSON(cfg)
+		fmt.Println("Unknown subcommand:", sub)
+		fmt.Println("Usage: gote config [edit|format|show]")
 	}
 }

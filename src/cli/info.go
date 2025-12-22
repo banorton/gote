@@ -8,24 +8,15 @@ import (
 	"gote/src/core"
 )
 
-func RenameCommand(args []string) {
-	if len(args) < 3 {
-		fmt.Println("Usage: gote rename <notename> -n <newnotename>")
+func RenameCommand(rawArgs []string) {
+	args := ParseArgs(rawArgs)
+	oldName := args.Joined()
+	newName := strings.Join(args.List("n", "name"), " ")
+
+	if oldName == "" || newName == "" {
+		fmt.Println("Usage: gote rename <note name> -n <new name>")
 		return
 	}
-	nIdx := -1
-	for i, arg := range args {
-		if arg == "-n" {
-			nIdx = i
-			break
-		}
-	}
-	if nIdx == -1 || nIdx == 0 || nIdx == len(args)-1 {
-		fmt.Println("Usage: gote rename <notename> -n <newnotename>")
-		return
-	}
-	oldName := strings.Join(args[:nIdx], " ")
-	newName := strings.Join(args[nIdx+1:], " ")
 
 	if err := core.RenameNote(oldName, newName); err != nil {
 		fmt.Println("Error:", err)
@@ -34,12 +25,15 @@ func RenameCommand(args []string) {
 	fmt.Printf("Renamed note '%s' to '%s'\n", oldName, newName)
 }
 
-func InfoCommand(args []string) {
-	if len(args) == 0 {
+func InfoCommand(rawArgs []string) {
+	args := ParseArgs(rawArgs)
+	noteName := args.Joined()
+
+	if noteName == "" {
 		fmt.Println("Usage: gote info <note name>")
 		return
 	}
-	noteName := strings.Join(args, " ")
+
 	meta, err := core.GetNoteInfo(noteName)
 	if err != nil {
 		fmt.Println("Error:", err)

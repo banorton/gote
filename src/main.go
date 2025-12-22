@@ -14,52 +14,89 @@ func main() {
 		return
 	}
 
-	switch args[1] {
+	cmd := args[1]
+	rest := args[2:]
+
+	switch cmd {
+	// Notes
 	case "quick", "q":
 		cli.QuickCommand()
-	case "recent", "r", "ro":
-		if args[1] == "ro" {
-			cli.RecentCommand(append(args[2:], "--open"))
-		} else {
-			cli.RecentCommand(args[2:])
-		}
+
+	// Recent notes
+	case "recent", "r":
+		cli.RecentCommand(rest, false, false)
+	case "ro": // recent + open
+		cli.RecentCommand(rest, true, false)
+	case "rd": // recent + delete
+		cli.RecentCommand(rest, false, true)
+
+	// Search
+	case "search", "s":
+		cli.SearchCommand(rest, false, false)
+	case "so": // search + open
+		cli.SearchCommand(rest, true, false)
+	case "sd": // search + delete
+		cli.SearchCommand(rest, false, true)
+
+	// Index management
 	case "index", "idx":
-		cli.IndexCommand(args[2:])
+		cli.IndexCommand(rest)
+
+	// Tags
 	case "tags", "ts":
-		cli.TagsCommand(args[2:])
+		cli.TagsCommand(rest)
 	case "tag", "t":
-		cli.TagCommand(args[2:])
+		cli.TagCommand(rest)
+
+	// Config
 	case "config", "c":
-		cli.ConfigCommand(args[2:])
-	case "search", "s", "so":
-		if args[1] == "so" {
-			cli.SearchCommand(append(args[2:], "--open"))
-		} else {
-			cli.SearchCommand(args[2:])
-		}
+		cli.ConfigCommand(rest)
+
+	// Pins
 	case "pin", "p":
-		cli.PinCommand(args[2:])
+		cli.PinCommand(rest)
 	case "unpin", "u", "up":
-		cli.UnpinCommand(args[2:])
+		cli.UnpinCommand(rest)
 	case "pinned", "pd":
-		cli.PinnedCommand(args[2:])
-	case "delete", "d", "del", "trash":
-		cli.DeleteCommand(args[2:])
+		cli.PinnedCommand(rest, false)
+	case "po": // pinned + open
+		cli.PinnedCommand(rest, true)
+
+	// Trash
+	case "delete", "d", "del":
+		cli.DeleteCommand(rest)
+	case "trash":
+		cli.TrashCommand(rest)
 	case "recover":
-		cli.RecoverCommand(args[2:])
+		cli.RecoverCommand(rest)
+
+	// Note operations
 	case "rename", "mv", "rn":
-		cli.RenameCommand(args[2:])
+		cli.RenameCommand(rest)
 	case "info", "i":
-		cli.InfoCommand(args[2:])
+		cli.InfoCommand(rest)
+
+	// Help
 	case "help", "h", "man":
-		cli.HelpCommand(args[2:])
+		cli.HelpCommand(rest)
+
+	// Not implemented
 	case "view", "v":
+		cli.NotImplementedCommand("view")
 	case "popular", "pop":
+		cli.NotImplementedCommand("popular")
 	case "today":
+		cli.NotImplementedCommand("today")
 	case "journal", "j":
+		cli.NotImplementedCommand("journal")
 	case "transfer":
+		cli.NotImplementedCommand("transfer")
 	case "calendar", "cal":
+		cli.NotImplementedCommand("calendar")
 	case "lint", "l":
+		cli.NotImplementedCommand("lint")
+
+	// Default: open/create note
 	default:
 		cli.NoteCommand(args[1:])
 	}

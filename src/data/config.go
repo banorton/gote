@@ -13,15 +13,22 @@ type Config struct {
 }
 
 func DefaultConfig() Config {
-	homeDir, _ := os.UserHomeDir()
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		panic(fmt.Sprintf("could not determine home directory: %v", err))
+	}
 	return Config{
 		NoteDir: filepath.Join(homeDir, "gotes"),
 		Editor:  "vim",
 	}
 }
 
-func GoteDir() string {
-	homeDir, _ := os.UserHomeDir()
+// GoteDir returns the gote config directory. It's a variable so tests can override it.
+var GoteDir = func() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		panic(fmt.Sprintf("could not determine home directory: %v", err))
+	}
 	return filepath.Join(homeDir, ".gote")
 }
 
