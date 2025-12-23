@@ -23,17 +23,17 @@ Usage:
 
 Notes:
   gote recent | r [-n <size>]     List recent notes
-  gote ro [-n <size>]             Recent + open mode
-  gote rd [-n <size>]             Recent + delete mode
-  gote rp [-n <size>]             Recent + pin mode
+  gote ro | recent open           Recent + open mode
+  gote rd | recent delete         Recent + delete mode
+  gote rp | recent pin            Recent + pin mode
   gote info | i <note>            Show note metadata
   gote rename | mv | rn <note> -n <new>  Rename a note
 
 Search:
   gote search | s <query> [-n <size>]  Search notes by title
-  gote so <query> [-n <size>]     Search + open mode
-  gote sd <query> [-n <size>]     Search + delete mode
-  gote sp <query> [-n <size>]     Search + pin mode
+  gote so | search open <query>   Search + open mode
+  gote sd | search delete <query> Search + delete mode
+  gote sp | search pin <query>    Search + pin mode
   gote search -t <tag1> <tag2>    Search by tags
   gote search -w <date> [<date>]  Search by date (created)
   gote search -w <date> --modified  Search by date (modified)
@@ -52,7 +52,7 @@ Pins:
   gote pin | p <note>             Pin a note
   gote pin                        List pinned notes
   gote pinned | pd [-n <size>]    List pinned notes
-  gote po [-n <size>]             Pinned + open mode
+  gote po | pinned open           Pinned + open mode
   gote unpin | u | up <note>      Unpin a note
 
 Trash:
