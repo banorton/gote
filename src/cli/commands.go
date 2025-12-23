@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -48,9 +49,26 @@ func IndexCommand(rawArgs []string) {
 			return
 		}
 		ui.Success("Index file formatted.")
+	case "clear":
+		fmt.Print("This will delete and rebuild the index. Continue? [y/N]: ")
+		key, _ := ReadKey(cfg.FancyUI)
+		if !cfg.FancyUI {
+			fmt.Println()
+		}
+		if key != 'y' && key != 'Y' {
+			ui.Info("Cancelled.")
+			return
+		}
+		os.Remove(data.IndexPath())
+		os.Remove(data.TagsPath())
+		if err := data.IndexNotes(cfg.NoteDir); err != nil {
+			ui.Error(err.Error())
+		} else {
+			ui.Success("Index cleared and rebuilt.")
+		}
 	default:
 		fmt.Println("Unknown subcommand:", sub)
-		fmt.Println("Usage: gote index [edit|format]")
+		fmt.Println("Usage: gote index [edit|format|clear]")
 	}
 }
 

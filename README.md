@@ -43,6 +43,7 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote index` | `idx` | Rebuild the note index |
 | `gote index edit` | | Edit index file |
 | `gote index format` | | Format index file |
+| `gote index clear` | | Clear and rebuild index from scratch |
 | `gote config` | `c` | Show config |
 | `gote config edit` | | Edit config (uses vim) |
 | `gote config format` | | Format config file |
