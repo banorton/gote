@@ -207,7 +207,7 @@ func TagsCommand(rawArgs []string) {
 func TagCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	noteName := args.Joined()
-	tagsToAdd := args.List("t", "tags")
+	tagsToAdd := args.TagList("t", "tags")
 
 	cfg, _ := data.LoadConfig()
 	ui := NewUI(cfg.FancyUI)

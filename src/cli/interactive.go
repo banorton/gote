@@ -410,7 +410,7 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 
 	interactive := openMode || deleteMode || pinMode
 	pageSize := args.IntOr(cfg.PageSize(), "n", "limit")
-	tags := args.List("t", "tags")
+	tags := args.TagList("t", "tags")
 	dateValues := args.List("w", "when")
 
 	// Date search mode: -w <date> [<date>] [--modified]
