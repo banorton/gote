@@ -65,9 +65,13 @@ func TrashCommand(rawArgs []string) {
 			ui.Empty("Trash is empty.")
 			return
 		}
-		ui.Title("Trashed notes")
-		for _, note := range notes {
-			ui.ListItem(0, note, false)
+		if cfg.FancyUI {
+			ui.Box("Trash", notes, 0)
+		} else {
+			fmt.Println("Trashed notes:")
+			for _, note := range notes {
+				fmt.Println(note)
+			}
 		}
 	case "empty":
 		count, err := core.EmptyTrash()
@@ -95,8 +99,12 @@ func TrashCommand(rawArgs []string) {
 			ui.Empty("No matching trashed notes found.")
 			return
 		}
-		for _, r := range results {
-			ui.ListItem(0, r, false)
+		if cfg.FancyUI {
+			ui.Box("Trash Search", results, 0)
+		} else {
+			for _, r := range results {
+				fmt.Println(r)
+			}
 		}
 	default:
 		// Treat as note name to delete

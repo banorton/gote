@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 )
 
-// ANSI color codes
+// ANSI escape codes
 const (
 	Reset     = "\033[0m"
 	Bold      = "\033[1m"
@@ -15,8 +18,20 @@ const (
 	Yellow    = "\033[33m"
 	Blue      = "\033[34m"
 	Magenta   = "\033[35m"
+	White     = "\033[37m"
 	BoldCyan  = "\033[1;36m"
 	BoldGreen = "\033[1;32m"
+	BgBlue    = "\033[44m"
+	Reverse   = "\033[7m"
+)
+
+// Screen control
+const (
+	ClearScreen = "\033[2J"
+	CursorHome  = "\033[H"
+	CursorHide  = "\033[?25l"
+	CursorShow  = "\033[?25h"
+	ClearLine   = "\033[K"
 )
 
 // Box drawing characters
@@ -31,85 +46,191 @@ const (
 	BoxTeeLeft     = "┤"
 )
 
-// UI holds the fancy UI state
+// UI holds the UI state
 type UI struct {
 	Fancy bool
 }
 
-// NewUI creates a UI instance based on config
+// NewUI creates a UI instance
 func NewUI(fancy bool) *UI {
 	return &UI{Fancy: fancy}
 }
 
-// Title prints a styled title
-func (u *UI) Title(text string) {
+// Clear clears the screen and moves cursor home
+func (u *UI) Clear() {
 	if u.Fancy {
-		fmt.Printf("%s%s%s\n", BoldCyan, text, Reset)
+		fmt.Print(ClearScreen + CursorHome)
+	}
+}
+
+// HideCursor hides the cursor
+func (u *UI) HideCursor() {
+	if u.Fancy {
+		fmt.Print(CursorHide)
+	}
+}
+
+// ShowCursor shows the cursor
+func (u *UI) ShowCursor() {
+	if u.Fancy {
+		fmt.Print(CursorShow)
+	}
+}
+
+// Box draws a box with title and content
+func (u *UI) Box(title string, lines []string, width int) {
+	if !u.Fancy {
+		if title != "" {
+			fmt.Println(title + ":")
+		}
+		for _, line := range lines {
+			fmt.Println(line)
+		}
+		return
+	}
+
+	// Calculate width
+	if width == 0 {
+		width = len(title) + 4
+		for _, line := range lines {
+			if len(line)+4 > width {
+				width = len(line) + 4
+			}
+		}
+	}
+	if width < 20 {
+		width = 20
+	}
+
+	// Top border with title
+	if title != "" {
+		titlePart := fmt.Sprintf(" %s ", title)
+		remaining := width - len(titlePart) - 2
+		left := remaining / 2
+		right := remaining - left
+		fmt.Printf("%s%s%s%s%s%s%s\n",
+			Cyan, BoxTopLeft,
+			strings.Repeat(BoxHorizontal, left),
+			Reset+Bold+titlePart+Reset+Cyan,
+			strings.Repeat(BoxHorizontal, right),
+			BoxTopRight, Reset)
+	} else {
+		fmt.Printf("%s%s%s%s%s\n",
+			Cyan, BoxTopLeft,
+			strings.Repeat(BoxHorizontal, width-2),
+			BoxTopRight, Reset)
+	}
+
+	// Content
+	for _, line := range lines {
+		padding := width - len(line) - 4
+		if padding < 0 {
+			padding = 0
+		}
+		fmt.Printf("%s%s%s %s%s %s%s%s\n",
+			Cyan, BoxVertical, Reset,
+			line, strings.Repeat(" ", padding),
+			Cyan, BoxVertical, Reset)
+	}
+
+	// Bottom border
+	fmt.Printf("%s%s%s%s%s\n",
+		Cyan, BoxBottomLeft,
+		strings.Repeat(BoxHorizontal, width-2),
+		BoxBottomRight, Reset)
+}
+
+// SelectableList renders an interactive selectable list with box
+func (u *UI) SelectableList(title string, items []string, selected int, keys []rune) {
+	if !u.Fancy {
+		if title != "" {
+			fmt.Println(title + ":")
+		}
+		for i, item := range items {
+			if i < len(keys) && keys[i] != 0 {
+				fmt.Printf("[%c] %s\n", keys[i], item)
+			} else {
+				fmt.Println(item)
+			}
+		}
+		return
+	}
+
+	// Calculate width
+	width := len(title) + 4
+	for _, item := range items {
+		itemWidth := len(item) + 8 // account for key prefix
+		if itemWidth > width {
+			width = itemWidth
+		}
+	}
+	if width < 30 {
+		width = 30
+	}
+
+	var lines []string
+	for i, item := range items {
+		var line string
+		key := rune(0)
+		if i < len(keys) {
+			key = keys[i]
+		}
+
+		if i == selected {
+			// Highlighted selection
+			if key != 0 {
+				line = fmt.Sprintf("%s%s [%c] %s %s", Reverse, White, key, item, Reset)
+			} else {
+				line = fmt.Sprintf("%s%s  •  %s %s", Reverse, White, item, Reset)
+			}
+		} else {
+			if key != 0 {
+				line = fmt.Sprintf(" %s[%s%c%s]%s %s", Dim, Yellow, key, Dim, Reset, item)
+			} else {
+				line = fmt.Sprintf(" %s•%s  %s", Cyan, Reset, item)
+			}
+		}
+		lines = append(lines, line)
+	}
+
+	u.Box(title, lines, width+4)
+}
+
+// StatusBar draws a status bar at the bottom
+func (u *UI) StatusBar(text string) {
+	if u.Fancy {
+		fmt.Printf("\n%s%s %s %s\n", BgBlue, White, text, Reset)
 	} else {
 		fmt.Println(text)
 	}
 }
 
-// Header prints a section header with optional box
-func (u *UI) Header(text string) {
-	if u.Fancy {
-		width := len(text) + 4
-		fmt.Printf("%s%s%s%s\n", Cyan, BoxTopLeft, strings.Repeat(BoxHorizontal, width), BoxTopRight)
-		fmt.Printf("%s  %s%s%s  %s\n", BoxVertical, Bold, text, Reset+Cyan, BoxVertical)
-		fmt.Printf("%s%s%s%s\n", BoxBottomLeft, strings.Repeat(BoxHorizontal, width), BoxBottomRight, Reset)
-	} else {
-		fmt.Println(text + ":")
+// NavHint shows navigation hints
+func (u *UI) NavHint(page, total int, hasKeys bool) {
+	if !u.Fancy {
+		fmt.Printf("(%d/%d) ", page, total)
+		if total > 1 {
+			fmt.Print("[n]ext [p]rev ")
+		}
+		if hasKeys {
+			fmt.Print("[key] select ")
+		}
+		fmt.Println("[q]uit")
+		return
 	}
-}
 
-// ListItem prints a list item with optional selection key
-func (u *UI) ListItem(key rune, text string, selected bool) {
-	if u.Fancy {
-		if key != 0 {
-			fmt.Printf("  %s[%s%c%s]%s %s\n", Dim, Yellow, key, Dim, Reset, text)
-		} else {
-			fmt.Printf("  %s•%s %s\n", Cyan, Reset, text)
-		}
-	} else {
-		if key != 0 {
-			fmt.Printf("[%c] %s\n", key, text)
-		} else {
-			fmt.Println(text)
-		}
+	var hints []string
+	hints = append(hints, fmt.Sprintf("%s(%d/%d)%s", Dim, page, total, Reset))
+	if total > 1 {
+		hints = append(hints, fmt.Sprintf("%s[%sn%s]%s next", Dim, Green, Dim, Reset))
+		hints = append(hints, fmt.Sprintf("%s[%sp%s]%s prev", Dim, Green, Dim, Reset))
 	}
-}
+	if hasKeys {
+		hints = append(hints, fmt.Sprintf("%s[%skey%s]%s select", Dim, Yellow, Dim, Reset))
+	}
+	hints = append(hints, fmt.Sprintf("%s[%sq%s]%s quit", Dim, Green, Dim, Reset))
 
-// ListItemWithMeta prints a list item with additional metadata
-func (u *UI) ListItemWithMeta(key rune, text string, meta string) {
-	if u.Fancy {
-		if key != 0 {
-			fmt.Printf("  %s[%s%c%s]%s %s %s%s%s\n", Dim, Yellow, key, Dim, Reset, text, Dim, meta, Reset)
-		} else {
-			fmt.Printf("  %s•%s %s %s%s%s\n", Cyan, Reset, text, Dim, meta, Reset)
-		}
-	} else {
-		if key != 0 {
-			fmt.Printf("[%c] %s %s\n", key, text, meta)
-		} else {
-			fmt.Printf("%s %s\n", text, meta)
-		}
-	}
-}
-
-// Nav prints the navigation bar
-func (u *UI) Nav(page, total int) {
-	if u.Fancy {
-		fmt.Println()
-		fmt.Printf("%s(%s%d%s/%s%d%s)%s\n",
-			Dim, Yellow, page, Dim, Yellow, total, Dim, Reset)
-		fmt.Printf("%s[%sn%s]%s next  %s[%sp%s]%s prev  %s[%sq%s]%s quit\n",
-			Dim, Green, Dim, Reset,
-			Dim, Green, Dim, Reset,
-			Dim, Green, Dim, Reset)
-		fmt.Printf("%s:%s ", Cyan, Reset)
-	} else {
-		fmt.Printf("\n(%d/%d)\n[n] next [p] prev [q] quit\n: ", page, total)
-	}
+	fmt.Printf("\n %s\n", strings.Join(hints, "  "))
 }
 
 // Success prints a success message
@@ -148,10 +269,12 @@ func (u *UI) Empty(text string) {
 	}
 }
 
-// Divider prints a horizontal divider
-func (u *UI) Divider() {
+// Title prints a styled title
+func (u *UI) Title(text string) {
 	if u.Fancy {
-		fmt.Printf("%s%s%s\n", Dim, strings.Repeat(BoxHorizontal, 40), Reset)
+		fmt.Printf("%s%s%s\n", BoldCyan, text, Reset)
+	} else {
+		fmt.Println(text)
 	}
 }
 
@@ -162,14 +285,6 @@ func (u *UI) KeyValue(key, value string) {
 	} else {
 		fmt.Printf("%s: %s\n", key, value)
 	}
-}
-
-// Tag prints a styled tag
-func (u *UI) Tag(tag string) string {
-	if u.Fancy {
-		return fmt.Sprintf("%s#%s%s", Magenta, tag, Reset)
-	}
-	return tag
 }
 
 // Tags prints multiple tags
@@ -186,4 +301,121 @@ func (u *UI) Tags(tags []string) {
 	} else {
 		fmt.Printf("Tags: %s\n", strings.Join(tags, ", "))
 	}
+}
+
+// ListItem prints a list item (non-interactive)
+func (u *UI) ListItem(key rune, text string, selected bool) {
+	if u.Fancy {
+		if key != 0 {
+			fmt.Printf("  %s[%s%c%s]%s %s\n", Dim, Yellow, key, Dim, Reset, text)
+		} else {
+			fmt.Printf("  %s•%s %s\n", Cyan, Reset, text)
+		}
+	} else {
+		if key != 0 {
+			fmt.Printf("[%c] %s\n", key, text)
+		} else {
+			fmt.Println(text)
+		}
+	}
+}
+
+// ListItemWithMeta prints a list item with metadata
+func (u *UI) ListItemWithMeta(key rune, text string, meta string) {
+	if u.Fancy {
+		if key != 0 {
+			fmt.Printf("  %s[%s%c%s]%s %s %s%s%s\n", Dim, Yellow, key, Dim, Reset, text, Dim, meta, Reset)
+		} else {
+			fmt.Printf("  %s•%s %s %s%s%s\n", Cyan, Reset, text, Dim, meta, Reset)
+		}
+	} else {
+		if key != 0 {
+			fmt.Printf("[%c] %s %s\n", key, text, meta)
+		} else {
+			fmt.Printf("%s %s\n", text, meta)
+		}
+	}
+}
+
+// ReadKey reads a single keypress (requires raw terminal mode)
+func ReadKey() (rune, error) {
+	// Try to set raw mode
+	if err := setRawMode(); err != nil {
+		// Fallback to buffered input
+		reader := bufio.NewReader(os.Stdin)
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return 0, err
+		}
+		input = strings.TrimSpace(input)
+		if len(input) == 0 {
+			return 0, nil
+		}
+		return rune(input[0]), nil
+	}
+	defer restoreTerminal()
+
+	// Read single byte
+	var buf [1]byte
+	_, err := os.Stdin.Read(buf[:])
+	if err != nil {
+		return 0, err
+	}
+	return rune(buf[0]), nil
+}
+
+var originalSttyState string
+
+func setRawMode() error {
+	// Save current state
+	cmd := exec.Command("stty", "-g")
+	cmd.Stdin = os.Stdin
+	out, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+	originalSttyState = strings.TrimSpace(string(out))
+
+	// Set raw mode: -echo (no echo), -icanon (no line buffering), min 1 (read at least 1 char)
+	cmd = exec.Command("stty", "-echo", "-icanon", "min", "1")
+	cmd.Stdin = os.Stdin
+	return cmd.Run()
+}
+
+func restoreTerminal() {
+	if originalSttyState != "" {
+		cmd := exec.Command("stty", originalSttyState)
+		cmd.Stdin = os.Stdin
+		cmd.Run()
+	}
+}
+
+// InfoBox displays key-value info in a box
+func (u *UI) InfoBox(title string, kvPairs [][2]string) {
+	if !u.Fancy {
+		if title != "" {
+			fmt.Println(title)
+		}
+		for _, kv := range kvPairs {
+			fmt.Printf("%s: %s\n", kv[0], kv[1])
+		}
+		return
+	}
+
+	// Find max key length for alignment
+	maxKey := 0
+	for _, kv := range kvPairs {
+		if len(kv[0]) > maxKey {
+			maxKey = len(kv[0])
+		}
+	}
+
+	var lines []string
+	for _, kv := range kvPairs {
+		padding := strings.Repeat(" ", maxKey-len(kv[0]))
+		line := fmt.Sprintf("%s%s%s:%s %s", Cyan, kv[0], padding, Reset, kv[1])
+		lines = append(lines, line)
+	}
+
+	u.Box(title, lines, 0)
 }

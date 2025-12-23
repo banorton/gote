@@ -72,8 +72,16 @@ func TagsCommand(rawArgs []string) {
 			ui.Empty("No tags found.")
 			return
 		}
+		var lines []string
 		for tagName, tag := range tags {
-			ui.ListItemWithMeta(0, tagName, fmt.Sprintf("(%d)", tag.Count))
+			lines = append(lines, fmt.Sprintf("%s (%d)", tagName, tag.Count))
+		}
+		if cfg.FancyUI {
+			ui.Box("Tags", lines, 0)
+		} else {
+			for _, line := range lines {
+				fmt.Println(line)
+			}
 		}
 	case "edit":
 		if err := data.OpenFileInEditor(data.TagsPath(), cfg.Editor); err != nil {
@@ -102,9 +110,17 @@ func TagsCommand(rawArgs []string) {
 			ui.Empty("No tags found.")
 			return
 		}
-		ui.Title(fmt.Sprintf("Top %d tags", len(tags)))
+		var lines []string
 		for _, tag := range tags {
-			ui.ListItemWithMeta(0, tag.Tag, fmt.Sprintf("(%d)", tag.Count))
+			lines = append(lines, fmt.Sprintf("%s (%d)", tag.Tag, tag.Count))
+		}
+		if cfg.FancyUI {
+			ui.Box(fmt.Sprintf("Top %d Tags", len(tags)), lines, 0)
+		} else {
+			fmt.Printf("Top %d tags:\n", len(tags))
+			for _, line := range lines {
+				fmt.Println(line)
+			}
 		}
 	default:
 		fmt.Println("Unknown subcommand:", sub)
@@ -143,11 +159,11 @@ func ConfigCommand(rawArgs []string) {
 	switch sub {
 	case "", "show":
 		if cfg.FancyUI {
-			ui.Title("Config settings")
-			fmt.Println()
-			ui.KeyValue("Note directory", cfg.NoteDir)
-			ui.KeyValue("Editor", cfg.Editor)
-			ui.KeyValue("Fancy UI", fmt.Sprintf("%v", cfg.FancyUI))
+			ui.InfoBox("Config", [][2]string{
+				{"Note directory", cfg.NoteDir},
+				{"Editor", cfg.Editor},
+				{"Fancy UI", fmt.Sprintf("%v", cfg.FancyUI)},
+			})
 		} else {
 			fmt.Println("Config settings:")
 			data.PrettyPrintJSON(cfg)
