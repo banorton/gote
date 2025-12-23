@@ -138,9 +138,9 @@ func TagsCommand(rawArgs []string) {
 		}
 		ui.Success("Tags file formatted.")
 	case "popular":
-		n := args.IntOr(10, "n", "limit")
+		n := args.IntOr(cfg.PageSize(), "n", "limit")
 		// Also support bare number: "gote tags popular 5"
-		if n == 10 && len(args.Rest()) > 0 {
+		if n == cfg.PageSize() && len(args.Rest()) > 0 {
 			if v, err := strconv.Atoi(args.Rest()[0]); err == nil && v > 0 {
 				n = v
 			}
@@ -227,20 +227,24 @@ func ConfigCommand(rawArgs []string) {
 		fmt.Println(`Config file: ~/.gote/config.json
 
 Options:
-  noteDir         Directory where notes are stored
-                  Default: ~/gotes
+  noteDir          Directory where notes are stored
+                   Default: ~/gotes
 
-  editor          Editor to open notes with
-                  Default: vim
+  editor           Editor to open notes with
+                   Default: vim
 
-  fancyUI         Enable TUI mode with boxes and single-keypress input
-                  Values: true, false
-                  Default: false
+  fancyUI          Enable TUI mode with boxes and single-keypress input
+                   Values: true, false
+                   Default: false
 
-  timestampNotes  Auto-prefix new notes with timestamp
-                  Values: "none", "date" (yymmdd), "datetime" (yymmdd-hhmmss)
-                  Default: none (no prefix)
-                  Can be overridden with -d or -dt flags`)
+  timestampNotes   Auto-prefix new notes with timestamp
+                   Values: "none", "date" (yymmdd), "datetime" (yymmdd-hhmmss)
+                   Default: none (no prefix)
+                   Can be overridden with -d or -dt flags
+
+  defaultPageSize  Number of results to show by default
+                   Default: 10
+                   Can be overridden with -n flag`)
 	default:
 		fmt.Println("Unknown subcommand:", sub)
 		fmt.Println("Usage: gote config [show|edit|format|help]")

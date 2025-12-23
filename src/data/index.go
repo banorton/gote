@@ -13,6 +13,7 @@ type NoteMeta struct {
 	FilePath  string   `json:"filePath"`
 	Title     string   `json:"title"`
 	Created   string   `json:"created"`
+	Modified  string   `json:"modified"`
 	WordCount int      `json:"wordCount"`
 	CharCount int      `json:"charCount"`
 	Tags      []string `json:"tags"`
@@ -119,7 +120,8 @@ func BuildNoteMeta(notePath string, info os.FileInfo) (NoteMeta, error) {
 	title := strings.TrimSuffix(filepath.Base(notePath), ".md")
 	wordCount := len(strings.Fields(text))
 	charCount := len([]rune(text))
-	created := info.ModTime().Format("060102.150405")
+	created := GetBirthtime(info).Format("060102.150405")
+	modified := info.ModTime().Format("060102.150405")
 	firstLine := ""
 	scanner := bufio.NewScanner(strings.NewReader(text))
 	if scanner.Scan() {
@@ -130,6 +132,7 @@ func BuildNoteMeta(notePath string, info os.FileInfo) (NoteMeta, error) {
 		FilePath:  notePath,
 		Title:     title,
 		Created:   created,
+		Modified:  modified,
 		WordCount: wordCount,
 		CharCount: charCount,
 		Tags:      tags,

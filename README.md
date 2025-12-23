@@ -21,6 +21,9 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote rp` | | Recent + pin mode |
 | `gote search [query]` | `s` | Search notes by title (prompts if no query) |
 | `gote search -t <tags>` | | Search notes by tags |
+| `gote search -d <date>` | | Search by creation date |
+| `gote search -d <date> <date>` | | Search date range (inclusive) |
+| `gote search -d <date> --modified` | `-m` | Search by modification date |
 | `gote so <query>` | | Search + open mode |
 | `gote sd <query>` | | Search + delete mode |
 | `gote sp <query>` | | Search + pin mode |
@@ -81,6 +84,15 @@ gote sd meeting      # search + delete
 gote sp meeting      # search + pin
 gote search -t work  # search by tags
 
+# Date search (by creation date)
+gote search -d 24           # all notes from 2024
+gote search -d 2412         # all notes from Dec 2024
+gote search -d 241223       # notes from Dec 23, 2024
+gote search -d 241223.15    # notes from 3pm hour
+gote search -d 2412 2501    # Dec 2024 through Jan 2025
+gote search -d 241201 241231  # Dec 1-31, 2024
+gote search -d 2412 --modified  # by modification date
+
 # Tags
 gote tags            # list all tags
 gote tags popular    # most used tags
@@ -115,7 +127,8 @@ Config file is at `~/.gote/config.json`:
   "noteDir": "/Users/you/gotes",
   "editor": "vim",
   "fancyUI": false,
-  "timestampNotes": "none"
+  "timestampNotes": "none",
+  "defaultPageSize": 10
 }
 ```
 
@@ -125,6 +138,7 @@ Config file is at `~/.gote/config.json`:
 | `editor` | Editor to open notes with |
 | `fancyUI` | Enable TUI mode with boxes, single-keypress input, and screen refresh |
 | `timestampNotes` | Auto-prefix notes: `"none"`, `"date"` (yymmdd), or `"datetime"` (yymmdd-hhmmss) |
+| `defaultPageSize` | Number of results to show by default (override with `-n`) |
 
 ## Tag Syntax
 
