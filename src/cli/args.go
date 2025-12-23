@@ -124,3 +124,28 @@ func (a Args) Rest() []string {
 func (a Args) Joined() string {
 	return strings.Join(a.Positional, " ")
 }
+
+// TagList returns tags parsed from period-delimited format (.tag1.tag2.tag three)
+func (a Args) TagList(names ...string) []string {
+	vals := a.List(names...)
+	if len(vals) == 0 {
+		return nil
+	}
+	raw := strings.Join(vals, " ")
+	return parseTagString(raw)
+}
+
+func parseTagString(s string) []string {
+	if !strings.HasPrefix(s, ".") {
+		return nil
+	}
+	parts := strings.Split(s, ".")
+	var tags []string
+	for _, p := range parts {
+		t := strings.ToLower(strings.TrimSpace(p))
+		if t != "" {
+			tags = append(tags, t)
+		}
+	}
+	return tags
+}

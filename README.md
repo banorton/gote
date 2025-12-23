@@ -22,7 +22,7 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote rd` | `recent delete` | Recent + delete mode |
 | `gote rp` | `recent pin` | Recent + pin mode |
 | `gote search [query]` | `s` | Search notes by title (prompts if no query) |
-| `gote search -t <tags>` | | Search notes by tags |
+| `gote search -t .tag1.tag2` | | Search notes by tags |
 | `gote search -w <date>` | `--when` | Search by creation date |
 | `gote search -w <date> <date>` | | Search date range (inclusive) |
 | `gote search -w <date> --modified` | `-m` | Search by modification date |
@@ -33,7 +33,7 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote tags popular` | | Show most used tags |
 | `gote tags edit` | | Edit tags file |
 | `gote tags format` | | Format tags file |
-| `gote tag <note> -t <tags>` | `t` | Add tags to a note |
+| `gote tag <note> -t .tag1.tag2` | `t` | Add tags to a note |
 | `gote pin <note>` | `p` | Pin a note |
 | `gote pin` | | List pinned notes |
 | `gote pinned` | `pd` | List pinned notes |
@@ -88,7 +88,8 @@ gote so meeting      # search + open (shorthand)
 gote search open meeting  # search + open (keyword)
 gote sd meeting      # search + delete
 gote sp meeting      # search + pin
-gote search -t work  # search by tags
+gote search -t .work  # search by tag
+gote search -t .work.urgent  # search by multiple tags
 
 # Date search (by creation date)
 gote search -w 24           # all notes from 2024
@@ -102,7 +103,7 @@ gote search -w 2412 --modified  # by modification date
 # Tags
 gote tags            # list all tags
 gote tags popular    # most used tags
-gote tag mynote -t work urgent  # add tags to note
+gote tag mynote -t .work.urgent  # add tags to note
 
 # Pins
 gote pin mynote      # pin a note

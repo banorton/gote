@@ -35,7 +35,7 @@ Search:
   gote so | search open <query>   Search + open mode
   gote sd | search delete <query> Search + delete mode
   gote sp | search pin <query>    Search + pin mode
-  gote search -t <tag1> <tag2>    Search by tags
+  gote search -t .tag1.tag2       Search by tags
   gote search -w <date> [<date>]  Search by date (created)
   gote search -w <date> --modified  Search by date (modified)
 
@@ -47,7 +47,7 @@ Tags:
   gote tags popular [-n <limit>]  Show most used tags
   gote tags edit                  Edit tags file
   gote tags format                Format tags file
-  gote tag | t <note> -t <tags>   Add tags to a note
+  gote tag | t <note> -t .tag1.tag2  Add tags to a note
 
 Pins:
   gote pin | p <note>             Pin a note
