@@ -26,9 +26,9 @@ Notes:
   gote rename | mv | rn <note> -n <new>  Rename a note
 
 Search:
-  gote search | s <query>         Search notes by title
-  gote so <query>                 Search + open mode
-  gote sd <query>                 Search + delete mode
+  gote search | s <query> [-n <size>]  Search notes by title
+  gote so <query> [-n <size>]     Search + open mode
+  gote sd <query> [-n <size>]     Search + delete mode
   gote search -t <tag1> <tag2>    Search by tags
 
 Tags:
