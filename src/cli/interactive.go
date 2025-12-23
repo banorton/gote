@@ -378,21 +378,15 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 	}
 
 	openMode := defaultOpen || args.Has("o", "open")
+	deleteMode := defaultDelete || args.Has("d", "delete")
 	pinMode := defaultPin || args.Has("p", "pin")
+	interactive := openMode || deleteMode || pinMode
 	pageSize := args.IntOr(cfg.PageSize(), "n", "limit")
 	tags := args.List("t", "tags")
+	dateValues := args.List("w", "when")
 
-	// Check for date search: -d or --date with date-like values
-	dateValues := args.List("d", "date")
-	isDateSearch := len(dateValues) > 0 && looksLikeDate(dateValues[0])
-
-	// Delete mode: --delete flag OR -d without date-like values
-	deleteMode := defaultDelete || args.Has("delete") || (args.Has("d") && !isDateSearch)
-
-	interactive := openMode || deleteMode || pinMode
-
-	// Date search mode: -d <date> [<date>] [--modified]
-	if isDateSearch {
+	// Date search mode: -w <date> [<date>] [--modified]
+	if len(dateValues) > 0 && looksLikeDate(dateValues[0]) {
 		useCreated := !args.Has("modified", "m") // default to created
 		results, err := core.SearchNotesByDate(dateValues, useCreated, -1)
 		if err != nil {
