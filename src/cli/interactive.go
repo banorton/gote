@@ -47,14 +47,21 @@ func displayPaginatedResults(results []string, interactive bool, pageSize int, o
 			break
 		}
 
-		fmt.Printf("\n[n] next page (%d/%d)\n[q] quit\n: ", page+1, totalPages)
+		fmt.Printf("\n(%d/%d)\n[n] next [p] prev [q] quit\n: ", page+1, totalPages)
 
 		var input string
 		fmt.Scanln(&input)
 		if input == "q" {
 			break
 		} else if input == "n" {
-			page++
+			if page < totalPages-1 {
+				page++
+			}
+			continue
+		} else if input == "p" {
+			if page > 0 {
+				page--
+			}
 			continue
 		}
 
@@ -115,14 +122,21 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, interact
 			break
 		}
 
-		fmt.Printf("\n[n] next page (%d/%d)\n[q] quit\n: ", page+1, totalPages)
+		fmt.Printf("\n(%d/%d)\n[n] next [p] prev [q] quit\n: ", page+1, totalPages)
 
 		var input string
 		fmt.Scanln(&input)
 		if input == "q" {
 			break
 		} else if input == "n" {
-			page++
+			if page < totalPages-1 {
+				page++
+			}
+			continue
+		} else if input == "p" {
+			if page > 0 {
+				page--
+			}
 			continue
 		}
 		for i := start; i < end && i-start < len(homerow); i++ {
