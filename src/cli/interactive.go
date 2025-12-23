@@ -11,6 +11,16 @@ import (
 	"gote/src/data"
 )
 
+// selectKeys are the keys used for selecting items in paginated lists
+// Homerow + bottom row (avoiding n for next) + top row (avoiding q for quit, p for prev)
+var selectKeys = []rune{
+	'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', // homerow (10)
+	'z', 'x', 'c', 'v', 'b', 'm',                     // bottom row (6, avoiding n)
+	'w', 'e', 'r', 't', 'y', 'u', 'i', 'o',           // top row (8, avoiding q, p)
+}
+
+const maxSelectablePageSize = 24 // len(selectKeys)
+
 func displayPaginatedResults(results []string, selectable bool, pageSize int, onSelect func(string)) {
 	if len(results) == 0 {
 		fmt.Println("No results found.")
@@ -23,8 +33,10 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 	if pageSize <= 0 {
 		pageSize = 10
 	}
+	if selectable && pageSize > maxSelectablePageSize {
+		pageSize = maxSelectablePageSize
+	}
 
-	homerow := []rune{'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'}
 	page := 0
 	totalPages := (len(results) + pageSize - 1) / pageSize
 
@@ -51,8 +63,8 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 		pageItems := results[start:end]
 		var keys []rune
 		if selectable {
-			for i := 0; i < len(pageItems) && i < len(homerow); i++ {
-				keys = append(keys, homerow[i])
+			for i := 0; i < len(pageItems) && i < len(selectKeys); i++ {
+				keys = append(keys, selectKeys[i])
 			}
 		}
 
@@ -65,8 +77,8 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 				fmt.Println()
 			}
 			for i, item := range pageItems {
-				if selectable && i < len(homerow) {
-					fmt.Printf("[%c] %s\n", homerow[i], item)
+				if selectable && i < len(selectKeys) {
+					fmt.Printf("[%c] %s\n", selectKeys[i], item)
 				} else {
 					fmt.Println(item)
 				}
@@ -108,8 +120,8 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 		}
 
 		if selectable {
-			for i := 0; i < len(pageItems) && i < len(homerow); i++ {
-				if key == homerow[i] {
+			for i := 0; i < len(pageItems) && i < len(selectKeys); i++ {
+				if key == selectKeys[i] {
 					if cfg.FancyUI {
 						ui.Clear()
 					}
@@ -133,8 +145,10 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 	if pageSize <= 0 {
 		pageSize = 10
 	}
+	if selectable && pageSize > maxSelectablePageSize {
+		pageSize = maxSelectablePageSize
+	}
 
-	homerow := []rune{'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'}
 	page := 0
 	totalPages := (len(results) + pageSize - 1) / pageSize
 
@@ -157,8 +171,8 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 				item = fmt.Sprintf("%s (matched %d tags)", result.Title, result.Score)
 			}
 			items = append(items, item)
-			if selectable && i < len(homerow) {
-				keys = append(keys, homerow[i])
+			if selectable && i < len(selectKeys) {
+				keys = append(keys, selectKeys[i])
 			}
 		}
 
@@ -178,8 +192,8 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 				fmt.Println()
 			}
 			for i, item := range items {
-				if selectable && i < len(homerow) {
-					fmt.Printf("[%c] %s\n", homerow[i], item)
+				if selectable && i < len(selectKeys) {
+					fmt.Printf("[%c] %s\n", selectKeys[i], item)
 				} else {
 					fmt.Println(item)
 				}
@@ -221,8 +235,8 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 		}
 
 		if selectable {
-			for i := 0; i < len(pageResults) && i < len(homerow); i++ {
-				if key == homerow[i] {
+			for i := 0; i < len(pageResults) && i < len(selectKeys); i++ {
+				if key == selectKeys[i] {
 					if cfg.FancyUI {
 						ui.Clear()
 					}
