@@ -57,7 +57,7 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 		if cfg.FancyUI {
 			ui.Clear()
 			ui.SelectableList("Results", pageItems, -1, keys)
-			ui.NavHint(page+1, totalPages, selectable)
+			ui.NavHint(page+1, totalPages)
 		} else {
 			for i, item := range pageItems {
 				if selectable && i < len(homerow) {
@@ -165,7 +165,7 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 		if cfg.FancyUI {
 			ui.Clear()
 			ui.SelectableList(title, items, -1, keys)
-			ui.NavHint(page+1, totalPages, selectable)
+			ui.NavHint(page+1, totalPages)
 		} else {
 			for i, item := range items {
 				if selectable && i < len(homerow) {
