@@ -26,10 +26,12 @@ func TestParseTags(t *testing.T) {
 		want  []string
 	}{
 		{"simple tags", ".work.project", []string{"work", "project"}},
-		{"no leading dot", "work.project", []string{"work", "project"}},
-		{"with hash", "#.work.project", []string{"work", "project"}},
-		{"with brackets", "[work].[project]", []string{"work", "project"}},
-		{"with pipes", "|work|.project", []string{"work", "project"}},
+		{"no leading dot returns empty", "work.project", []string{}},
+		{"plain text returns empty", "Hello world", []string{}},
+		{"header returns empty", "# My Header", []string{}},
+		{"with hash after dot", ".#work.project", []string{"work", "project"}},
+		{"with brackets", ".[work].[project]", []string{"work", "project"}},
+		{"with pipes", ".|work|.project", []string{"work", "project"}},
 		{"empty", "", []string{}},
 		{"only dots", "...", []string{}},
 		{"mixed case", ".Work.PROJECT", []string{"work", "project"}},

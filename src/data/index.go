@@ -138,6 +138,10 @@ func BuildNoteMeta(notePath string, info os.FileInfo) (NoteMeta, error) {
 }
 
 func ParseTags(line string) []string {
+	// Tags must start with a period
+	if !strings.HasPrefix(line, ".") {
+		return nil
+	}
 	clean := strings.ReplaceAll(line, "#", "")
 	clean = strings.ReplaceAll(clean, "[", "")
 	clean = strings.ReplaceAll(clean, "]", "")
