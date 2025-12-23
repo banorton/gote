@@ -203,10 +203,16 @@ func ConfigCommand(rawArgs []string) {
 	switch sub {
 	case "", "show":
 		if cfg.FancyUI {
+			timestampVal := cfg.TimestampNotes
+			if timestampVal == "" {
+				timestampVal = "none"
+			}
 			ui.InfoBox("Config", [][2]string{
 				{"Note directory", cfg.NoteDir},
 				{"Editor", cfg.Editor},
 				{"Fancy UI", fmt.Sprintf("%v", cfg.FancyUI)},
+				{"Timestamp notes", timestampVal},
+				{"Default page size", fmt.Sprintf("%d", cfg.PageSize())},
 			})
 		} else {
 			fmt.Println("Config settings:")
