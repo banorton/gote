@@ -16,12 +16,16 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote recent` | `r` | List recent notes |
 | `gote ro` | | Recent + open mode |
 | `gote rd` | | Recent + delete mode |
+| `gote rp` | | Recent + pin mode |
 | `gote search <query>` | `s` | Search notes by title |
 | `gote search -t <tags>` | | Search notes by tags |
 | `gote so <query>` | | Search + open mode |
 | `gote sd <query>` | | Search + delete mode |
+| `gote sp <query>` | | Search + pin mode |
 | `gote tags` | `ts` | List all tags |
 | `gote tags popular` | | Show most used tags |
+| `gote tags edit` | | Edit tags file |
+| `gote tags format` | | Format tags file |
 | `gote tag <note> -t <tags>` | `t` | Add tags to a note |
 | `gote pin <note>` | `p` | Pin a note |
 | `gote pin` | | List pinned notes |
@@ -37,9 +41,13 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote rename <note> -n <new>` | `mv`, `rn` | Rename a note |
 | `gote info <note>` | `i` | Show note metadata |
 | `gote index` | `idx` | Rebuild the note index |
+| `gote index edit` | | Edit index file |
+| `gote index format` | | Format index file |
 | `gote config` | `c` | Show config |
 | `gote config edit` | | Edit config (uses vim) |
+| `gote config format` | | Format config file |
 | `gote help` | `h`, `man` | Show help message |
+| `gote -v` | `--version` | Show version |
 
 ## Examples
 
@@ -55,11 +63,13 @@ gote quick
 gote recent          # list recent
 gote ro              # list + select to open
 gote rd              # list + select to delete
+gote rp              # list + select to pin
 
 # Search
 gote search meeting  # search by title
 gote so meeting      # search + open
 gote sd meeting      # search + delete
+gote sp meeting      # search + pin
 gote search -t work  # search by tags
 
 # Tags
@@ -84,7 +94,26 @@ gote rename mynote -n project-notes
 gote info mynote
 gote config edit
 gote help
+gote -v
 ```
+
+## Configuration
+
+Config file is at `~/.gote/config.json`:
+
+```json
+{
+  "noteDir": "/Users/you/gotes",
+  "editor": "vim",
+  "fancyUI": false
+}
+```
+
+| Option | Description |
+|--------|-------------|
+| `noteDir` | Directory where notes are stored |
+| `editor` | Editor to open notes with |
+| `fancyUI` | Enable TUI mode with boxes, single-keypress input, and screen refresh |
 
 ## Tag Syntax
 
