@@ -17,7 +17,7 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote ro` | | Recent + open mode |
 | `gote rd` | | Recent + delete mode |
 | `gote rp` | | Recent + pin mode |
-| `gote search <query>` | `s` | Search notes by title |
+| `gote search [query]` | `s` | Search notes by title (prompts if no query) |
 | `gote search -t <tags>` | | Search notes by tags |
 | `gote so <query>` | | Search + open mode |
 | `gote sd <query>` | | Search + delete mode |
@@ -67,6 +67,7 @@ gote rd              # list + select to delete
 gote rp              # list + select to pin
 
 # Search
+gote search          # prompts for query
 gote search meeting  # search by title
 gote so meeting      # search + open
 gote sd meeting      # search + delete
@@ -118,11 +119,13 @@ Config file is at `~/.gote/config.json`:
 
 ## Tag Syntax
 
-Tags are specified on the first line of a note, separated by periods:
+Tags are specified on the first line of a note, starting with a period and separated by periods:
 
 ```
 .project.urgent.work
 ```
+
+The first line **must start with `.`** for tags to be recognized. Lines without a leading period are treated as regular content with no tags.
 
 Tags are automatically indexed and searchable.
 
