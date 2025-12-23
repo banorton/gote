@@ -223,8 +223,26 @@ func ConfigCommand(rawArgs []string) {
 			return
 		}
 		ui.Success("Config file formatted.")
+	case "help":
+		fmt.Println(`Config file: ~/.gote/config.json
+
+Options:
+  noteDir         Directory where notes are stored
+                  Default: ~/gotes
+
+  editor          Editor to open notes with
+                  Default: vim
+
+  fancyUI         Enable TUI mode with boxes and single-keypress input
+                  Values: true, false
+                  Default: false
+
+  timestampNotes  Auto-prefix new notes with timestamp
+                  Values: "none", "date" (yymmdd), "datetime" (yymmdd-hhmmss)
+                  Default: none (no prefix)
+                  Can be overridden with -d or -dt flags`)
 	default:
 		fmt.Println("Unknown subcommand:", sub)
-		fmt.Println("Usage: gote config [edit|format|show]")
+		fmt.Println("Usage: gote config [show|edit|format|help]")
 	}
 }

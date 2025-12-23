@@ -49,6 +49,7 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote config` | `c` | Show config |
 | `gote config edit` | | Edit config (uses vim) |
 | `gote config format` | | Format config file |
+| `gote config help` | | Show config options |
 | `gote help` | `h`, `man` | Show help message |
 | `gote -v` | `--version` | Show version |
 
