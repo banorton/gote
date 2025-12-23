@@ -1,9 +1,9 @@
 package cli
 
 import (
-	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -51,10 +51,11 @@ func IndexCommand(rawArgs []string) {
 		}
 		ui.Success("Index file formatted.")
 	case "clear":
+		// Ensure terminal is in normal mode for input
+		exec.Command("stty", "sane").Run()
 		fmt.Print("This will delete and rebuild the index. Continue? [y/N]: ")
-		reader := bufio.NewReader(os.Stdin)
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
+		var input string
+		fmt.Scanln(&input)
 		if input != "y" && input != "Y" {
 			ui.Info("Cancelled.")
 			return
