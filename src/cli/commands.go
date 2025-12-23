@@ -6,14 +6,39 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
+	"time"
 
 	"gote/src/core"
 	"gote/src/data"
 )
 
 func NoteCommand(args []string) {
-	noteName := strings.Join(args, " ")
+	parsedArgs := ParseArgs(args)
+	dateFlag := parsedArgs.Has("d", "date")
+	datetimeFlag := parsedArgs.Has("dt", "datetime")
+	noteName := parsedArgs.Joined()
+
+	if noteName == "" {
+		fmt.Println("Usage: gote <note name> [-d|--date] [-dt|--datetime]")
+		return
+	}
+
+	// Determine timestamp mode: flag > config > none
+	cfg, _ := data.LoadConfig()
+	mode := cfg.TimestampNotes
+	if dateFlag {
+		mode = "date"
+	} else if datetimeFlag {
+		mode = "datetime"
+	}
+
+	// Apply timestamp prefix
+	if mode == "date" {
+		noteName = time.Now().Format("060102") + " " + noteName
+	} else if mode == "datetime" {
+		noteName = time.Now().Format("060102-150405") + " " + noteName
+	}
+
 	if err := core.CreateOrOpenNote(noteName); err != nil {
 		fmt.Println("Error:", err)
 	}

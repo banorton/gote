@@ -8,9 +8,10 @@ import (
 )
 
 type Config struct {
-	NoteDir string `json:"noteDir"`
-	Editor  string `json:"editor"`
-	FancyUI bool   `json:"fancyUI"`
+	NoteDir        string `json:"noteDir"`
+	Editor         string `json:"editor"`
+	FancyUI        bool   `json:"fancyUI"`
+	TimestampNotes string `json:"timestampNotes"` // "none", "date", "datetime"
 }
 
 func DefaultConfig() Config {
