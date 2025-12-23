@@ -59,7 +59,14 @@ func UnpinCommand(rawArgs []string) {
 
 func PinnedCommand(rawArgs []string, defaultOpen bool) {
 	args := ParseArgs(rawArgs)
-	openMode := defaultOpen || args.Has("o", "open")
+	openMode := defaultOpen
+
+	// Check for mode keyword as first positional arg (e.g., "gote pinned open")
+	if args.First() == "open" {
+		openMode = true
+		args.Positional = args.Positional[1:]
+	}
+
 	cfg, _ := data.LoadConfig()
 	pageSize := args.IntOr(cfg.PageSize(), "n", "limit")
 	ui := NewUI(cfg.FancyUI)

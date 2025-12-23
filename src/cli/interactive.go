@@ -289,9 +289,23 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 
 func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool) {
 	args := ParseArgs(rawArgs)
-	openMode := defaultOpen || args.Has("o", "open")
-	deleteMode := defaultDelete || args.Has("d", "delete")
-	pinMode := defaultPin || args.Has("p", "pin")
+	openMode := defaultOpen
+	deleteMode := defaultDelete
+	pinMode := defaultPin
+
+	// Check for mode keywords as first positional arg (e.g., "gote recent open")
+	first := args.First()
+	if first == "open" {
+		openMode = true
+		args.Positional = args.Positional[1:]
+	} else if first == "delete" {
+		deleteMode = true
+		args.Positional = args.Positional[1:]
+	} else if first == "pin" {
+		pinMode = true
+		args.Positional = args.Positional[1:]
+	}
+
 	cfg, _ := data.LoadConfig()
 	pageSize := args.IntOr(cfg.PageSize(), "n", "limit")
 
@@ -377,19 +391,19 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 		return
 	}
 
-	openMode := defaultOpen || args.Has("o", "open")
-	deleteMode := defaultDelete || args.Has("d", "delete")
-	pinMode := defaultPin || args.Has("p", "pin")
+	openMode := defaultOpen
+	deleteMode := defaultDelete
+	pinMode := defaultPin
 
 	// Check for mode keywords as first positional arg (e.g., "gote search open -w 2512")
 	first := args.First()
-	if first == "open" || first == "o" {
+	if first == "open" {
 		openMode = true
 		args.Positional = args.Positional[1:]
-	} else if first == "delete" || first == "d" {
+	} else if first == "delete" {
 		deleteMode = true
 		args.Positional = args.Positional[1:]
-	} else if first == "pin" || first == "p" {
+	} else if first == "pin" {
 		pinMode = true
 		args.Positional = args.Positional[1:]
 	}
