@@ -8,10 +8,11 @@ import (
 )
 
 type Config struct {
-	NoteDir        string `json:"noteDir"`
-	Editor         string `json:"editor"`
-	FancyUI        bool   `json:"fancyUI"`
-	TimestampNotes string `json:"timestampNotes"` // "none", "date", "datetime"
+	NoteDir         string `json:"noteDir"`
+	Editor          string `json:"editor"`
+	FancyUI         bool   `json:"fancyUI"`
+	TimestampNotes  string `json:"timestampNotes"`  // "none", "date", "datetime"
+	DefaultPageSize int    `json:"defaultPageSize"` // default number of results to show
 }
 
 func DefaultConfig() Config {
@@ -20,9 +21,18 @@ func DefaultConfig() Config {
 		panic(fmt.Sprintf("could not determine home directory: %v", err))
 	}
 	return Config{
-		NoteDir: filepath.Join(homeDir, "gotes"),
-		Editor:  "vim",
+		NoteDir:         filepath.Join(homeDir, "gotes"),
+		Editor:          "vim",
+		DefaultPageSize: 10,
 	}
+}
+
+// PageSize returns the effective page size, using default if not set
+func (c Config) PageSize() int {
+	if c.DefaultPageSize <= 0 {
+		return 10
+	}
+	return c.DefaultPageSize
 }
 
 // GoteDir returns the gote config directory. It's a variable so tests can override it.

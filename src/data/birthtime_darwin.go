@@ -1,0 +1,15 @@
+//go:build darwin
+
+package data
+
+import (
+	"os"
+	"syscall"
+	"time"
+)
+
+// GetBirthtime returns the file creation time on macOS
+func GetBirthtime(info os.FileInfo) time.Time {
+	stat := info.Sys().(*syscall.Stat_t)
+	return time.Unix(stat.Birthtimespec.Sec, stat.Birthtimespec.Nsec)
+}

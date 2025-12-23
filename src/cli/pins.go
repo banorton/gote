@@ -60,9 +60,8 @@ func UnpinCommand(rawArgs []string) {
 func PinnedCommand(rawArgs []string, defaultOpen bool) {
 	args := ParseArgs(rawArgs)
 	openMode := defaultOpen || args.Has("o", "open")
-	pageSize := args.IntOr(10, "n", "limit")
-
 	cfg, _ := data.LoadConfig()
+	pageSize := args.IntOr(cfg.PageSize(), "n", "limit")
 	ui := NewUI(cfg.FancyUI)
 
 	pins, err := core.ListPinnedNotes()

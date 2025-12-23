@@ -21,6 +21,31 @@ var selectKeys = []rune{
 
 const maxSelectablePageSize = 24 // len(selectKeys)
 
+// looksLikeDate returns true if the string looks like a date input
+// (digits only, optionally with a single . for time separator)
+func looksLikeDate(s string) bool {
+	if s == "" {
+		return false
+	}
+	dotCount := 0
+	for _, c := range s {
+		if c == '.' {
+			dotCount++
+			if dotCount > 1 {
+				return false
+			}
+		} else if c < '0' || c > '9' {
+			return false
+		}
+	}
+	// Valid lengths: 2, 4, 6 (no dot) or 9, 11, 13 (with dot at position 6)
+	l := len(s)
+	if dotCount == 0 {
+		return l == 2 || l == 4 || l == 6
+	}
+	return (l == 9 || l == 11 || l == 13) && len(s) > 6 && s[6] == '.'
+}
+
 func displayPaginatedResults(results []string, selectable bool, pageSize int, onSelect func(string)) {
 	if len(results) == 0 {
 		fmt.Println("No results found.")
@@ -267,10 +292,11 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 	openMode := defaultOpen || args.Has("o", "open")
 	deleteMode := defaultDelete || args.Has("d", "delete")
 	pinMode := defaultPin || args.Has("p", "pin")
-	pageSize := args.IntOr(10, "n", "limit")
+	cfg, _ := data.LoadConfig()
+	pageSize := args.IntOr(cfg.PageSize(), "n", "limit")
 
 	// Support bare number as first positional arg (e.g., "gote r 5")
-	if pageSize == 10 && args.First() != "" {
+	if pageSize == cfg.PageSize() && args.First() != "" {
 		if v, err := strconv.Atoi(args.First()); err == nil && v > 0 {
 			pageSize = v
 		}
@@ -287,7 +313,6 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 		titles = append(titles, note.Title)
 	}
 
-	cfg, _ := data.LoadConfig()
 	ui := NewUI(cfg.FancyUI)
 
 	if deleteMode {
@@ -353,11 +378,34 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 	}
 
 	openMode := defaultOpen || args.Has("o", "open")
-	deleteMode := defaultDelete || args.Has("d", "delete")
 	pinMode := defaultPin || args.Has("p", "pin")
-	interactive := openMode || deleteMode || pinMode
-	pageSize := args.IntOr(10, "n", "limit")
+	pageSize := args.IntOr(cfg.PageSize(), "n", "limit")
 	tags := args.List("t", "tags")
+
+	// Check for date search: -d or --date with date-like values
+	dateValues := args.List("d", "date")
+	isDateSearch := len(dateValues) > 0 && looksLikeDate(dateValues[0])
+
+	// Delete mode: --delete flag OR -d without date-like values
+	deleteMode := defaultDelete || args.Has("delete") || (args.Has("d") && !isDateSearch)
+
+	interactive := openMode || deleteMode || pinMode
+
+	// Date search mode: -d <date> [<date>] [--modified]
+	if isDateSearch {
+		useCreated := !args.Has("modified", "m") // default to created
+		results, err := core.SearchNotesByDate(dateValues, useCreated, -1)
+		if err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		if len(results) == 0 {
+			ui.Empty("No notes found in that date range.")
+			return
+		}
+		displayPaginatedSearchResultsWithMode(results, interactive, deleteMode, pinMode, pageSize)
+		return
+	}
 
 	// Tag search mode
 	if len(tags) > 0 {
