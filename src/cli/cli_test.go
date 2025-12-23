@@ -306,13 +306,13 @@ func TestSearchCommand(t *testing.T) {
 		}
 	})
 
-	t.Run("search shows usage when no query", func(t *testing.T) {
+	t.Run("search with no query prompts for input", func(t *testing.T) {
 		output := captureOutput(func() {
 			SearchCommand([]string{}, false, false, false)
 		})
 
-		if !strings.Contains(output, "Usage") {
-			t.Errorf("Expected usage message, got: %s", output)
+		if !strings.Contains(output, "Search:") {
+			t.Errorf("Expected search prompt, got: %s", output)
 		}
 	})
 }

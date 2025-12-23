@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -361,8 +363,16 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 	// Title search mode
 	query := strings.ToLower(args.Joined())
 	if query == "" {
-		fmt.Println("Usage: gote search <query> OR gote search -t <tag1> ... [-n <pageSize>]")
-		return
+		fmt.Print("Search: ")
+		reader := bufio.NewReader(os.Stdin)
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return
+		}
+		query = strings.ToLower(strings.TrimSpace(input))
+		if query == "" {
+			return
+		}
 	}
 
 	results, err := core.SearchNotesByTitle(query, -1) // Get all
