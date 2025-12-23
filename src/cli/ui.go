@@ -320,11 +320,26 @@ func (u *UI) ListItemWithMeta(key rune, text string, meta string) {
 	}
 }
 
-// ReadKey reads a single keypress (requires raw terminal mode)
-func ReadKey() (rune, error) {
-	// Try to set raw mode
+// ReadKey reads a single keypress. In fancy mode, uses raw terminal (no Enter needed).
+// In non-fancy mode, uses buffered input (requires Enter).
+func ReadKey(fancy bool) (rune, error) {
+	if !fancy {
+		// Buffered input - requires Enter
+		reader := bufio.NewReader(os.Stdin)
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return 0, err
+		}
+		input = strings.TrimSpace(input)
+		if len(input) == 0 {
+			return 0, nil
+		}
+		return rune(input[0]), nil
+	}
+
+	// Raw mode - single keypress, no Enter needed
 	if err := setRawMode(); err != nil {
-		// Fallback to buffered input
+		// Fallback to buffered if raw mode fails
 		reader := bufio.NewReader(os.Stdin)
 		input, err := reader.ReadString('\n')
 		if err != nil {
@@ -338,7 +353,6 @@ func ReadKey() (rune, error) {
 	}
 	defer restoreTerminal()
 
-	// Read single byte
 	var buf [1]byte
 	_, err := os.Stdin.Read(buf[:])
 	if err != nil {

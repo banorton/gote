@@ -79,7 +79,7 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 			break
 		}
 
-		key, err := ReadKey()
+		key, err := ReadKey(cfg.FancyUI)
 		if err != nil {
 			break
 		}
@@ -187,7 +187,7 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 			break
 		}
 
-		key, err := ReadKey()
+		key, err := ReadKey(cfg.FancyUI)
 		if err != nil {
 			break
 		}
