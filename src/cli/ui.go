@@ -5,24 +5,19 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 )
 
 // ANSI escape codes
 const (
-	Reset     = "\033[0m"
-	Bold      = "\033[1m"
-	Dim       = "\033[2m"
-	Cyan      = "\033[36m"
-	Green     = "\033[32m"
-	Yellow    = "\033[33m"
-	Blue      = "\033[34m"
-	Magenta   = "\033[35m"
-	White     = "\033[37m"
-	BoldCyan  = "\033[1;36m"
-	BoldGreen = "\033[1;32m"
-	BgBlue    = "\033[44m"
-	Reverse   = "\033[7m"
+	Reset    = "\033[0m"
+	Bold     = "\033[1m"
+	Dim      = "\033[2m"
+	Cyan     = "\033[36m"
+	White    = "\033[37m"
+	BoldCyan = "\033[1;36m"
+	Reverse  = "\033[7m"
 )
 
 // Screen control
@@ -42,9 +37,14 @@ const (
 	BoxBottomRight = "╯"
 	BoxHorizontal  = "─"
 	BoxVertical    = "│"
-	BoxTeeRight    = "├"
-	BoxTeeLeft     = "┤"
 )
+
+var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+// visibleLen returns the visible length of a string (excluding ANSI codes)
+func visibleLen(s string) int {
+	return len(ansiRegex.ReplaceAllString(s, ""))
+}
 
 // UI holds the UI state
 type UI struct {
@@ -89,12 +89,13 @@ func (u *UI) Box(title string, lines []string, width int) {
 		return
 	}
 
-	// Calculate width
+	// Calculate width based on visible content
 	if width == 0 {
 		width = len(title) + 4
 		for _, line := range lines {
-			if len(line)+4 > width {
-				width = len(line) + 4
+			visible := visibleLen(line) + 4
+			if visible > width {
+				width = visible
 			}
 		}
 	}
@@ -121,9 +122,10 @@ func (u *UI) Box(title string, lines []string, width int) {
 			BoxTopRight, Reset)
 	}
 
-	// Content
+	// Content - pad based on visible width
 	for _, line := range lines {
-		padding := width - len(line) - 4
+		visible := visibleLen(line)
+		padding := width - visible - 4
 		if padding < 0 {
 			padding = 0
 		}
@@ -156,10 +158,10 @@ func (u *UI) SelectableList(title string, items []string, selected int, keys []r
 		return
 	}
 
-	// Calculate width
+	// Calculate width based on actual item lengths
 	width := len(title) + 4
 	for _, item := range items {
-		itemWidth := len(item) + 8 // account for key prefix
+		itemWidth := len(item) + 8 // account for " [x] " prefix and padding
 		if itemWidth > width {
 			width = itemWidth
 		}
@@ -170,39 +172,30 @@ func (u *UI) SelectableList(title string, items []string, selected int, keys []r
 
 	var lines []string
 	for i, item := range items {
-		var line string
 		key := rune(0)
 		if i < len(keys) {
 			key = keys[i]
 		}
 
+		var line string
 		if i == selected {
 			// Highlighted selection
 			if key != 0 {
 				line = fmt.Sprintf("%s%s [%c] %s %s", Reverse, White, key, item, Reset)
 			} else {
-				line = fmt.Sprintf("%s%s  •  %s %s", Reverse, White, item, Reset)
+				line = fmt.Sprintf("%s%s  *  %s %s", Reverse, White, item, Reset)
 			}
 		} else {
 			if key != 0 {
-				line = fmt.Sprintf(" %s[%s%c%s]%s %s", Dim, Yellow, key, Dim, Reset, item)
+				line = fmt.Sprintf(" %s[%c]%s %s", Dim, key, Reset, item)
 			} else {
-				line = fmt.Sprintf(" %s•%s  %s", Cyan, Reset, item)
+				line = fmt.Sprintf("  *  %s", item)
 			}
 		}
 		lines = append(lines, line)
 	}
 
 	u.Box(title, lines, width+4)
-}
-
-// StatusBar draws a status bar at the bottom
-func (u *UI) StatusBar(text string) {
-	if u.Fancy {
-		fmt.Printf("\n%s%s %s %s\n", BgBlue, White, text, Reset)
-	} else {
-		fmt.Println(text)
-	}
 }
 
 // NavHint shows navigation hints
@@ -220,23 +213,23 @@ func (u *UI) NavHint(page, total int, hasKeys bool) {
 	}
 
 	var hints []string
-	hints = append(hints, fmt.Sprintf("%s(%d/%d)%s", Dim, page, total, Reset))
+	hints = append(hints, fmt.Sprintf("(%d/%d)", page, total))
 	if total > 1 {
-		hints = append(hints, fmt.Sprintf("%s[%sn%s]%s next", Dim, Green, Dim, Reset))
-		hints = append(hints, fmt.Sprintf("%s[%sp%s]%s prev", Dim, Green, Dim, Reset))
+		hints = append(hints, "[n] next")
+		hints = append(hints, "[p] prev")
 	}
 	if hasKeys {
-		hints = append(hints, fmt.Sprintf("%s[%skey%s]%s select", Dim, Yellow, Dim, Reset))
+		hints = append(hints, "[key] select")
 	}
-	hints = append(hints, fmt.Sprintf("%s[%sq%s]%s quit", Dim, Green, Dim, Reset))
+	hints = append(hints, "[q] quit")
 
-	fmt.Printf("\n %s\n", strings.Join(hints, "  "))
+	fmt.Printf("\n %s%s%s\n", Dim, strings.Join(hints, "  "), Reset)
 }
 
 // Success prints a success message
 func (u *UI) Success(text string) {
 	if u.Fancy {
-		fmt.Printf("%s✓%s %s\n", Green, Reset, text)
+		fmt.Printf("%s->%s %s\n", Cyan, Reset, text)
 	} else {
 		fmt.Println(text)
 	}
@@ -245,7 +238,7 @@ func (u *UI) Success(text string) {
 // Error prints an error message
 func (u *UI) Error(text string) {
 	if u.Fancy {
-		fmt.Printf("%s✗%s %s\n", Yellow, Reset, text)
+		fmt.Printf("%s!%s %s\n", Bold, Reset, text)
 	} else {
 		fmt.Println("Error:", text)
 	}
@@ -254,7 +247,7 @@ func (u *UI) Error(text string) {
 // Info prints an info message
 func (u *UI) Info(text string) {
 	if u.Fancy {
-		fmt.Printf("%s→%s %s\n", Cyan, Reset, text)
+		fmt.Printf("%s->%s %s\n", Cyan, Reset, text)
 	} else {
 		fmt.Println(text)
 	}
@@ -293,11 +286,7 @@ func (u *UI) Tags(tags []string) {
 		return
 	}
 	if u.Fancy {
-		var styled []string
-		for _, t := range tags {
-			styled = append(styled, fmt.Sprintf("%s#%s%s", Magenta, t, Reset))
-		}
-		fmt.Printf("  %sTags:%s %s\n", Cyan, Reset, strings.Join(styled, " "))
+		fmt.Printf("  %sTags:%s %s\n", Cyan, Reset, strings.Join(tags, ", "))
 	} else {
 		fmt.Printf("Tags: %s\n", strings.Join(tags, ", "))
 	}
@@ -307,9 +296,9 @@ func (u *UI) Tags(tags []string) {
 func (u *UI) ListItem(key rune, text string, selected bool) {
 	if u.Fancy {
 		if key != 0 {
-			fmt.Printf("  %s[%s%c%s]%s %s\n", Dim, Yellow, key, Dim, Reset, text)
+			fmt.Printf("  %s[%c]%s %s\n", Dim, key, Reset, text)
 		} else {
-			fmt.Printf("  %s•%s %s\n", Cyan, Reset, text)
+			fmt.Printf("  %s*%s %s\n", Dim, Reset, text)
 		}
 	} else {
 		if key != 0 {
@@ -324,9 +313,9 @@ func (u *UI) ListItem(key rune, text string, selected bool) {
 func (u *UI) ListItemWithMeta(key rune, text string, meta string) {
 	if u.Fancy {
 		if key != 0 {
-			fmt.Printf("  %s[%s%c%s]%s %s %s%s%s\n", Dim, Yellow, key, Dim, Reset, text, Dim, meta, Reset)
+			fmt.Printf("  %s[%c]%s %s %s%s%s\n", Dim, key, Reset, text, Dim, meta, Reset)
 		} else {
-			fmt.Printf("  %s•%s %s %s%s%s\n", Cyan, Reset, text, Dim, meta, Reset)
+			fmt.Printf("  %s*%s %s %s%s%s\n", Dim, Reset, text, Dim, meta, Reset)
 		}
 	} else {
 		if key != 0 {
