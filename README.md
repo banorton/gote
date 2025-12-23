@@ -14,6 +14,7 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote <note>` | | Create or open a note by name |
 | `gote -d <note>` | `--date` | Create note with date prefix (yymmdd) |
 | `gote -dt <note>` | `--datetime` | Create note with datetime prefix (yymmdd-hhmmss) |
+| `gote -nt <note>` | `--no-timestamp` | Create note without timestamp (bypass config) |
 | `gote quick` | `q` | Open quick note |
 | `gote quick save <name>` | `qs` | Save quick note as named note |
 | `gote recent` | `r` | List recent notes |
@@ -66,6 +67,7 @@ gote mynote
 # Create with timestamp prefix
 gote -d mynote        # creates "241223 mynote.md"
 gote -dt mynote       # creates "241223-152030 mynote.md"
+gote -nt mynote       # creates "mynote.md" (no timestamp, even if config enabled)
 
 # Quick note
 gote
