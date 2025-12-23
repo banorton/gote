@@ -59,6 +59,9 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 			ui.SelectableList("Results", pageItems, -1, keys)
 			ui.NavHint(page+1, totalPages)
 		} else {
+			if page > 0 {
+				fmt.Println()
+			}
 			for i, item := range pageItems {
 				if selectable && i < len(homerow) {
 					fmt.Printf("[%c] %s\n", homerow[i], item)
@@ -66,7 +69,7 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 					fmt.Println(item)
 				}
 			}
-			fmt.Printf("\n(%d/%d)\n", page+1, totalPages)
+			fmt.Printf("(%d/%d)────────────────────────\n", page+1, totalPages)
 			if totalPages > 1 {
 				fmt.Print("[n] next [p] prev ")
 			}
@@ -167,6 +170,9 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 			ui.SelectableList(title, items, -1, keys)
 			ui.NavHint(page+1, totalPages)
 		} else {
+			if page > 0 {
+				fmt.Println()
+			}
 			for i, item := range items {
 				if selectable && i < len(homerow) {
 					fmt.Printf("[%c] %s\n", homerow[i], item)
@@ -174,7 +180,7 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 					fmt.Println(item)
 				}
 			}
-			fmt.Printf("\n(%d/%d)\n", page+1, totalPages)
+			fmt.Printf("(%d/%d)────────────────────────\n", page+1, totalPages)
 			if totalPages > 1 {
 				fmt.Print("[n] next [p] prev ")
 			}
