@@ -9,7 +9,7 @@ import (
 	"gote/src/data"
 )
 
-func displayPaginatedResults(results []string, interactive bool, pageSize int, onSelect func(string)) {
+func displayPaginatedResults(results []string, selectable bool, pageSize int, onSelect func(string)) {
 	if len(results) == 0 {
 		fmt.Println("No results found.")
 		return
@@ -36,14 +36,15 @@ func displayPaginatedResults(results []string, interactive bool, pageSize int, o
 		}
 
 		for i := start; i < end; i++ {
-			if interactive && i-start < len(homerow) {
+			if selectable && i-start < len(homerow) {
 				fmt.Printf("[%c] %s\n", homerow[i-start], results[i])
 			} else {
 				fmt.Println(results[i])
 			}
 		}
 
-		if !interactive {
+		// Single page, no nav needed
+		if totalPages == 1 {
 			break
 		}
 
@@ -65,17 +66,19 @@ func displayPaginatedResults(results []string, interactive bool, pageSize int, o
 			continue
 		}
 
-		for i := start; i < end && i-start < len(homerow); i++ {
-			if input == string(homerow[i-start]) {
-				onSelect(results[i])
-				return
+		if selectable {
+			for i := start; i < end && i-start < len(homerow); i++ {
+				if input == string(homerow[i-start]) {
+					onSelect(results[i])
+					return
+				}
 			}
 		}
 		fmt.Println("Invalid input.")
 	}
 }
 
-func displayPaginatedSearchResultsWithMode(results []core.SearchResult, interactive bool, deleteMode bool, pageSize int) {
+func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectable bool, deleteMode bool, pageSize int) {
 	if len(results) == 0 {
 		fmt.Println("No results found.")
 		return
@@ -103,7 +106,7 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, interact
 
 		for i := start; i < end; i++ {
 			result := results[i]
-			if interactive && i-start < len(homerow) {
+			if selectable && i-start < len(homerow) {
 				if result.Score > 1 {
 					fmt.Printf("[%c] %s (matched %d tags)\n", homerow[i-start], result.Title, result.Score)
 				} else {
@@ -118,7 +121,8 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, interact
 			}
 		}
 
-		if !interactive {
+		// Single page, no nav needed
+		if totalPages == 1 {
 			break
 		}
 
@@ -139,23 +143,25 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, interact
 			}
 			continue
 		}
-		for i := start; i < end && i-start < len(homerow); i++ {
-			if input == string(homerow[i-start]) {
-				if deleteMode {
-					if err := core.DeleteNote(results[i].Title); err != nil {
-						fmt.Println("Error:", err)
-						return
+		if selectable {
+			for i := start; i < end && i-start < len(homerow); i++ {
+				if input == string(homerow[i-start]) {
+					if deleteMode {
+						if err := core.DeleteNote(results[i].Title); err != nil {
+							fmt.Println("Error:", err)
+							return
+						}
+						fmt.Println("Note moved to trash:", results[i].Title)
+					} else {
+						cfg, err := data.LoadConfig()
+						if err != nil {
+							fmt.Println("Error loading config:", err)
+							return
+						}
+						data.OpenFileInEditor(results[i].FilePath, cfg.Editor)
 					}
-					fmt.Println("Note moved to trash:", results[i].Title)
-				} else {
-					cfg, err := data.LoadConfig()
-					if err != nil {
-						fmt.Println("Error loading config:", err)
-						return
-					}
-					data.OpenFileInEditor(results[i].FilePath, cfg.Editor)
+					return
 				}
-				return
 			}
 		}
 		fmt.Println("Invalid input.")
