@@ -26,6 +26,18 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 	page := 0
 	totalPages := (len(results) + pageSize - 1) / pageSize
 
+	// Single page, no navigation needed
+	if totalPages == 1 && !selectable {
+		if cfg.FancyUI {
+			ui.Box("Results", results, 0)
+		} else {
+			for _, r := range results {
+				fmt.Println(r)
+			}
+		}
+		return
+	}
+
 	for {
 		start := page * pageSize
 		end := min(start+pageSize, len(results))
@@ -34,35 +46,56 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 			break
 		}
 
-		if page > 0 {
-			fmt.Println()
-		}
-
-		for i := start; i < end; i++ {
-			if selectable && i-start < len(homerow) {
-				ui.ListItem(homerow[i-start], results[i], false)
-			} else {
-				ui.ListItem(0, results[i], false)
+		pageItems := results[start:end]
+		var keys []rune
+		if selectable {
+			for i := 0; i < len(pageItems) && i < len(homerow); i++ {
+				keys = append(keys, homerow[i])
 			}
 		}
 
-		// Single page, no nav needed
-		if totalPages == 1 {
+		if cfg.FancyUI {
+			ui.Clear()
+			ui.SelectableList("Results", pageItems, -1, keys)
+			ui.NavHint(page+1, totalPages, selectable)
+		} else {
+			for i, item := range pageItems {
+				if selectable && i < len(homerow) {
+					fmt.Printf("[%c] %s\n", homerow[i], item)
+				} else {
+					fmt.Println(item)
+				}
+			}
+			fmt.Printf("\n(%d/%d)\n", page+1, totalPages)
+			if totalPages > 1 {
+				fmt.Print("[n] next [p] prev ")
+			}
+			fmt.Println("[q] quit")
+			fmt.Print(": ")
+		}
+
+		// Single page non-selectable: just show and exit
+		if totalPages == 1 && !selectable {
 			break
 		}
 
-		ui.Nav(page+1, totalPages)
-
-		var input string
-		fmt.Scanln(&input)
-		if input == "q" {
+		key, err := ReadKey()
+		if err != nil {
 			break
-		} else if input == "n" {
+		}
+
+		switch key {
+		case 'q', 'Q':
+			if cfg.FancyUI {
+				ui.Clear()
+			}
+			return
+		case 'n', 'N':
 			if page < totalPages-1 {
 				page++
 			}
 			continue
-		} else if input == "p" {
+		case 'p', 'P':
 			if page > 0 {
 				page--
 			}
@@ -70,14 +103,16 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 		}
 
 		if selectable {
-			for i := start; i < end && i-start < len(homerow); i++ {
-				if input == string(homerow[i-start]) {
-					onSelect(results[i])
+			for i := 0; i < len(pageItems) && i < len(homerow); i++ {
+				if key == homerow[i] {
+					if cfg.FancyUI {
+						ui.Clear()
+					}
+					onSelect(results[start+i])
 					return
 				}
 			}
 		}
-		fmt.Println("Invalid input.")
 	}
 }
 
@@ -106,62 +141,94 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 			break
 		}
 
-		if page > 0 {
-			fmt.Println()
-		}
+		pageResults := results[start:end]
 
-		for i := start; i < end; i++ {
-			result := results[i]
-			key := rune(0)
-			if selectable && i-start < len(homerow) {
-				key = homerow[i-start]
-			}
+		// Build display items
+		var items []string
+		var keys []rune
+		for i, result := range pageResults {
+			item := result.Title
 			if result.Score > 1 {
-				ui.ListItemWithMeta(key, result.Title, fmt.Sprintf("(matched %d tags)", result.Score))
-			} else {
-				ui.ListItem(key, result.Title, false)
+				item = fmt.Sprintf("%s (matched %d tags)", result.Title, result.Score)
+			}
+			items = append(items, item)
+			if selectable && i < len(homerow) {
+				keys = append(keys, homerow[i])
 			}
 		}
 
-		// Single page, no nav needed
-		if totalPages == 1 {
+		title := "Search Results"
+		if deleteMode {
+			title = "Search Results (delete mode)"
+		}
+
+		if cfg.FancyUI {
+			ui.Clear()
+			ui.SelectableList(title, items, -1, keys)
+			ui.NavHint(page+1, totalPages, selectable)
+		} else {
+			for i, item := range items {
+				if selectable && i < len(homerow) {
+					fmt.Printf("[%c] %s\n", homerow[i], item)
+				} else {
+					fmt.Println(item)
+				}
+			}
+			fmt.Printf("\n(%d/%d)\n", page+1, totalPages)
+			if totalPages > 1 {
+				fmt.Print("[n] next [p] prev ")
+			}
+			fmt.Println("[q] quit")
+			fmt.Print(": ")
+		}
+
+		// Single page non-selectable: just show and exit
+		if totalPages == 1 && !selectable {
 			break
 		}
 
-		ui.Nav(page+1, totalPages)
-
-		var input string
-		fmt.Scanln(&input)
-		if input == "q" {
+		key, err := ReadKey()
+		if err != nil {
 			break
-		} else if input == "n" {
+		}
+
+		switch key {
+		case 'q', 'Q':
+			if cfg.FancyUI {
+				ui.Clear()
+			}
+			return
+		case 'n', 'N':
 			if page < totalPages-1 {
 				page++
 			}
 			continue
-		} else if input == "p" {
+		case 'p', 'P':
 			if page > 0 {
 				page--
 			}
 			continue
 		}
+
 		if selectable {
-			for i := start; i < end && i-start < len(homerow); i++ {
-				if input == string(homerow[i-start]) {
+			for i := 0; i < len(pageResults) && i < len(homerow); i++ {
+				if key == homerow[i] {
+					if cfg.FancyUI {
+						ui.Clear()
+					}
 					if deleteMode {
-						if err := core.DeleteNote(results[i].Title); err != nil {
+						if err := core.DeleteNote(results[start+i].Title); err != nil {
 							ui.Error(err.Error())
 							return
 						}
-						ui.Success("Note moved to trash: " + results[i].Title)
+						ui.Success("Note moved to trash: " + results[start+i].Title)
 					} else {
-						data.OpenFileInEditor(results[i].FilePath, cfg.Editor)
+						data.OpenFileInEditor(results[start+i].FilePath, cfg.Editor)
 					}
 					return
 				}
 			}
 		}
-		fmt.Println("Invalid input.")
 	}
 }
 
@@ -189,23 +256,21 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool) {
 		titles = append(titles, note.Title)
 	}
 
+	cfg, _ := data.LoadConfig()
+
 	if deleteMode {
 		displayPaginatedResults(titles, true, pageSize, func(title string) {
+			ui := NewUI(cfg.FancyUI)
 			if err := core.DeleteNote(title); err != nil {
-				fmt.Println("Error:", err)
+				ui.Error(err.Error())
 				return
 			}
-			fmt.Println("Note moved to trash:", title)
+			ui.Success("Note moved to trash: " + title)
 		})
 		return
 	}
 
 	displayPaginatedResults(titles, openMode, pageSize, func(title string) {
-		cfg, err := data.LoadConfig()
-		if err != nil {
-			fmt.Println("Error loading config:", err)
-			return
-		}
 		index := data.LoadIndex()
 		if meta, exists := index[title]; exists {
 			data.OpenFileInEditor(meta.FilePath, cfg.Editor)
@@ -216,6 +281,9 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool) {
 func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool) {
 	args := ParseArgs(rawArgs)
 
+	cfg, _ := data.LoadConfig()
+	ui := NewUI(cfg.FancyUI)
+
 	// Handle "search trash <query>" subcommand
 	if args.First() == "trash" {
 		query := strings.ToLower(strings.Join(args.Rest(), " "))
@@ -225,15 +293,19 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool) {
 		}
 		results, err := core.SearchTrash(query)
 		if err != nil {
-			fmt.Println("Could not read trash:", err)
+			ui.Error(err.Error())
 			return
 		}
 		if len(results) == 0 {
-			fmt.Println("No matching trashed notes found.")
+			ui.Empty("No matching trashed notes found.")
 			return
 		}
-		for _, r := range results {
-			fmt.Println(r)
+		if cfg.FancyUI {
+			ui.Box("Trash Search Results", results, 0)
+		} else {
+			for _, r := range results {
+				fmt.Println(r)
+			}
 		}
 		return
 	}
@@ -248,11 +320,11 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool) {
 	if len(tags) > 0 {
 		results, err := core.SearchNotesByTags(tags, -1) // Get all
 		if err != nil {
-			fmt.Println("Error searching by tags:", err)
+			ui.Error(err.Error())
 			return
 		}
 		if len(results) == 0 {
-			fmt.Println("No notes found for the given tags.")
+			ui.Empty("No notes found for the given tags.")
 			return
 		}
 		displayPaginatedSearchResultsWithMode(results, interactive, deleteMode, pageSize)
@@ -268,13 +340,12 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool) {
 
 	results, err := core.SearchNotesByTitle(query, -1) // Get all
 	if err != nil {
-		fmt.Println("Error searching notes:", err)
+		ui.Error(err.Error())
 		return
 	}
 	if len(results) == 0 {
-		fmt.Println("No matching note titles found.")
+		ui.Empty("No matching note titles found.")
 		return
 	}
 	displayPaginatedSearchResultsWithMode(results, interactive, deleteMode, pageSize)
 }
-

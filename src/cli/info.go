@@ -48,15 +48,16 @@ func InfoCommand(rawArgs []string) {
 	}
 
 	if cfg.FancyUI {
-		ui.Title(meta.Title)
-		fmt.Println()
-		ui.KeyValue("Path", meta.FilePath)
-		ui.KeyValue("Created", meta.Created)
-		ui.KeyValue("Words", fmt.Sprintf("%d", meta.WordCount))
-		ui.KeyValue("Chars", fmt.Sprintf("%d", meta.CharCount))
-		if len(meta.Tags) > 0 {
-			ui.Tags(meta.Tags)
+		kvPairs := [][2]string{
+			{"Path", meta.FilePath},
+			{"Created", meta.Created},
+			{"Words", fmt.Sprintf("%d", meta.WordCount)},
+			{"Chars", fmt.Sprintf("%d", meta.CharCount)},
 		}
+		if len(meta.Tags) > 0 {
+			kvPairs = append(kvPairs, [2]string{"Tags", strings.Join(meta.Tags, ", ")})
+		}
+		ui.InfoBox(meta.Title, kvPairs)
 	} else {
 		b, err := json.MarshalIndent(meta, "", "  ")
 		if err != nil {

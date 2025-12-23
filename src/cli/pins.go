@@ -96,8 +96,12 @@ func listPinnedNotes() {
 		ui.Empty("No pinned notes.")
 		return
 	}
-	ui.Title("Pinned notes")
-	for _, title := range pins {
-		ui.ListItem(0, title, false)
+	if cfg.FancyUI {
+		ui.Box("Pinned Notes", pins, 0)
+	} else {
+		fmt.Println("Pinned notes:")
+		for _, title := range pins {
+			fmt.Println(title)
+		}
 	}
 }
