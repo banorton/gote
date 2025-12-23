@@ -5,11 +5,15 @@ import (
 	"strings"
 
 	"gote/src/core"
+	"gote/src/data"
 )
 
 func DeleteCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	noteName := args.Joined()
+
+	cfg, _ := data.LoadConfig()
+	ui := NewUI(cfg.FancyUI)
 
 	if noteName == "" {
 		fmt.Println("Usage: gote delete <note name>")
@@ -17,15 +21,18 @@ func DeleteCommand(rawArgs []string) {
 	}
 
 	if err := core.DeleteNote(noteName); err != nil {
-		fmt.Println("Error:", err)
+		ui.Error(err.Error())
 		return
 	}
-	fmt.Println("Note moved to trash:", noteName)
+	ui.Success("Note moved to trash: " + noteName)
 }
 
 func RecoverCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	noteName := args.Joined()
+
+	cfg, _ := data.LoadConfig()
+	ui := NewUI(cfg.FancyUI)
 
 	if noteName == "" {
 		fmt.Println("Usage: gote recover <note name>")
@@ -33,42 +40,45 @@ func RecoverCommand(rawArgs []string) {
 	}
 
 	if err := core.RecoverNote(noteName); err != nil {
-		fmt.Println("Error recovering note:", err)
+		ui.Error(err.Error())
 		return
 	}
-	fmt.Println("Note recovered:", noteName)
+	ui.Success("Note recovered: " + noteName)
 }
 
 func TrashCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	sub := args.First()
 
+	cfg, _ := data.LoadConfig()
+	ui := NewUI(cfg.FancyUI)
+
 	switch sub {
 	case "":
 		// List trashed notes
 		notes, err := core.ListTrashedNotes()
 		if err != nil {
-			fmt.Println("Error listing trash:", err)
+			ui.Error(err.Error())
 			return
 		}
 		if len(notes) == 0 {
-			fmt.Println("Trash is empty.")
+			ui.Empty("Trash is empty.")
 			return
 		}
-		fmt.Println("Trashed notes:")
+		ui.Title("Trashed notes")
 		for _, note := range notes {
-			fmt.Println("  " + note)
+			ui.ListItem(0, note, false)
 		}
 	case "empty":
 		count, err := core.EmptyTrash()
 		if err != nil {
-			fmt.Println("Error emptying trash:", err)
+			ui.Error(err.Error())
 			return
 		}
 		if count == 0 {
-			fmt.Println("Trash was already empty.")
+			ui.Empty("Trash was already empty.")
 		} else {
-			fmt.Printf("Permanently deleted %d note(s).\n", count)
+			ui.Success(fmt.Sprintf("Permanently deleted %d note(s).", count))
 		}
 	case "search":
 		query := strings.ToLower(strings.Join(args.Rest(), " "))
@@ -78,23 +88,23 @@ func TrashCommand(rawArgs []string) {
 		}
 		results, err := core.SearchTrash(query)
 		if err != nil {
-			fmt.Println("Error searching trash:", err)
+			ui.Error(err.Error())
 			return
 		}
 		if len(results) == 0 {
-			fmt.Println("No matching trashed notes found.")
+			ui.Empty("No matching trashed notes found.")
 			return
 		}
 		for _, r := range results {
-			fmt.Println(r)
+			ui.ListItem(0, r, false)
 		}
 	default:
 		// Treat as note name to delete
 		noteName := args.Joined()
 		if err := core.DeleteNote(noteName); err != nil {
-			fmt.Println("Error:", err)
+			ui.Error(err.Error())
 			return
 		}
-		fmt.Println("Note moved to trash:", noteName)
+		ui.Success("Note moved to trash: " + noteName)
 	}
 }

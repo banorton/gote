@@ -11,14 +11,17 @@ func PinCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	sub := args.First()
 
+	cfg, _ := data.LoadConfig()
+	ui := NewUI(cfg.FancyUI)
+
 	// Handle subcommands
 	switch sub {
 	case "format":
 		if err := data.FormatPinsFile(); err != nil {
-			fmt.Println("Error formatting pins:", err)
+			ui.Error(err.Error())
 			return
 		}
-		fmt.Println("Pins file formatted.")
+		ui.Success("Pins file formatted.")
 		return
 	case "":
 		// No args = list pinned notes
@@ -29,15 +32,18 @@ func PinCommand(rawArgs []string) {
 	// Otherwise, pin the note
 	noteName := args.Joined()
 	if err := core.PinNote(noteName); err != nil {
-		fmt.Println("Error:", err)
+		ui.Error(err.Error())
 		return
 	}
-	fmt.Println("Pinned note:", noteName)
+	ui.Success("Pinned note: " + noteName)
 }
 
 func UnpinCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	noteName := args.Joined()
+
+	cfg, _ := data.LoadConfig()
+	ui := NewUI(cfg.FancyUI)
 
 	if noteName == "" {
 		fmt.Println("Usage: gote unpin <note name>")
@@ -45,10 +51,10 @@ func UnpinCommand(rawArgs []string) {
 	}
 
 	if err := core.UnpinNote(noteName); err != nil {
-		fmt.Println("Error:", err)
+		ui.Error(err.Error())
 		return
 	}
-	fmt.Println("Unpinned note:", noteName)
+	ui.Success("Unpinned note: " + noteName)
 }
 
 func PinnedCommand(rawArgs []string, defaultOpen bool) {
@@ -56,22 +62,20 @@ func PinnedCommand(rawArgs []string, defaultOpen bool) {
 	openMode := defaultOpen || args.Has("o", "open")
 	pageSize := args.IntOr(10, "n", "limit")
 
+	cfg, _ := data.LoadConfig()
+	ui := NewUI(cfg.FancyUI)
+
 	pins, err := core.ListPinnedNotes()
 	if err != nil {
-		fmt.Println("Error loading pins:", err)
+		ui.Error(err.Error())
 		return
 	}
 	if len(pins) == 0 {
-		fmt.Println("No pinned notes.")
+		ui.Empty("No pinned notes.")
 		return
 	}
 
 	displayPaginatedResults(pins, openMode, pageSize, func(title string) {
-		cfg, err := data.LoadConfig()
-		if err != nil {
-			fmt.Println("Error loading config:", err)
-			return
-		}
 		index := data.LoadIndex()
 		if meta, exists := index[title]; exists {
 			data.OpenFileInEditor(meta.FilePath, cfg.Editor)
@@ -80,17 +84,20 @@ func PinnedCommand(rawArgs []string, defaultOpen bool) {
 }
 
 func listPinnedNotes() {
+	cfg, _ := data.LoadConfig()
+	ui := NewUI(cfg.FancyUI)
+
 	pins, err := core.ListPinnedNotes()
 	if err != nil {
-		fmt.Println("Error loading pins:", err)
+		ui.Error(err.Error())
 		return
 	}
 	if len(pins) == 0 {
-		fmt.Println("No pinned notes.")
+		ui.Empty("No pinned notes.")
 		return
 	}
-	fmt.Println("Pinned notes:")
+	ui.Title("Pinned notes")
 	for _, title := range pins {
-		fmt.Println(title)
+		ui.ListItem(0, title, false)
 	}
 }

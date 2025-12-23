@@ -10,6 +10,7 @@ import (
 type Config struct {
 	NoteDir string `json:"noteDir"`
 	Editor  string `json:"editor"`
+	FancyUI bool   `json:"fancyUI"`
 }
 
 func DefaultConfig() Config {

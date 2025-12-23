@@ -15,6 +15,9 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 		return
 	}
 
+	cfg, _ := data.LoadConfig()
+	ui := NewUI(cfg.FancyUI)
+
 	if pageSize <= 0 {
 		pageSize = 10
 	}
@@ -37,9 +40,9 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 
 		for i := start; i < end; i++ {
 			if selectable && i-start < len(homerow) {
-				fmt.Printf("[%c] %s\n", homerow[i-start], results[i])
+				ui.ListItem(homerow[i-start], results[i], false)
 			} else {
-				fmt.Println(results[i])
+				ui.ListItem(0, results[i], false)
 			}
 		}
 
@@ -48,7 +51,7 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 			break
 		}
 
-		fmt.Printf("\n(%d/%d)\n[n] next [p] prev [q] quit\n: ", page+1, totalPages)
+		ui.Nav(page+1, totalPages)
 
 		var input string
 		fmt.Scanln(&input)
@@ -84,6 +87,9 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 		return
 	}
 
+	cfg, _ := data.LoadConfig()
+	ui := NewUI(cfg.FancyUI)
+
 	if pageSize <= 0 {
 		pageSize = 10
 	}
@@ -106,18 +112,14 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 
 		for i := start; i < end; i++ {
 			result := results[i]
+			key := rune(0)
 			if selectable && i-start < len(homerow) {
-				if result.Score > 1 {
-					fmt.Printf("[%c] %s (matched %d tags)\n", homerow[i-start], result.Title, result.Score)
-				} else {
-					fmt.Printf("[%c] %s\n", homerow[i-start], result.Title)
-				}
+				key = homerow[i-start]
+			}
+			if result.Score > 1 {
+				ui.ListItemWithMeta(key, result.Title, fmt.Sprintf("(matched %d tags)", result.Score))
 			} else {
-				if result.Score > 1 {
-					fmt.Printf("%s (matched %d tags)\n", result.Title, result.Score)
-				} else {
-					fmt.Println(result.Title)
-				}
+				ui.ListItem(key, result.Title, false)
 			}
 		}
 
@@ -126,7 +128,7 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 			break
 		}
 
-		fmt.Printf("\n(%d/%d)\n[n] next [p] prev [q] quit\n: ", page+1, totalPages)
+		ui.Nav(page+1, totalPages)
 
 		var input string
 		fmt.Scanln(&input)
@@ -148,16 +150,11 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 				if input == string(homerow[i-start]) {
 					if deleteMode {
 						if err := core.DeleteNote(results[i].Title); err != nil {
-							fmt.Println("Error:", err)
+							ui.Error(err.Error())
 							return
 						}
-						fmt.Println("Note moved to trash:", results[i].Title)
+						ui.Success("Note moved to trash: " + results[i].Title)
 					} else {
-						cfg, err := data.LoadConfig()
-						if err != nil {
-							fmt.Println("Error loading config:", err)
-							return
-						}
 						data.OpenFileInEditor(results[i].FilePath, cfg.Editor)
 					}
 					return
