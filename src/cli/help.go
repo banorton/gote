@@ -15,6 +15,8 @@ func PrintDefaultHelp() {
 
 Usage:
   gote <note name>                Create or open a note
+  gote -d <note>                  Create note with date prefix (yymmdd)
+  gote -dt <note>                 Create note with datetime prefix (yymmdd-hhmmss)
   gote                            Open quick note (default)
   gote quick | q                  Open quick note
 

@@ -12,6 +12,8 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 |---------|---------|-------------|
 | `gote` | | Open quick note (default) |
 | `gote <note>` | | Create or open a note by name |
+| `gote -d <note>` | `--date` | Create note with date prefix (yymmdd) |
+| `gote -dt <note>` | `--datetime` | Create note with datetime prefix (yymmdd-hhmmss) |
 | `gote quick` | `q` | Open quick note |
 | `gote recent` | `r` | List recent notes |
 | `gote ro` | | Recent + open mode |
@@ -55,6 +57,10 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 ```bash
 # Create or open a note
 gote mynote
+
+# Create with timestamp prefix
+gote -d mynote        # creates "241223 mynote.md"
+gote -dt mynote       # creates "241223-152030 mynote.md"
 
 # Quick note
 gote
@@ -107,7 +113,8 @@ Config file is at `~/.gote/config.json`:
 {
   "noteDir": "/Users/you/gotes",
   "editor": "vim",
-  "fancyUI": false
+  "fancyUI": false,
+  "timestampNotes": "none"
 }
 ```
 
@@ -116,6 +123,7 @@ Config file is at `~/.gote/config.json`:
 | `noteDir` | Directory where notes are stored |
 | `editor` | Editor to open notes with |
 | `fancyUI` | Enable TUI mode with boxes, single-keypress input, and screen refresh |
+| `timestampNotes` | Auto-prefix notes: `"none"`, `"date"` (yymmdd), or `"datetime"` (yymmdd-hhmmss) |
 
 ## Tag Syntax
 
