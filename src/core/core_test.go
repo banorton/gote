@@ -177,10 +177,10 @@ func TestPinOperations(t *testing.T) {
 		}
 	})
 
-	t.Run("PinNote already pinned", func(t *testing.T) {
+	t.Run("PinNote already pinned is idempotent", func(t *testing.T) {
 		err := PinNote("test-note")
-		if err == nil {
-			t.Error("Should error when pinning already pinned note")
+		if err != nil {
+			t.Error("Should not error when pinning already pinned note (idempotent)")
 		}
 	})
 

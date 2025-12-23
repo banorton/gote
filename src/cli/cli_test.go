@@ -148,13 +148,13 @@ func TestPinCommands(t *testing.T) {
 		}
 	})
 
-	t.Run("PinCommand shows already pinned error", func(t *testing.T) {
+	t.Run("PinCommand is idempotent for already pinned", func(t *testing.T) {
 		output := captureOutput(func() {
 			PinCommand([]string{"test-note"})
 		})
 
-		if !strings.Contains(output, "Error") {
-			t.Errorf("Expected error for already pinned, got: %s", output)
+		if strings.Contains(output, "Error") {
+			t.Errorf("Should not error for already pinned (idempotent), got: %s", output)
 		}
 	})
 
@@ -272,7 +272,7 @@ func TestSearchCommand(t *testing.T) {
 
 	t.Run("search by title shows results", func(t *testing.T) {
 		output := captureOutput(func() {
-			SearchCommand([]string{"project"}, false, false)
+			SearchCommand([]string{"project"}, false, false, false)
 		})
 
 		if !strings.Contains(output, "project-alpha") {
@@ -285,7 +285,7 @@ func TestSearchCommand(t *testing.T) {
 
 	t.Run("search with no results", func(t *testing.T) {
 		output := captureOutput(func() {
-			SearchCommand([]string{"nonexistent"}, false, false)
+			SearchCommand([]string{"nonexistent"}, false, false, false)
 		})
 
 		if !strings.Contains(output, "No matching") {
@@ -295,7 +295,7 @@ func TestSearchCommand(t *testing.T) {
 
 	t.Run("search by tags", func(t *testing.T) {
 		output := captureOutput(func() {
-			SearchCommand([]string{"-t", "work"}, false, false)
+			SearchCommand([]string{"-t", "work"}, false, false, false)
 		})
 
 		if !strings.Contains(output, "project-alpha") {
@@ -308,7 +308,7 @@ func TestSearchCommand(t *testing.T) {
 
 	t.Run("search shows usage when no query", func(t *testing.T) {
 		output := captureOutput(func() {
-			SearchCommand([]string{}, false, false)
+			SearchCommand([]string{}, false, false, false)
 		})
 
 		if !strings.Contains(output, "Usage") {
@@ -329,7 +329,7 @@ func TestRecentCommand(t *testing.T) {
 
 	t.Run("lists recent notes", func(t *testing.T) {
 		output := captureOutput(func() {
-			RecentCommand([]string{}, false, false)
+			RecentCommand([]string{}, false, false, false)
 		})
 
 		if !strings.Contains(output, "note1") {
