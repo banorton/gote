@@ -430,7 +430,19 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 	}
 
 	// Tag search mode
-	if len(tags) > 0 {
+	if args.Has("t", "tags") {
+		if len(tags) == 0 {
+			fmt.Print("Tags: ")
+			reader := bufio.NewReader(os.Stdin)
+			input, err := reader.ReadString('\n')
+			if err != nil {
+				return
+			}
+			tags = ParseTagString(strings.TrimSpace(input))
+			if len(tags) == 0 {
+				return
+			}
+		}
 		results, err := core.SearchNotesByTags(tags, -1) // Get all
 		if err != nil {
 			ui.Error(err.Error())

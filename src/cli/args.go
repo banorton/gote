@@ -132,10 +132,10 @@ func (a Args) TagList(names ...string) []string {
 		return nil
 	}
 	raw := strings.Join(vals, " ")
-	return parseTagString(raw)
+	return ParseTagString(raw)
 }
 
-func parseTagString(s string) []string {
+func ParseTagString(s string) []string {
 	if !strings.HasPrefix(s, ".") {
 		return nil
 	}
