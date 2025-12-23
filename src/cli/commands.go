@@ -16,27 +16,39 @@ func NoteCommand(args []string) {
 	parsedArgs := ParseArgs(args)
 	dateFlag := parsedArgs.Has("d", "date")
 	datetimeFlag := parsedArgs.Has("dt", "datetime")
+	noTimestampFlag := parsedArgs.Has("nt", "no-timestamp")
 	noteName := parsedArgs.Joined()
 
 	if noteName == "" {
-		fmt.Println("Usage: gote <note name> [-d|--date] [-dt|--datetime]")
+		fmt.Println("Usage: gote <note name> [-d|--date] [-dt|--datetime] [-nt|--no-timestamp]")
 		return
 	}
 
-	// Determine timestamp mode: flag > config > none
 	cfg, _ := data.LoadConfig()
-	mode := cfg.TimestampNotes
-	if dateFlag {
-		mode = "date"
-	} else if datetimeFlag {
-		mode = "datetime"
+
+	// Check if note already exists - if so, just open it
+	index := data.LoadIndex()
+	if _, exists := index[noteName]; exists {
+		if err := core.CreateOrOpenNote(noteName); err != nil {
+			fmt.Println("Error:", err)
+		}
+		return
 	}
 
-	// Apply timestamp prefix
-	if mode == "date" {
-		noteName = time.Now().Format("060102") + " " + noteName
-	} else if mode == "datetime" {
-		noteName = time.Now().Format("060102-150405") + " " + noteName
+	// Note doesn't exist - apply timestamp if enabled (unless bypassed)
+	if !noTimestampFlag {
+		mode := cfg.TimestampNotes
+		if dateFlag {
+			mode = "date"
+		} else if datetimeFlag {
+			mode = "datetime"
+		}
+
+		if mode == "date" {
+			noteName = time.Now().Format("060102") + " " + noteName
+		} else if mode == "datetime" {
+			noteName = time.Now().Format("060102-150405") + " " + noteName
+		}
 	}
 
 	if err := core.CreateOrOpenNote(noteName); err != nil {
