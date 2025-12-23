@@ -1,10 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"gote/src/cli"
 )
+
+const Version = "0.1.0"
 
 func main() {
 	args := os.Args
@@ -18,6 +21,11 @@ func main() {
 	rest := args[2:]
 
 	switch cmd {
+	// Version
+	case "-v", "--version", "version":
+		fmt.Println("gote", Version)
+		return
+
 	// Notes
 	case "quick", "q":
 		cli.QuickCommand()
@@ -81,7 +89,7 @@ func main() {
 		cli.HelpCommand(rest)
 
 	// Not implemented
-	case "view", "v":
+	case "view":
 		cli.NotImplementedCommand("view")
 	case "popular", "pop":
 		cli.NotImplementedCommand("popular")

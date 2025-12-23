@@ -63,5 +63,6 @@ Config:
   gote config edit                Edit config (uses vim)
   gote config format              Format config file
 
-  gote help | h | man             Show this help message`)
+  gote help | h | man             Show this help message
+  gote -v | --version             Show version`)
 }
