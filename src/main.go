@@ -28,7 +28,13 @@ func main() {
 
 	// Notes
 	case "quick", "q":
-		cli.QuickCommand()
+		if len(rest) > 0 && (rest[0] == "save" || rest[0] == "s") {
+			cli.QuickSaveCommand(rest[1:])
+		} else {
+			cli.QuickCommand()
+		}
+	case "qs":
+		cli.QuickSaveCommand(rest)
 
 	// Recent notes
 	case "recent", "r":
