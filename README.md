@@ -17,17 +17,17 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote quick` | `q` | Open quick note |
 | `gote quick save <name>` | `qs` | Save quick note as named note |
 | `gote recent` | `r` | List recent notes |
-| `gote ro` | | Recent + open mode |
-| `gote rd` | | Recent + delete mode |
-| `gote rp` | | Recent + pin mode |
+| `gote ro` | `recent open` | Recent + open mode |
+| `gote rd` | `recent delete` | Recent + delete mode |
+| `gote rp` | `recent pin` | Recent + pin mode |
 | `gote search [query]` | `s` | Search notes by title (prompts if no query) |
 | `gote search -t <tags>` | | Search notes by tags |
 | `gote search -w <date>` | `--when` | Search by creation date |
 | `gote search -w <date> <date>` | | Search date range (inclusive) |
 | `gote search -w <date> --modified` | `-m` | Search by modification date |
-| `gote so <query>` | | Search + open mode |
-| `gote sd <query>` | | Search + delete mode |
-| `gote sp <query>` | | Search + pin mode |
+| `gote so <query>` | `search open` | Search + open mode |
+| `gote sd <query>` | `search delete` | Search + delete mode |
+| `gote sp <query>` | `search pin` | Search + pin mode |
 | `gote tags` | `ts` | List all tags |
 | `gote tags popular` | | Show most used tags |
 | `gote tags edit` | | Edit tags file |
@@ -36,7 +36,7 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote pin <note>` | `p` | Pin a note |
 | `gote pin` | | List pinned notes |
 | `gote pinned` | `pd` | List pinned notes |
-| `gote po` | | Pinned + open mode |
+| `gote po` | `pinned open` | Pinned + open mode |
 | `gote unpin <note>` | `u`, `up` | Unpin a note |
 | `gote delete <note>` | `d`, `del` | Move note to trash |
 | `gote trash` | | List trashed notes |
@@ -74,14 +74,16 @@ gote qs mynote       # save quick.md as "mynote.md"
 
 # Recent notes
 gote recent          # list recent
-gote ro              # list + select to open
-gote rd              # list + select to delete
-gote rp              # list + select to pin
+gote ro              # select to open (shorthand)
+gote recent open     # select to open (keyword)
+gote rd              # select to delete
+gote rp              # select to pin
 
 # Search
 gote search          # prompts for query
 gote search meeting  # search by title
-gote so meeting      # search + open
+gote so meeting      # search + open (shorthand)
+gote search open meeting  # search + open (keyword)
 gote sd meeting      # search + delete
 gote sp meeting      # search + pin
 gote search -t work  # search by tags
@@ -103,7 +105,8 @@ gote tag mynote -t work urgent  # add tags to note
 # Pins
 gote pin mynote      # pin a note
 gote pin             # list pinned
-gote po              # list + select to open
+gote po              # select to open (shorthand)
+gote pinned open     # select to open (keyword)
 gote unpin mynote    # unpin
 
 # Trash
