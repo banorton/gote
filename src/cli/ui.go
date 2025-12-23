@@ -199,14 +199,11 @@ func (u *UI) SelectableList(title string, items []string, selected int, keys []r
 }
 
 // NavHint shows navigation hints
-func (u *UI) NavHint(page, total int, hasKeys bool) {
+func (u *UI) NavHint(page, total int) {
 	if !u.Fancy {
 		fmt.Printf("(%d/%d) ", page, total)
 		if total > 1 {
 			fmt.Print("[n]ext [p]rev ")
-		}
-		if hasKeys {
-			fmt.Print("[key] select ")
 		}
 		fmt.Println("[q]uit")
 		return
@@ -217,9 +214,6 @@ func (u *UI) NavHint(page, total int, hasKeys bool) {
 	if total > 1 {
 		hints = append(hints, "[n] next")
 		hints = append(hints, "[p] prev")
-	}
-	if hasKeys {
-		hints = append(hints, "[key] select")
 	}
 	hints = append(hints, "[q] quit")
 
