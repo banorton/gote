@@ -21,9 +21,9 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote rp` | | Recent + pin mode |
 | `gote search [query]` | `s` | Search notes by title (prompts if no query) |
 | `gote search -t <tags>` | | Search notes by tags |
-| `gote search -d <date>` | | Search by creation date |
-| `gote search -d <date> <date>` | | Search date range (inclusive) |
-| `gote search -d <date> --modified` | `-m` | Search by modification date |
+| `gote search -w <date>` | `--when` | Search by creation date |
+| `gote search -w <date> <date>` | | Search date range (inclusive) |
+| `gote search -w <date> --modified` | `-m` | Search by modification date |
 | `gote so <query>` | | Search + open mode |
 | `gote sd <query>` | | Search + delete mode |
 | `gote sp <query>` | | Search + pin mode |
@@ -85,13 +85,13 @@ gote sp meeting      # search + pin
 gote search -t work  # search by tags
 
 # Date search (by creation date)
-gote search -d 24           # all notes from 2024
-gote search -d 2412         # all notes from Dec 2024
-gote search -d 241223       # notes from Dec 23, 2024
-gote search -d 241223.15    # notes from 3pm hour
-gote search -d 2412 2501    # Dec 2024 through Jan 2025
-gote search -d 241201 241231  # Dec 1-31, 2024
-gote search -d 2412 --modified  # by modification date
+gote search -w 24           # all notes from 2024
+gote search -w 2412         # all notes from Dec 2024
+gote search -w 241223       # notes from Dec 23, 2024
+gote search -w 241223.15    # notes from 3pm hour
+gote search -w 2412 2501    # Dec 2024 through Jan 2025
+gote search -w 241201 241231  # Dec 1-31, 2024
+gote search -w 2412 --modified  # by modification date
 
 # Tags
 gote tags            # list all tags

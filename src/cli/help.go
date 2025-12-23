@@ -34,11 +34,11 @@ Search:
   gote sd <query> [-n <size>]     Search + delete mode
   gote sp <query> [-n <size>]     Search + pin mode
   gote search -t <tag1> <tag2>    Search by tags
-  gote search -d <date> [<date>]  Search by date (created)
-  gote search -d <date> --modified  Search by date (modified)
+  gote search -w <date> [<date>]  Search by date (created)
+  gote search -w <date> --modified  Search by date (modified)
 
   Date formats: yy, yymm, yymmdd, yymmdd.hh, yymmdd.hhmm, yymmdd.hhmmss
-  Examples: -d 24 (year), -d 2412 (month), -d 241223 (day), -d 2412 2501 (range)
+  Examples: -w 24 (year), -w 2412 (month), -w 241223 (day), -w 2412 2501 (range)
 
 Tags:
   gote tags | ts                  List all tags
