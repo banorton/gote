@@ -19,6 +19,7 @@ Usage:
   gote -dt <note>                 Create note with datetime prefix (yymmdd-hhmmss)
   gote                            Open quick note (default)
   gote quick | q                  Open quick note
+  gote quick save | qs <name>     Save quick note as named note
 
 Notes:
   gote recent | r [-n <size>]     List recent notes

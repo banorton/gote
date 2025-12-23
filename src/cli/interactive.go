@@ -380,6 +380,20 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 	openMode := defaultOpen || args.Has("o", "open")
 	deleteMode := defaultDelete || args.Has("d", "delete")
 	pinMode := defaultPin || args.Has("p", "pin")
+
+	// Check for mode keywords as first positional arg (e.g., "gote search open -w 2512")
+	first := args.First()
+	if first == "open" || first == "o" {
+		openMode = true
+		args.Positional = args.Positional[1:]
+	} else if first == "delete" || first == "d" {
+		deleteMode = true
+		args.Positional = args.Positional[1:]
+	} else if first == "pin" || first == "p" {
+		pinMode = true
+		args.Positional = args.Positional[1:]
+	}
+
 	interactive := openMode || deleteMode || pinMode
 	pageSize := args.IntOr(cfg.PageSize(), "n", "limit")
 	tags := args.List("t", "tags")

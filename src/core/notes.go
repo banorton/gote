@@ -176,3 +176,38 @@ func AddTagsToNote(noteName string, tagsToAdd []string) error {
 
 	return data.IndexNote(notePath)
 }
+
+// PromoteQuickNote moves content from quick.md to a new named note
+func PromoteQuickNote(newName string) error {
+	cfg, err := data.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("error loading config: %w", err)
+	}
+
+	quickPath := filepath.Join(cfg.NoteDir, "quick.md")
+	newPath := filepath.Join(cfg.NoteDir, newName+".md")
+
+	// Check if target note already exists
+	if _, err := os.Stat(newPath); err == nil {
+		return fmt.Errorf("note already exists: %s", newName)
+	}
+
+	// Read quick.md content
+	content, err := os.ReadFile(quickPath)
+	if err != nil {
+		return fmt.Errorf("could not read quick.md: %w", err)
+	}
+
+	// Write content to new note
+	if err := os.WriteFile(newPath, content, 0644); err != nil {
+		return fmt.Errorf("error creating note: %w", err)
+	}
+
+	// Clear quick.md
+	if err := os.WriteFile(quickPath, []byte{}, 0644); err != nil {
+		return fmt.Errorf("error clearing quick.md: %w", err)
+	}
+
+	// Index the new note
+	return data.IndexNote(newPath)
+}

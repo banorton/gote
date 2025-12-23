@@ -48,6 +48,26 @@ func QuickCommand() {
 	NoteCommand([]string{"quick"})
 }
 
+func QuickSaveCommand(args []string) {
+	parsedArgs := ParseArgs(args)
+	noteName := parsedArgs.Joined()
+
+	cfg, _ := data.LoadConfig()
+	ui := NewUI(cfg.FancyUI)
+
+	if noteName == "" {
+		fmt.Println("Usage: gote quick save <note name>")
+		fmt.Println("       gote qs <note name>")
+		return
+	}
+
+	if err := core.PromoteQuickNote(noteName); err != nil {
+		ui.Error(err.Error())
+		return
+	}
+	ui.Success("Quick note saved as: " + noteName)
+}
+
 func IndexCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	sub := args.First()
