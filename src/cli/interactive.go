@@ -119,7 +119,7 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 	}
 }
 
-func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectable bool, deleteMode bool, pageSize int) {
+func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectable bool, deleteMode bool, pinMode bool, pageSize int) {
 	if len(results) == 0 {
 		fmt.Println("No results found.")
 		return
@@ -163,6 +163,8 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 		title := "Search Results"
 		if deleteMode {
 			title = "Search Results (delete mode)"
+		} else if pinMode {
+			title = "Search Results (pin mode)"
 		}
 
 		if cfg.FancyUI {
@@ -228,6 +230,12 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 							return
 						}
 						ui.Success("Note moved to trash: " + results[start+i].Title)
+					} else if pinMode {
+						if err := core.PinNote(results[start+i].Title); err != nil {
+							ui.Error(err.Error())
+							return
+						}
+						ui.Success("Pinned: " + results[start+i].Title)
 					} else {
 						data.OpenFileInEditor(results[start+i].FilePath, cfg.Editor)
 					}
@@ -238,10 +246,11 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 	}
 }
 
-func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool) {
+func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool) {
 	args := ParseArgs(rawArgs)
 	openMode := defaultOpen || args.Has("o", "open")
 	deleteMode := defaultDelete || args.Has("d", "delete")
+	pinMode := defaultPin || args.Has("p", "pin")
 	pageSize := args.IntOr(10, "n", "limit")
 
 	// Support bare number as first positional arg (e.g., "gote r 5")
@@ -263,15 +272,26 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool) {
 	}
 
 	cfg, _ := data.LoadConfig()
+	ui := NewUI(cfg.FancyUI)
 
 	if deleteMode {
 		displayPaginatedResults(titles, true, pageSize, func(title string) {
-			ui := NewUI(cfg.FancyUI)
 			if err := core.DeleteNote(title); err != nil {
 				ui.Error(err.Error())
 				return
 			}
 			ui.Success("Note moved to trash: " + title)
+		})
+		return
+	}
+
+	if pinMode {
+		displayPaginatedResults(titles, true, pageSize, func(title string) {
+			if err := core.PinNote(title); err != nil {
+				ui.Error(err.Error())
+				return
+			}
+			ui.Success("Pinned: " + title)
 		})
 		return
 	}
@@ -284,7 +304,7 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool) {
 	})
 }
 
-func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool) {
+func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool) {
 	args := ParseArgs(rawArgs)
 
 	cfg, _ := data.LoadConfig()
@@ -318,7 +338,8 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool) {
 
 	openMode := defaultOpen || args.Has("o", "open")
 	deleteMode := defaultDelete || args.Has("d", "delete")
-	interactive := openMode || deleteMode
+	pinMode := defaultPin || args.Has("p", "pin")
+	interactive := openMode || deleteMode || pinMode
 	pageSize := args.IntOr(10, "n", "limit")
 	tags := args.List("t", "tags")
 
@@ -333,7 +354,7 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool) {
 			ui.Empty("No notes found for the given tags.")
 			return
 		}
-		displayPaginatedSearchResultsWithMode(results, interactive, deleteMode, pageSize)
+		displayPaginatedSearchResultsWithMode(results, interactive, deleteMode, pinMode, pageSize)
 		return
 	}
 
@@ -353,5 +374,5 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool) {
 		ui.Empty("No matching note titles found.")
 		return
 	}
-	displayPaginatedSearchResultsWithMode(results, interactive, deleteMode, pageSize)
+	displayPaginatedSearchResultsWithMode(results, interactive, deleteMode, pinMode, pageSize)
 }

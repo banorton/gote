@@ -22,6 +22,7 @@ Notes:
   gote recent | r [-n <size>]     List recent notes
   gote ro [-n <size>]             Recent + open mode
   gote rd [-n <size>]             Recent + delete mode
+  gote rp [-n <size>]             Recent + pin mode
   gote info | i <note>            Show note metadata
   gote rename | mv | rn <note> -n <new>  Rename a note
 
@@ -29,6 +30,7 @@ Search:
   gote search | s <query> [-n <size>]  Search notes by title
   gote so <query> [-n <size>]     Search + open mode
   gote sd <query> [-n <size>]     Search + delete mode
+  gote sp <query> [-n <size>]     Search + pin mode
   gote search -t <tag1> <tag2>    Search by tags
 
 Tags:

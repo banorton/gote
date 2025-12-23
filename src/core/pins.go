@@ -19,7 +19,7 @@ func PinNote(noteName string) error {
 	}
 
 	if _, already := pins[noteName]; already {
-		return fmt.Errorf("note already pinned: %s", noteName)
+		return nil // idempotent - already pinned is success
 	}
 
 	pins[noteName] = data.EmptyStruct{}

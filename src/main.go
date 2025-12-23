@@ -32,19 +32,23 @@ func main() {
 
 	// Recent notes
 	case "recent", "r":
-		cli.RecentCommand(rest, false, false)
+		cli.RecentCommand(rest, false, false, false)
 	case "ro": // recent + open
-		cli.RecentCommand(rest, true, false)
+		cli.RecentCommand(rest, true, false, false)
 	case "rd": // recent + delete
-		cli.RecentCommand(rest, false, true)
+		cli.RecentCommand(rest, false, true, false)
+	case "rp": // recent + pin
+		cli.RecentCommand(rest, false, false, true)
 
 	// Search
 	case "search", "s":
-		cli.SearchCommand(rest, false, false)
+		cli.SearchCommand(rest, false, false, false)
 	case "so": // search + open
-		cli.SearchCommand(rest, true, false)
+		cli.SearchCommand(rest, true, false, false)
 	case "sd": // search + delete
-		cli.SearchCommand(rest, false, true)
+		cli.SearchCommand(rest, false, true, false)
+	case "sp": // search + pin
+		cli.SearchCommand(rest, false, false, true)
 
 	// Index management
 	case "index", "idx":
