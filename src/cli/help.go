@@ -59,6 +59,7 @@ Index:
   gote index | idx                Rebuild the note index
   gote index edit                 Edit index file
   gote index format               Format index file
+  gote index clear                Clear and rebuild index from scratch
 
 Config:
   gote config | c                 Show config
