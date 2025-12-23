@@ -67,6 +67,7 @@ Config:
   gote config | c                 Show config
   gote config edit                Edit config (uses vim)
   gote config format              Format config file
+  gote config help                Show config options
 
   gote help | h | man             Show this help message
   gote -v | --version             Show version`)
