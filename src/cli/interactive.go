@@ -287,6 +287,7 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 						ui.Success("Pinned: " + results[start+i].Title)
 					} else {
 						data.OpenFileInEditor(results[start+i].FilePath, cfg.Editor)
+						core.UpdateLastVisited(results[start+i].Title)
 					}
 					return
 				}
@@ -371,6 +372,7 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 		}
 		if meta, exists := index[title]; exists {
 			data.OpenFileInEditor(meta.FilePath, cfg.Editor)
+			core.UpdateLastVisited(title)
 		}
 	})
 }

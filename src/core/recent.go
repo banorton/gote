@@ -17,9 +17,17 @@ func GetRecentNotes(limit int) ([]data.NoteMeta, error) {
 		notes = append(notes, n)
 	}
 
-	// Sort by Modified field (yymmdd.hhmmss format sorts correctly as string)
+	// Sort by LastVisited (with Modified as fallback for notes never opened)
 	sort.Slice(notes, func(i, j int) bool {
-		return notes[i].Modified > notes[j].Modified
+		vi := notes[i].LastVisited
+		vj := notes[j].LastVisited
+		if vi == "" {
+			vi = notes[i].Modified
+		}
+		if vj == "" {
+			vj = notes[j].Modified
+		}
+		return vi > vj
 	})
 
 	if limit > 0 && limit < len(notes) {

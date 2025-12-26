@@ -335,20 +335,35 @@ func TestGetRecentNotes(t *testing.T) {
 		}
 	})
 
-	t.Run("sorted by mod time", func(t *testing.T) {
-		// Touch note1 to make it most recent
-		notePath := filepath.Join(notesDir, "note1.md")
-		os.WriteFile(notePath, []byte(".tag\nUpdated first"), 0644)
+	t.Run("sorted by last visited", func(t *testing.T) {
+		// Manually set LastVisited to control sort order
+		index, _ := data.LoadIndex()
+		m1 := index["note1"]
+		m2 := index["note2"]
+		m3 := index["note3"]
+		m1.LastVisited = "991231.235959" // Most recent
+		m2.LastVisited = "990101.000000" // Oldest
+		m3.LastVisited = "990601.120000" // Middle
+		index["note1"] = m1
+		index["note2"] = m2
+		index["note3"] = m3
+		data.SaveIndex(index)
 
 		notes, err := GetRecentNotes(-1)
 		if err != nil {
 			t.Fatalf("GetRecentNotes failed: %v", err)
 		}
-		if len(notes) < 1 {
-			t.Fatal("Expected at least 1 note")
+		if len(notes) < 3 {
+			t.Fatal("Expected 3 notes")
 		}
 		if notes[0].Title != "note1" {
 			t.Errorf("First note should be 'note1', got %s", notes[0].Title)
+		}
+		if notes[1].Title != "note3" {
+			t.Errorf("Second note should be 'note3', got %s", notes[1].Title)
+		}
+		if notes[2].Title != "note2" {
+			t.Errorf("Third note should be 'note2', got %s", notes[2].Title)
 		}
 	})
 }
