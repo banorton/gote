@@ -51,6 +51,38 @@ func TestParseTags(t *testing.T) {
 	}
 }
 
+// --- ValidateNoteName tests ---
+
+func TestValidateNoteName(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"valid simple", "mynote", false},
+		{"valid with spaces", "my note", false},
+		{"valid with numbers", "note123", false},
+		{"empty name", "", true},
+		{"starts with dash", "-note", true},
+		{"contains forward slash", "path/to/note", true},
+		{"contains backslash", "path\\note", true},
+		{"contains double dot", "note..traversal", true},
+		{"just double dot", "..", true},
+		{"contains null byte", "note\x00bad", true},
+		{"valid with dot", "my.note", false},
+		{"valid with dash", "my-note", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateNoteName(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateNoteName(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+		})
+	}
+}
+
 // --- Index tests ---
 
 func TestIndexOperations(t *testing.T) {

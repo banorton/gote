@@ -367,3 +367,162 @@ func TestGetRecentNotes(t *testing.T) {
 		}
 	})
 }
+
+// --- UpdateLastVisited tests ---
+
+func TestUpdateLastVisited(t *testing.T) {
+	_, notesDir, cleanup := testEnv(t)
+	defer cleanup()
+
+	createTestNote(t, notesDir, "test-note", ".tag\nContent")
+
+	t.Run("updates LastVisited timestamp", func(t *testing.T) {
+		err := UpdateLastVisited("test-note")
+		if err != nil {
+			t.Fatalf("UpdateLastVisited failed: %v", err)
+		}
+
+		index, _ := data.LoadIndex()
+		meta := index["test-note"]
+		if meta.LastVisited == "" {
+			t.Error("LastVisited should be set")
+		}
+	})
+
+	t.Run("nonexistent note returns nil", func(t *testing.T) {
+		err := UpdateLastVisited("nonexistent")
+		if err != nil {
+			t.Errorf("Should return nil for nonexistent note, got %v", err)
+		}
+	})
+}
+
+// --- Date search tests ---
+
+func TestParseDateInput(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantStart string
+		wantEnd   string
+		wantErr   bool
+	}{
+		{"year only", "24", "240101.000000", "241231.235959", false},
+		{"month", "2412", "241201.000000", "241231.235959", false},
+		{"day", "241223", "241223.000000", "241223.235959", false},
+		{"hour", "241223.15", "241223.150000", "241223.155959", false},
+		{"minute", "241223.1530", "241223.153000", "241223.153059", false},
+		{"second", "241223.153045", "241223.153045", "241223.153045", false},
+		{"empty", "", "", "", true},
+		{"invalid chars", "24abc", "", "", true},
+		{"invalid length", "12345", "", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dr, err := ParseDateInput(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseDateInput(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				if dr.Start != tt.wantStart {
+					t.Errorf("Start = %q, want %q", dr.Start, tt.wantStart)
+				}
+				if dr.End != tt.wantEnd {
+					t.Errorf("End = %q, want %q", dr.End, tt.wantEnd)
+				}
+			}
+		})
+	}
+}
+
+func TestSearchNotesByDate(t *testing.T) {
+	_, notesDir, cleanup := testEnv(t)
+	defer cleanup()
+
+	createTestNote(t, notesDir, "old-note", ".tag\nOld")
+	createTestNote(t, notesDir, "new-note", ".tag\nNew")
+
+	// Set specific Created dates for testing
+	index, _ := data.LoadIndex()
+	m1 := index["old-note"]
+	m2 := index["new-note"]
+	m1.Created = "240101.120000"
+	m2.Created = "241215.120000"
+	index["old-note"] = m1
+	index["new-note"] = m2
+	data.SaveIndex(index)
+
+	t.Run("finds notes in range", func(t *testing.T) {
+		results, err := SearchNotesByDate([]string{"2412"}, true, -1)
+		if err != nil {
+			t.Fatalf("SearchNotesByDate failed: %v", err)
+		}
+		if len(results) != 1 {
+			t.Errorf("Expected 1 result, got %d", len(results))
+		}
+		if len(results) > 0 && results[0].Title != "new-note" {
+			t.Errorf("Expected 'new-note', got %s", results[0].Title)
+		}
+	})
+
+	t.Run("finds all in year", func(t *testing.T) {
+		results, err := SearchNotesByDate([]string{"24"}, true, -1)
+		if err != nil {
+			t.Fatalf("SearchNotesByDate failed: %v", err)
+		}
+		if len(results) != 2 {
+			t.Errorf("Expected 2 results, got %d", len(results))
+		}
+	})
+}
+
+// --- RenameNote tests ---
+
+func TestRenameNote(t *testing.T) {
+	_, notesDir, cleanup := testEnv(t)
+	defer cleanup()
+
+	createTestNote(t, notesDir, "original", ".tag\nContent")
+
+	t.Run("renames successfully", func(t *testing.T) {
+		err := RenameNote("original", "renamed")
+		if err != nil {
+			t.Fatalf("RenameNote failed: %v", err)
+		}
+
+		index, _ := data.LoadIndex()
+		if _, exists := index["original"]; exists {
+			t.Error("Old name should not exist in index")
+		}
+		if _, exists := index["renamed"]; !exists {
+			t.Error("New name should exist in index")
+		}
+
+		// Check file was renamed
+		oldPath := filepath.Join(notesDir, "original.md")
+		newPath := filepath.Join(notesDir, "renamed.md")
+		if _, err := os.Stat(oldPath); !os.IsNotExist(err) {
+			t.Error("Old file should not exist")
+		}
+		if _, err := os.Stat(newPath); os.IsNotExist(err) {
+			t.Error("New file should exist")
+		}
+	})
+
+	t.Run("fails for nonexistent", func(t *testing.T) {
+		err := RenameNote("nonexistent", "newname")
+		if err == nil {
+			t.Error("Should error for nonexistent note")
+		}
+	})
+
+	t.Run("fails for invalid name", func(t *testing.T) {
+		createTestNote(t, notesDir, "valid", ".tag\nContent")
+		err := RenameNote("valid", "../invalid")
+		if err == nil {
+			t.Error("Should error for invalid new name")
+		}
+	})
+}

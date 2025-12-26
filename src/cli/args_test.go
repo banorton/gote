@@ -254,3 +254,33 @@ func TestParseArgs_RealWorldExamples(t *testing.T) {
 		}
 	})
 }
+
+func TestParseTagString(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  []string
+	}{
+		{"simple tags", ".work.project", []string{"work", "project"}},
+		{"single tag", ".work", []string{"work"}},
+		{"tag with spaces", ".tag with spaces.another", []string{"tag with spaces", "another"}},
+		{"empty string", "", []string{}},
+		{"no leading dot", "work.project", []string{}},
+		{"only dot", ".", []string{}},
+		{"multiple dots", ".work..project", []string{"work", "project"}},
+		{"mixed case normalizes", ".Work.PROJECT", []string{"work", "project"}},
+		{"trims whitespace", ". work . project ", []string{"work", "project"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ParseTagString(tt.input)
+			if len(got) == 0 && len(tt.want) == 0 {
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ParseTagString(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
