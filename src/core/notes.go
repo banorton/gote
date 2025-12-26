@@ -10,6 +10,10 @@ import (
 )
 
 func CreateOrOpenNote(noteName string) error {
+	if err := data.ValidateNoteName(noteName); err != nil {
+		return err
+	}
+
 	cfg, err := data.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("error loading config: %w", err)
@@ -67,6 +71,10 @@ func GetNoteInfo(noteName string) (data.NoteMeta, error) {
 }
 
 func RenameNote(oldName, newName string) error {
+	if err := data.ValidateNoteName(newName); err != nil {
+		return err
+	}
+
 	cfg, err := data.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("error loading config: %w", err)
@@ -179,6 +187,10 @@ func AddTagsToNote(noteName string, tagsToAdd []string) error {
 
 // PromoteQuickNote moves content from quick.md to a new named note
 func PromoteQuickNote(newName string) error {
+	if err := data.ValidateNoteName(newName); err != nil {
+		return err
+	}
+
 	cfg, err := data.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("error loading config: %w", err)

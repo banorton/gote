@@ -18,28 +18,22 @@ func TagsPath() string {
 }
 
 func UpdateTagsIndex(notes map[string]NoteMeta) error {
-	tagMap := make(map[string]*TagMeta)
+	tagMap := make(map[string]TagMeta)
 	for _, note := range notes {
 		for _, tag := range note.Tags {
-			tm, exists := tagMap[tag]
-			if !exists {
-				tm = &TagMeta{Tag: tag}
-				tagMap[tag] = tm
-			}
+			tm := tagMap[tag]
+			tm.Tag = tag
 			tm.Notes = append(tm.Notes, note.FilePath)
 			tm.Count++
+			tagMap[tag] = tm
 		}
-	}
-	tagsOut := make(map[string]TagMeta)
-	for k, v := range tagMap {
-		tagsOut[k] = *v
 	}
 	f, err := os.Create(TagsPath())
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	return json.NewEncoder(f).Encode(tagsOut)
+	return json.NewEncoder(f).Encode(tagMap)
 }
 
 func LoadTags() (map[string]TagMeta, error) {

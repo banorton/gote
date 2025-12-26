@@ -11,7 +11,11 @@ func PinCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	sub := args.First()
 
-	cfg, _ := data.LoadConfig()
+	cfg, err := data.LoadConfig()
+	if err != nil {
+		fmt.Println("Error loading config:", err)
+		return
+	}
 	ui := NewUI(cfg.FancyUI)
 
 	// Handle subcommands
@@ -42,7 +46,11 @@ func UnpinCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	noteName := args.Joined()
 
-	cfg, _ := data.LoadConfig()
+	cfg, err := data.LoadConfig()
+	if err != nil {
+		fmt.Println("Error loading config:", err)
+		return
+	}
 	ui := NewUI(cfg.FancyUI)
 
 	if noteName == "" {
@@ -67,7 +75,11 @@ func PinnedCommand(rawArgs []string, defaultOpen bool) {
 		args.Positional = args.Positional[1:]
 	}
 
-	cfg, _ := data.LoadConfig()
+	cfg, err := data.LoadConfig()
+	if err != nil {
+		fmt.Println("Error loading config:", err)
+		return
+	}
 	pageSize := args.IntOr(cfg.PageSize(), "n", "limit")
 	ui := NewUI(cfg.FancyUI)
 
@@ -90,7 +102,11 @@ func PinnedCommand(rawArgs []string, defaultOpen bool) {
 }
 
 func listPinnedNotes() {
-	cfg, _ := data.LoadConfig()
+	cfg, err := data.LoadConfig()
+	if err != nil {
+		fmt.Println("Error loading config:", err)
+		return
+	}
 	ui := NewUI(cfg.FancyUI)
 
 	pins, err := core.ListPinnedNotes()

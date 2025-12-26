@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 func PrettyPrintJSON(v interface{}) {
@@ -27,6 +28,26 @@ func OpenFileInEditor(filePath, editor string) error {
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("error opening editor: %w", err)
+	}
+	return nil
+}
+
+// ValidateNoteName checks if a note name is safe to use as a filename.
+func ValidateNoteName(name string) error {
+	if name == "" {
+		return fmt.Errorf("note name cannot be empty")
+	}
+	if strings.HasPrefix(name, "-") {
+		return fmt.Errorf("note name cannot start with -")
+	}
+	if strings.Contains(name, "/") || strings.Contains(name, "\\") {
+		return fmt.Errorf("note name cannot contain / or \\")
+	}
+	if strings.Contains(name, "..") {
+		return fmt.Errorf("note name cannot contain ..")
+	}
+	if strings.ContainsAny(name, "\x00") {
+		return fmt.Errorf("note name cannot contain null bytes")
 	}
 	return nil
 }

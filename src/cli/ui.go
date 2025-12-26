@@ -383,7 +383,9 @@ func restoreTerminal() {
 	if originalSttyState != "" {
 		cmd := exec.Command("stty", originalSttyState)
 		cmd.Stdin = os.Stdin
-		cmd.Run()
+		if err := cmd.Run(); err != nil {
+			fmt.Fprintln(os.Stderr, "Warning: failed to restore terminal:", err)
+		}
 	}
 }
 
