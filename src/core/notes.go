@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"gote/src/data"
 )
@@ -57,11 +58,27 @@ func CreateOrOpenNote(noteName string) error {
 	if err != nil {
 		return fmt.Errorf("error building note metadata: %w", err)
 	}
+	meta.LastVisited = time.Now().Format("060102.150405")
 	index[noteName] = meta
 	if err := data.SaveIndex(index); err != nil {
 		return err
 	}
 	return data.UpdateTagsIndex(index)
+}
+
+// UpdateLastVisited updates the LastVisited timestamp for a note
+func UpdateLastVisited(title string) error {
+	index, err := data.LoadIndex()
+	if err != nil {
+		return err
+	}
+	meta, exists := index[title]
+	if !exists {
+		return nil
+	}
+	meta.LastVisited = time.Now().Format("060102.150405")
+	index[title] = meta
+	return data.SaveIndex(index)
 }
 
 func GetNoteInfo(noteName string) (data.NoteMeta, error) {

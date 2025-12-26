@@ -101,6 +101,7 @@ func PinnedCommand(rawArgs []string, defaultOpen bool) {
 		}
 		if meta, exists := index[title]; exists {
 			data.OpenFileInEditor(meta.FilePath, cfg.Editor)
+			core.UpdateLastVisited(title)
 		}
 	})
 }

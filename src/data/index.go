@@ -11,13 +11,14 @@ import (
 )
 
 type NoteMeta struct {
-	FilePath  string   `json:"filePath"`
-	Title     string   `json:"title"`
-	Created   string   `json:"created"`
-	Modified  string   `json:"modified"`
-	WordCount int      `json:"wordCount"`
-	CharCount int      `json:"charCount"`
-	Tags      []string `json:"tags"`
+	FilePath    string   `json:"filePath"`
+	Title       string   `json:"title"`
+	Created     string   `json:"created"`
+	Modified    string   `json:"modified"`
+	LastVisited string   `json:"lastVisited,omitempty"`
+	WordCount   int      `json:"wordCount"`
+	CharCount   int      `json:"charCount"`
+	Tags        []string `json:"tags"`
 }
 
 func IndexPath() string {
@@ -68,8 +69,13 @@ func IndexNotes(notesDir string) error {
 			return err
 		}
 
-		if existing, ok := existingIndex[meta.Title]; ok && existing.Created != "" {
-			meta.Created = existing.Created
+		if existing, ok := existingIndex[meta.Title]; ok {
+			if existing.Created != "" {
+				meta.Created = existing.Created
+			}
+			if existing.LastVisited != "" {
+				meta.LastVisited = existing.LastVisited
+			}
 		}
 
 		index[meta.Title] = meta
@@ -105,8 +111,13 @@ func IndexNote(notePath string) error {
 		return err
 	}
 
-	if existing, ok := index[meta.Title]; ok && existing.Created != "" {
-		meta.Created = existing.Created
+	if existing, ok := index[meta.Title]; ok {
+		if existing.Created != "" {
+			meta.Created = existing.Created
+		}
+		if existing.LastVisited != "" {
+			meta.LastVisited = existing.LastVisited
+		}
 	}
 
 	index[meta.Title] = meta
