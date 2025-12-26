@@ -48,7 +48,7 @@ func createTestNote(t *testing.T, notesDir, name, content string) {
 	// Index it
 	info, _ := os.Stat(notePath)
 	meta, _ := data.BuildNoteMeta(notePath, info)
-	index := data.LoadIndex()
+	index, _ := data.LoadIndex()
 	index[name] = meta
 	data.SaveIndex(index)
 	data.UpdateTagsIndex(index)
@@ -228,7 +228,10 @@ func TestTrashOperations(t *testing.T) {
 		}
 
 		// Should be gone from index
-		index := data.LoadIndex()
+		index, err := data.LoadIndex()
+		if err != nil {
+			t.Fatalf("LoadIndex failed: %v", err)
+		}
 		if _, exists := index["to-delete"]; exists {
 			t.Error("Note should be removed from index")
 		}
@@ -261,7 +264,10 @@ func TestTrashOperations(t *testing.T) {
 		}
 
 		// Should be back in index
-		index := data.LoadIndex()
+		index, err := data.LoadIndex()
+		if err != nil {
+			t.Fatalf("LoadIndex failed: %v", err)
+		}
 		if _, exists := index["to-delete"]; !exists {
 			t.Error("Note should be back in index")
 		}

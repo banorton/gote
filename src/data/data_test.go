@@ -79,7 +79,10 @@ func TestIndexOperations(t *testing.T) {
 			t.Fatalf("SaveIndex failed: %v", err)
 		}
 
-		loaded := LoadIndex()
+		loaded, err := LoadIndex()
+		if err != nil {
+			t.Fatalf("LoadIndex failed: %v", err)
+		}
 		if !reflect.DeepEqual(loaded, index) {
 			t.Errorf("LoadIndex() = %v, want %v", loaded, index)
 		}
@@ -91,7 +94,10 @@ func TestIndexOperations(t *testing.T) {
 		defer cleanup2()
 		GoteDir = func() string { return emptyDir }
 
-		loaded := LoadIndex()
+		loaded, err := LoadIndex()
+		if err != nil {
+			t.Fatalf("LoadIndex failed: %v", err)
+		}
 		if len(loaded) != 0 {
 			t.Errorf("LoadIndex() should return empty map, got %v", loaded)
 		}
@@ -269,7 +275,10 @@ func TestTrashOperations(t *testing.T) {
 		}
 
 		// Verify index is updated
-		loaded := LoadIndex()
+		loaded, err := LoadIndex()
+		if err != nil {
+			t.Fatalf("LoadIndex failed: %v", err)
+		}
 		if _, exists := loaded["test-note"]; exists {
 			t.Error("Note should be removed from index")
 		}
@@ -286,7 +295,10 @@ func TestTrashOperations(t *testing.T) {
 		}
 
 		// Verify index is updated
-		loaded = LoadIndex()
+		loaded, err = LoadIndex()
+		if err != nil {
+			t.Fatalf("LoadIndex failed: %v", err)
+		}
 		if _, exists := loaded["test-note"]; !exists {
 			t.Error("Note should be back in index")
 		}

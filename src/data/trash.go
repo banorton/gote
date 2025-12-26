@@ -32,7 +32,10 @@ func TrashNote(noteName string, noteMeta NoteMeta) error {
 		}
 	}
 
-	index := LoadIndex()
+	index, err := LoadIndex()
+	if err != nil {
+		return fmt.Errorf("loading index: %w", err)
+	}
 	delete(index, noteName)
 	if err := SaveIndex(index); err != nil {
 		return err
@@ -70,7 +73,10 @@ func RecoverNote(noteName, notesDir string) error {
 		return fmt.Errorf("error restoring note: %w", err)
 	}
 
-	index := LoadIndex()
+	index, err := LoadIndex()
+	if err != nil {
+		return fmt.Errorf("loading index: %w", err)
+	}
 	info, err := os.Stat(recoveredFile)
 	if err != nil {
 		return fmt.Errorf("error stating restored note: %w", err)

@@ -7,7 +7,10 @@ import (
 )
 
 func DeleteNote(noteName string) error {
-	index := data.LoadIndex()
+	index, err := data.LoadIndex()
+	if err != nil {
+		return fmt.Errorf("loading index: %w", err)
+	}
 	noteMeta, exists := index[noteName]
 	if !exists {
 		return fmt.Errorf("note not found: %s", noteName)

@@ -7,7 +7,10 @@ import (
 )
 
 func GetRecentNotes(limit int) ([]data.NoteMeta, error) {
-	index := data.LoadIndex()
+	index, err := data.LoadIndex()
+	if err != nil {
+		return nil, err
+	}
 	var notes []data.NoteMeta
 
 	for _, n := range index {
