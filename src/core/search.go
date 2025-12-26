@@ -23,7 +23,10 @@ type SearchResult struct {
 
 func SearchNotesByTitle(query string, limit int) ([]SearchResult, error) {
 	query = strings.ToLower(query)
-	index := data.LoadIndex()
+	index, err := data.LoadIndex()
+	if err != nil {
+		return nil, err
+	}
 	var results []SearchResult
 
 	for title := range index {

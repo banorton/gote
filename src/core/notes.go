@@ -19,7 +19,10 @@ func CreateOrOpenNote(noteName string) error {
 		return fmt.Errorf("error loading config: %w", err)
 	}
 
-	index := data.LoadIndex()
+	index, err := data.LoadIndex()
+	if err != nil {
+		return fmt.Errorf("loading index: %w", err)
+	}
 	noteMeta, exists := index[noteName]
 	notePath := ""
 	if exists {
@@ -62,7 +65,10 @@ func CreateOrOpenNote(noteName string) error {
 }
 
 func GetNoteInfo(noteName string) (data.NoteMeta, error) {
-	index := data.LoadIndex()
+	index, err := data.LoadIndex()
+	if err != nil {
+		return data.NoteMeta{}, fmt.Errorf("loading index: %w", err)
+	}
 	meta, exists := index[noteName]
 	if !exists {
 		return data.NoteMeta{}, fmt.Errorf("note not found: %s", noteName)
@@ -80,7 +86,10 @@ func RenameNote(oldName, newName string) error {
 		return fmt.Errorf("error loading config: %w", err)
 	}
 
-	index := data.LoadIndex()
+	index, err := data.LoadIndex()
+	if err != nil {
+		return fmt.Errorf("loading index: %w", err)
+	}
 	meta, exists := index[oldName]
 	if !exists {
 		return fmt.Errorf("note not found: %s", oldName)
@@ -123,7 +132,10 @@ func RenameNote(oldName, newName string) error {
 }
 
 func AddTagsToNote(noteName string, tagsToAdd []string) error {
-	index := data.LoadIndex()
+	index, err := data.LoadIndex()
+	if err != nil {
+		return fmt.Errorf("loading index: %w", err)
+	}
 	noteMeta, exists := index[noteName]
 	if !exists {
 		return fmt.Errorf("note not found: %s", noteName)

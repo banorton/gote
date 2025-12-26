@@ -51,7 +51,7 @@ func createTestNote(t *testing.T, notesDir, name, content string) {
 	// Index it
 	info, _ := os.Stat(notePath)
 	meta, _ := data.BuildNoteMeta(notePath, info)
-	index := data.LoadIndex()
+	index, _ := data.LoadIndex()
 	index[name] = meta
 	data.SaveIndex(index)
 	data.UpdateTagsIndex(index)
@@ -217,7 +217,10 @@ func TestTrashCommands(t *testing.T) {
 		}
 
 		// Verify note is gone from index
-		index := data.LoadIndex()
+		index, err := data.LoadIndex()
+		if err != nil {
+			t.Fatalf("LoadIndex failed: %v", err)
+		}
 		if _, exists := index["trash-me"]; exists {
 			t.Error("Note should be removed from index")
 		}
@@ -233,7 +236,10 @@ func TestTrashCommands(t *testing.T) {
 		}
 
 		// Verify note is back in index
-		index := data.LoadIndex()
+		index, err := data.LoadIndex()
+		if err != nil {
+			t.Fatalf("LoadIndex failed: %v", err)
+		}
 		if _, exists := index["trash-me"]; !exists {
 			t.Error("Note should be back in index")
 		}
@@ -295,7 +301,7 @@ func TestSearchCommand(t *testing.T) {
 
 	t.Run("search by tags", func(t *testing.T) {
 		output := captureOutput(func() {
-			SearchCommand([]string{"-t", "work"}, false, false, false)
+			SearchCommand([]string{"-t", ".work"}, false, false, false)
 		})
 
 		if !strings.Contains(output, "project-alpha") {

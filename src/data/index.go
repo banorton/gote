@@ -24,20 +24,19 @@ func IndexPath() string {
 	return filepath.Join(GoteDir(), "index.json")
 }
 
-func LoadIndex() map[string]NoteMeta {
+func LoadIndex() (map[string]NoteMeta, error) {
 	index := make(map[string]NoteMeta)
 	data, err := os.ReadFile(IndexPath())
 	if os.IsNotExist(err) {
-		return index
+		return index, nil
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error reading index file:", err.Error())
-		return index
+		return nil, fmt.Errorf("reading index file: %w", err)
 	}
 	if err := json.Unmarshal(data, &index); err != nil {
-		fmt.Fprintln(os.Stderr, "Error parsing index file:", err.Error())
+		return nil, fmt.Errorf("parsing index file: %w", err)
 	}
-	return index
+	return index, nil
 }
 
 func SaveIndex(index map[string]NoteMeta) error {
@@ -50,9 +49,12 @@ func SaveIndex(index map[string]NoteMeta) error {
 }
 
 func IndexNotes(notesDir string) error {
-	existingIndex := LoadIndex()
+	existingIndex, err := LoadIndex()
+	if err != nil {
+		return fmt.Errorf("loading existing index: %w", err)
+	}
 	index := make(map[string]NoteMeta)
-	err := filepath.Walk(notesDir, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(notesDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -89,7 +91,10 @@ func IndexNotes(notesDir string) error {
 }
 
 func IndexNote(notePath string) error {
-	index := LoadIndex()
+	index, err := LoadIndex()
+	if err != nil {
+		return fmt.Errorf("loading index: %w", err)
+	}
 	info, err := os.Stat(notePath)
 	if err != nil {
 		return err

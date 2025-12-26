@@ -124,7 +124,10 @@ func SearchNotesByDate(dateInputs []string, useCreated bool, limit int) ([]Searc
 		return nil, err
 	}
 
-	index := data.LoadIndex()
+	index, err := data.LoadIndex()
+	if err != nil {
+		return nil, err
+	}
 	var results []SearchResult
 
 	for title, meta := range index {

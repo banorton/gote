@@ -94,7 +94,11 @@ func PinnedCommand(rawArgs []string, defaultOpen bool) {
 	}
 
 	displayPaginatedResults(pins, openMode, pageSize, func(title string) {
-		index := data.LoadIndex()
+		index, err := data.LoadIndex()
+		if err != nil {
+			ui.Error("Error loading index: " + err.Error())
+			return
+		}
 		if meta, exists := index[title]; exists {
 			data.OpenFileInEditor(meta.FilePath, cfg.Editor)
 		}

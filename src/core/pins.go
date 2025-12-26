@@ -7,7 +7,10 @@ import (
 )
 
 func PinNote(noteName string) error {
-	index := data.LoadIndex()
+	index, err := data.LoadIndex()
+	if err != nil {
+		return fmt.Errorf("loading index: %w", err)
+	}
 	_, exists := index[noteName]
 	if !exists {
 		return fmt.Errorf("note not found: %s", noteName)
@@ -27,7 +30,10 @@ func PinNote(noteName string) error {
 }
 
 func UnpinNote(noteName string) error {
-	index := data.LoadIndex()
+	index, err := data.LoadIndex()
+	if err != nil {
+		return fmt.Errorf("loading index: %w", err)
+	}
 	_, exists := index[noteName]
 	if !exists {
 		return fmt.Errorf("note not found: %s", noteName)

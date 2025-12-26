@@ -31,7 +31,11 @@ func NoteCommand(args []string) {
 	}
 
 	// Check if note already exists - if so, just open it
-	index := data.LoadIndex()
+	index, err := data.LoadIndex()
+	if err != nil {
+		fmt.Println("Error loading index:", err)
+		return
+	}
 	if _, exists := index[noteName]; exists {
 		if err := core.CreateOrOpenNote(noteName); err != nil {
 			fmt.Println("Error:", err)
