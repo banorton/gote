@@ -14,7 +14,11 @@ func RenameCommand(rawArgs []string) {
 	oldName := args.Joined()
 	newName := strings.Join(args.List("n", "name"), " ")
 
-	cfg, _ := data.LoadConfig()
+	cfg, err := data.LoadConfig()
+	if err != nil {
+		fmt.Println("Error loading config:", err)
+		return
+	}
 	ui := NewUI(cfg.FancyUI)
 
 	if oldName == "" || newName == "" {
@@ -33,7 +37,11 @@ func InfoCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	noteName := args.Joined()
 
-	cfg, _ := data.LoadConfig()
+	cfg, err := data.LoadConfig()
+	if err != nil {
+		fmt.Println("Error loading config:", err)
+		return
+	}
 	ui := NewUI(cfg.FancyUI)
 
 	if noteName == "" {

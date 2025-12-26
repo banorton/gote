@@ -12,7 +12,11 @@ func DeleteCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	noteName := args.Joined()
 
-	cfg, _ := data.LoadConfig()
+	cfg, err := data.LoadConfig()
+	if err != nil {
+		fmt.Println("Error loading config:", err)
+		return
+	}
 	ui := NewUI(cfg.FancyUI)
 
 	if noteName == "" {
@@ -31,7 +35,11 @@ func RecoverCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	noteName := args.Joined()
 
-	cfg, _ := data.LoadConfig()
+	cfg, err := data.LoadConfig()
+	if err != nil {
+		fmt.Println("Error loading config:", err)
+		return
+	}
 	ui := NewUI(cfg.FancyUI)
 
 	if noteName == "" {
@@ -50,7 +58,11 @@ func TrashCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	sub := args.First()
 
-	cfg, _ := data.LoadConfig()
+	cfg, err := data.LoadConfig()
+	if err != nil {
+		fmt.Println("Error loading config:", err)
+		return
+	}
 	ui := NewUI(cfg.FancyUI)
 
 	switch sub {

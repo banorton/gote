@@ -52,7 +52,11 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 		return
 	}
 
-	cfg, _ := data.LoadConfig()
+	cfg, err := data.LoadConfig()
+	if err != nil {
+		fmt.Println("Error loading config:", err)
+		return
+	}
 	ui := NewUI(cfg.FancyUI)
 
 	if pageSize <= 0 {
@@ -164,7 +168,11 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 		return
 	}
 
-	cfg, _ := data.LoadConfig()
+	cfg, err := data.LoadConfig()
+	if err != nil {
+		fmt.Println("Error loading config:", err)
+		return
+	}
 	ui := NewUI(cfg.FancyUI)
 
 	if pageSize <= 0 {
@@ -306,7 +314,11 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 		args.Positional = args.Positional[1:]
 	}
 
-	cfg, _ := data.LoadConfig()
+	cfg, err := data.LoadConfig()
+	if err != nil {
+		fmt.Println("Error loading config:", err)
+		return
+	}
 	pageSize := args.IntOr(cfg.PageSize(), "n", "limit")
 
 	// Support bare number as first positional arg (e.g., "gote r 5")
@@ -362,7 +374,11 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool) {
 	args := ParseArgs(rawArgs)
 
-	cfg, _ := data.LoadConfig()
+	cfg, err := data.LoadConfig()
+	if err != nil {
+		fmt.Println("Error loading config:", err)
+		return
+	}
 	ui := NewUI(cfg.FancyUI)
 
 	// Handle "search trash <query>" subcommand

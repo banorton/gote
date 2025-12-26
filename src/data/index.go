@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 )
 
 type NoteMeta struct {
@@ -119,7 +120,7 @@ func BuildNoteMeta(notePath string, info os.FileInfo) (NoteMeta, error) {
 	text := string(data)
 	title := strings.TrimSuffix(filepath.Base(notePath), ".md")
 	wordCount := len(strings.Fields(text))
-	charCount := len([]rune(text))
+	charCount := utf8.RuneCountInString(text)
 	created := GetBirthtime(info).Format("060102.150405")
 	modified := info.ModTime().Format("060102.150405")
 	firstLine := ""
