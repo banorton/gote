@@ -291,8 +291,7 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 						}
 						ui.Success("Pinned: " + results[start+i].Title)
 					} else {
-						data.OpenFileInEditor(results[start+i].FilePath, cfg.Editor)
-						core.UpdateLastVisited(results[start+i].Title)
+						core.OpenAndReindexNote(results[start+i].FilePath, results[start+i].Title)
 					}
 					return
 				}
@@ -376,8 +375,7 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 			return
 		}
 		if meta, exists := index[title]; exists {
-			data.OpenFileInEditor(meta.FilePath, cfg.Editor)
-			core.UpdateLastVisited(title)
+			core.OpenAndReindexNote(meta.FilePath, title)
 		}
 	})
 }
@@ -677,8 +675,7 @@ actionLoop:
 			if cfg.FancyUI {
 				ui.Clear()
 			}
-			data.OpenFileInEditor(selectedNote.FilePath, cfg.Editor)
-			core.UpdateLastVisited(selectedNote.Title)
+			core.OpenAndReindexNote(selectedNote.FilePath, selectedNote.Title)
 			break actionLoop
 		case 'r', 'R':
 			if cfg.FancyUI {

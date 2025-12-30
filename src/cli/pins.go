@@ -100,8 +100,7 @@ func PinnedCommand(rawArgs []string, defaultOpen bool) {
 			return
 		}
 		if meta, exists := index[title]; exists {
-			data.OpenFileInEditor(meta.FilePath, cfg.Editor)
-			core.UpdateLastVisited(title)
+			core.OpenAndReindexNote(meta.FilePath, title)
 		}
 	})
 }
