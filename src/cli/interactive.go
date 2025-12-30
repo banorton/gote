@@ -625,6 +625,8 @@ sourceLoop:
 	}
 	if cfg.FancyUI {
 		ui.Clear()
+	} else {
+		fmt.Println() // Spacing between sections in non-fancy mode
 	}
 
 	if len(results) == 0 {
@@ -639,6 +641,9 @@ sourceLoop:
 	}
 
 	// Step 4: Choose action (loop until valid input)
+	if !cfg.FancyUI {
+		fmt.Println() // Spacing between sections in non-fancy mode
+	}
 actionLoop:
 	for {
 		if cfg.FancyUI {
