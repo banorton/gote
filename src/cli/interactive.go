@@ -520,95 +520,111 @@ func SelectCommand() {
 	ui := NewUI(cfg.FancyUI)
 	pageSize := cfg.PageSize()
 
-	// Step 1: Choose source
-	if cfg.FancyUI {
-		ui.Clear()
-	}
-	sourceItems := []string{"Recent", "Search", "Pinned", "Tag"}
-	sourceKeys := []rune{'r', 's', 'p', 't'}
-	if cfg.FancyUI {
-		ui.SelectableList("Select Source", sourceItems, -1, sourceKeys)
-	} else {
-		fmt.Println("Select source:")
-		for i, item := range sourceItems {
-			fmt.Printf("[%c] %s\n", sourceKeys[i], item)
-		}
-		fmt.Print(": ")
-	}
-
-	sourceKey, err := ReadKey(cfg.FancyUI)
-	if err != nil {
-		return
-	}
-	if cfg.FancyUI {
-		ui.Clear()
-	}
-
-	// Step 2: Get notes based on source
+	// Step 1: Choose source (loop until valid input)
 	var results []core.SearchResult
-	switch sourceKey {
-	case 'r', 'R':
-		notes, err := core.GetRecentNotes(-1)
-		if err != nil {
-			ui.Error(err.Error())
-			return
+sourceLoop:
+	for {
+		if cfg.FancyUI {
+			ui.Clear()
 		}
-		for _, n := range notes {
-			results = append(results, core.SearchResult{Title: n.Title, FilePath: n.FilePath})
-		}
-	case 's', 'S':
-		fmt.Print("Search: ")
-		reader := bufio.NewReader(os.Stdin)
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			return
-		}
-		query := strings.TrimSpace(input)
-		if query == "" {
-			return
-		}
-		results, err = core.SearchNotesByTitle(query, -1)
-		if err != nil {
-			ui.Error(err.Error())
-			return
-		}
-	case 'p', 'P':
-		pins, err := data.LoadPins()
-		if err != nil {
-			ui.Error(err.Error())
-			return
-		}
-		index, err := data.LoadIndex()
-		if err != nil {
-			ui.Error(err.Error())
-			return
-		}
-		for title := range pins {
-			if meta, exists := index[title]; exists {
-				results = append(results, core.SearchResult{Title: title, FilePath: meta.FilePath})
+		sourceItems := []string{"Recent", "Search", "Pinned", "Tag"}
+		sourceKeys := []rune{'r', 's', 'p', 't'}
+		if cfg.FancyUI {
+			ui.SelectableList("Select Source", sourceItems, -1, sourceKeys)
+		} else {
+			fmt.Println("Select source:")
+			for i, item := range sourceItems {
+				fmt.Printf("[%c] %s\n", sourceKeys[i], item)
 			}
+			fmt.Print(": ")
 		}
-	case 't', 'T':
-		fmt.Print("Tags: ")
-		reader := bufio.NewReader(os.Stdin)
-		input, err := reader.ReadString('\n')
+
+		sourceKey, err := ReadKey(cfg.FancyUI)
 		if err != nil {
 			return
 		}
-		tags := ParseTagString(strings.TrimSpace(input))
-		if len(tags) == 0 {
+
+		// Step 2: Get notes based on source
+		switch sourceKey {
+		case 'q', 'Q':
+			if cfg.FancyUI {
+				ui.Clear()
+			}
 			return
+		case 'r', 'R':
+			notes, err := core.GetRecentNotes(-1)
+			if err != nil {
+				ui.Error(err.Error())
+				return
+			}
+			for _, n := range notes {
+				results = append(results, core.SearchResult{Title: n.Title, FilePath: n.FilePath})
+			}
+			break sourceLoop
+		case 's', 'S':
+			if cfg.FancyUI {
+				ui.Clear()
+			}
+			fmt.Print("Search: ")
+			reader := bufio.NewReader(os.Stdin)
+			input, err := reader.ReadString('\n')
+			if err != nil {
+				return
+			}
+			query := strings.TrimSpace(input)
+			if query == "" {
+				return
+			}
+			results, err = core.SearchNotesByTitle(query, -1)
+			if err != nil {
+				ui.Error(err.Error())
+				return
+			}
+			break sourceLoop
+		case 'p', 'P':
+			pins, err := data.LoadPins()
+			if err != nil {
+				ui.Error(err.Error())
+				return
+			}
+			index, err := data.LoadIndex()
+			if err != nil {
+				ui.Error(err.Error())
+				return
+			}
+			for title := range pins {
+				if meta, exists := index[title]; exists {
+					results = append(results, core.SearchResult{Title: title, FilePath: meta.FilePath})
+				}
+			}
+			break sourceLoop
+		case 't', 'T':
+			if cfg.FancyUI {
+				ui.Clear()
+			}
+			fmt.Print("Tags: ")
+			reader := bufio.NewReader(os.Stdin)
+			input, err := reader.ReadString('\n')
+			if err != nil {
+				return
+			}
+			tags := ParseTagString(strings.TrimSpace(input))
+			if len(tags) == 0 {
+				return
+			}
+			results, err = core.FilterNotesByTags(tags, -1)
+			if err != nil {
+				ui.Error(err.Error())
+				return
+			}
+			break sourceLoop
+		default:
+			// Invalid or unexpected input (e.g., escape sequences on WSL) - reprompt
+			continue
 		}
-		results, err = core.FilterNotesByTags(tags, -1)
-		if err != nil {
-			ui.Error(err.Error())
-			return
-		}
-	case 'q', 'Q':
-		return
-	default:
-		ui.Error("Invalid selection")
-		return
+	}
+	if cfg.FancyUI {
+		ui.Clear()
 	}
 
 	if len(results) == 0 {
@@ -622,90 +638,114 @@ func SelectCommand() {
 		return
 	}
 
-	// Step 4: Choose action
-	if cfg.FancyUI {
-		ui.Clear()
-	}
-	actionItems := []string{"Open", "Rename", "Delete", "Pin/Unpin", "Info"}
-	actionKeys := []rune{'o', 'r', 'd', 'p', 'i'}
-	if cfg.FancyUI {
-		ui.SelectableList("Action: "+selectedNote.Title, actionItems, -1, actionKeys)
-	} else {
-		fmt.Printf("Action for '%s':\n", selectedNote.Title)
-		for i, item := range actionItems {
-			fmt.Printf("[%c] %s\n", actionKeys[i], item)
+	// Step 4: Choose action (loop until valid input)
+actionLoop:
+	for {
+		if cfg.FancyUI {
+			ui.Clear()
 		}
-		fmt.Print(": ")
-	}
-
-	actionKey, err := ReadKey(cfg.FancyUI)
-	if err != nil {
-		return
-	}
-	if cfg.FancyUI {
-		ui.Clear()
-	}
-
-	// Step 5: Execute action
-	switch actionKey {
-	case 'o', 'O':
-		data.OpenFileInEditor(selectedNote.FilePath, cfg.Editor)
-		core.UpdateLastVisited(selectedNote.Title)
-	case 'r', 'R':
-		fmt.Print("New name: ")
-		reader := bufio.NewReader(os.Stdin)
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			return
-		}
-		newName := strings.TrimSpace(input)
-		if newName == "" {
-			ui.Info("Cancelled")
-			return
-		}
-		if err := core.RenameNote(selectedNote.Title, newName); err != nil {
-			ui.Error(err.Error())
-			return
-		}
-		ui.Success("Renamed to: " + newName)
-	case 'd', 'D':
-		if err := core.DeleteNote(selectedNote.Title); err != nil {
-			ui.Error(err.Error())
-			return
-		}
-		ui.Success("Moved to trash: " + selectedNote.Title)
-	case 'p', 'P':
-		pins, _ := data.LoadPins()
-		if _, isPinned := pins[selectedNote.Title]; isPinned {
-			if err := core.UnpinNote(selectedNote.Title); err != nil {
-				ui.Error(err.Error())
-				return
-			}
-			ui.Success("Unpinned: " + selectedNote.Title)
+		actionItems := []string{"Open", "Rename", "Delete", "Pin/Unpin", "Info"}
+		actionKeys := []rune{'o', 'r', 'd', 'p', 'i'}
+		if cfg.FancyUI {
+			ui.SelectableList("Action: "+selectedNote.Title, actionItems, -1, actionKeys)
 		} else {
-			if err := core.PinNote(selectedNote.Title); err != nil {
+			fmt.Printf("Action for '%s':\n", selectedNote.Title)
+			for i, item := range actionItems {
+				fmt.Printf("[%c] %s\n", actionKeys[i], item)
+			}
+			fmt.Print(": ")
+		}
+
+		actionKey, err := ReadKey(cfg.FancyUI)
+		if err != nil {
+			return
+		}
+
+		// Step 5: Execute action
+		switch actionKey {
+		case 'q', 'Q':
+			if cfg.FancyUI {
+				ui.Clear()
+			}
+			return
+		case 'o', 'O':
+			if cfg.FancyUI {
+				ui.Clear()
+			}
+			data.OpenFileInEditor(selectedNote.FilePath, cfg.Editor)
+			core.UpdateLastVisited(selectedNote.Title)
+			break actionLoop
+		case 'r', 'R':
+			if cfg.FancyUI {
+				ui.Clear()
+			}
+			fmt.Print("New name: ")
+			reader := bufio.NewReader(os.Stdin)
+			input, err := reader.ReadString('\n')
+			if err != nil {
+				return
+			}
+			newName := strings.TrimSpace(input)
+			if newName == "" {
+				ui.Info("Cancelled")
+				return
+			}
+			if err := core.RenameNote(selectedNote.Title, newName); err != nil {
 				ui.Error(err.Error())
 				return
 			}
-			ui.Success("Pinned: " + selectedNote.Title)
+			ui.Success("Renamed to: " + newName)
+			break actionLoop
+		case 'd', 'D':
+			if cfg.FancyUI {
+				ui.Clear()
+			}
+			if err := core.DeleteNote(selectedNote.Title); err != nil {
+				ui.Error(err.Error())
+				return
+			}
+			ui.Success("Moved to trash: " + selectedNote.Title)
+			break actionLoop
+		case 'p', 'P':
+			if cfg.FancyUI {
+				ui.Clear()
+			}
+			pins, _ := data.LoadPins()
+			if _, isPinned := pins[selectedNote.Title]; isPinned {
+				if err := core.UnpinNote(selectedNote.Title); err != nil {
+					ui.Error(err.Error())
+					return
+				}
+				ui.Success("Unpinned: " + selectedNote.Title)
+			} else {
+				if err := core.PinNote(selectedNote.Title); err != nil {
+					ui.Error(err.Error())
+					return
+				}
+				ui.Success("Pinned: " + selectedNote.Title)
+			}
+			break actionLoop
+		case 'i', 'I':
+			if cfg.FancyUI {
+				ui.Clear()
+			}
+			info, err := core.GetNoteInfo(selectedNote.Title)
+			if err != nil {
+				ui.Error(err.Error())
+				return
+			}
+			ui.InfoBox(selectedNote.Title, [][2]string{
+				{"Created", info.Created},
+				{"Modified", info.Modified},
+				{"Words", fmt.Sprintf("%d", info.WordCount)},
+				{"Chars", fmt.Sprintf("%d", info.CharCount)},
+				{"Tags", strings.Join(info.Tags, ", ")},
+			})
+			break actionLoop
+		default:
+			// Invalid or unexpected input - reprompt
+			continue
 		}
-	case 'i', 'I':
-		info, err := core.GetNoteInfo(selectedNote.Title)
-		if err != nil {
-			ui.Error(err.Error())
-			return
-		}
-		ui.InfoBox(selectedNote.Title, [][2]string{
-			{"Created", info.Created},
-			{"Modified", info.Modified},
-			{"Words", fmt.Sprintf("%d", info.WordCount)},
-			{"Chars", fmt.Sprintf("%d", info.CharCount)},
-			{"Tags", strings.Join(info.Tags, ", ")},
-		})
-	case 'q', 'Q':
-		return
-	default:
-		ui.Error("Invalid action")
 	}
 }
 
@@ -761,6 +801,8 @@ func selectNoteFromResults(results []core.SearchResult, cfg data.Config, ui *UI,
 		}
 
 		switch key {
+		case 0: // Empty input - reprompt
+			continue
 		case 'q', 'Q':
 			if cfg.FancyUI {
 				ui.Clear()
