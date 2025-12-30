@@ -509,3 +509,284 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 	}
 	displayPaginatedSearchResultsWithMode(results, interactive, deleteMode, pinMode, pageSize)
 }
+
+// SelectCommand provides an interactive flow: choose source -> select note -> choose action
+func SelectCommand() {
+	cfg, err := data.LoadConfig()
+	if err != nil {
+		fmt.Println("Error loading config:", err)
+		return
+	}
+	ui := NewUI(cfg.FancyUI)
+	pageSize := cfg.PageSize()
+
+	// Step 1: Choose source
+	if cfg.FancyUI {
+		ui.Clear()
+	}
+	sourceItems := []string{"Recent", "Search", "Pinned", "Tag"}
+	sourceKeys := []rune{'r', 's', 'p', 't'}
+	if cfg.FancyUI {
+		ui.SelectableList("Select Source", sourceItems, -1, sourceKeys)
+	} else {
+		fmt.Println("Select source:")
+		for i, item := range sourceItems {
+			fmt.Printf("[%c] %s\n", sourceKeys[i], item)
+		}
+		fmt.Print(": ")
+	}
+
+	sourceKey, err := ReadKey(cfg.FancyUI)
+	if err != nil {
+		return
+	}
+	if cfg.FancyUI {
+		ui.Clear()
+	}
+
+	// Step 2: Get notes based on source
+	var results []core.SearchResult
+	switch sourceKey {
+	case 'r', 'R':
+		notes, err := core.GetRecentNotes(-1)
+		if err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		for _, n := range notes {
+			results = append(results, core.SearchResult{Title: n.Title, FilePath: n.FilePath})
+		}
+	case 's', 'S':
+		fmt.Print("Search: ")
+		reader := bufio.NewReader(os.Stdin)
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return
+		}
+		query := strings.TrimSpace(input)
+		if query == "" {
+			return
+		}
+		results, err = core.SearchNotesByTitle(query, -1)
+		if err != nil {
+			ui.Error(err.Error())
+			return
+		}
+	case 'p', 'P':
+		pins, err := data.LoadPins()
+		if err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		index, err := data.LoadIndex()
+		if err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		for title := range pins {
+			if meta, exists := index[title]; exists {
+				results = append(results, core.SearchResult{Title: title, FilePath: meta.FilePath})
+			}
+		}
+	case 't', 'T':
+		fmt.Print("Tags: ")
+		reader := bufio.NewReader(os.Stdin)
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return
+		}
+		tags := ParseTagString(strings.TrimSpace(input))
+		if len(tags) == 0 {
+			return
+		}
+		results, err = core.FilterNotesByTags(tags, -1)
+		if err != nil {
+			ui.Error(err.Error())
+			return
+		}
+	case 'q', 'Q':
+		return
+	default:
+		ui.Error("Invalid selection")
+		return
+	}
+
+	if len(results) == 0 {
+		ui.Empty("No notes found.")
+		return
+	}
+
+	// Step 3: Select a note
+	selectedNote := selectNoteFromResults(results, cfg, ui, pageSize)
+	if selectedNote == nil {
+		return
+	}
+
+	// Step 4: Choose action
+	if cfg.FancyUI {
+		ui.Clear()
+	}
+	actionItems := []string{"Open", "Rename", "Delete", "Pin/Unpin", "Info"}
+	actionKeys := []rune{'o', 'r', 'd', 'p', 'i'}
+	if cfg.FancyUI {
+		ui.SelectableList("Action: "+selectedNote.Title, actionItems, -1, actionKeys)
+	} else {
+		fmt.Printf("Action for '%s':\n", selectedNote.Title)
+		for i, item := range actionItems {
+			fmt.Printf("[%c] %s\n", actionKeys[i], item)
+		}
+		fmt.Print(": ")
+	}
+
+	actionKey, err := ReadKey(cfg.FancyUI)
+	if err != nil {
+		return
+	}
+	if cfg.FancyUI {
+		ui.Clear()
+	}
+
+	// Step 5: Execute action
+	switch actionKey {
+	case 'o', 'O':
+		data.OpenFileInEditor(selectedNote.FilePath, cfg.Editor)
+		core.UpdateLastVisited(selectedNote.Title)
+	case 'r', 'R':
+		fmt.Print("New name: ")
+		reader := bufio.NewReader(os.Stdin)
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return
+		}
+		newName := strings.TrimSpace(input)
+		if newName == "" {
+			ui.Info("Cancelled")
+			return
+		}
+		if err := core.RenameNote(selectedNote.Title, newName); err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		ui.Success("Renamed to: " + newName)
+	case 'd', 'D':
+		if err := core.DeleteNote(selectedNote.Title); err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		ui.Success("Moved to trash: " + selectedNote.Title)
+	case 'p', 'P':
+		pins, _ := data.LoadPins()
+		if _, isPinned := pins[selectedNote.Title]; isPinned {
+			if err := core.UnpinNote(selectedNote.Title); err != nil {
+				ui.Error(err.Error())
+				return
+			}
+			ui.Success("Unpinned: " + selectedNote.Title)
+		} else {
+			if err := core.PinNote(selectedNote.Title); err != nil {
+				ui.Error(err.Error())
+				return
+			}
+			ui.Success("Pinned: " + selectedNote.Title)
+		}
+	case 'i', 'I':
+		info, err := core.GetNoteInfo(selectedNote.Title)
+		if err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		ui.InfoBox(selectedNote.Title, [][2]string{
+			{"Created", info.Created},
+			{"Modified", info.Modified},
+			{"Words", fmt.Sprintf("%d", info.WordCount)},
+			{"Chars", fmt.Sprintf("%d", info.CharCount)},
+			{"Tags", strings.Join(info.Tags, ", ")},
+		})
+	case 'q', 'Q':
+		return
+	default:
+		ui.Error("Invalid action")
+	}
+}
+
+// selectNoteFromResults displays paginated results and returns the selected note
+func selectNoteFromResults(results []core.SearchResult, cfg data.Config, ui *UI, pageSize int) *core.SearchResult {
+	if pageSize > maxSelectablePageSize {
+		pageSize = maxSelectablePageSize
+	}
+
+	page := 0
+	totalPages := (len(results) + pageSize - 1) / pageSize
+
+	for {
+		start := page * pageSize
+		end := min(start+pageSize, len(results))
+		if start >= end {
+			break
+		}
+
+		pageResults := results[start:end]
+		var items []string
+		var keys []rune
+		for i, r := range pageResults {
+			items = append(items, r.Title)
+			if i < len(selectKeys) {
+				keys = append(keys, selectKeys[i])
+			}
+		}
+
+		if cfg.FancyUI {
+			ui.Clear()
+			ui.SelectableList("Select Note", items, -1, keys)
+			ui.NavHint(page+1, totalPages)
+		} else {
+			for i, item := range items {
+				if i < len(keys) {
+					fmt.Printf("[%c] %s\n", keys[i], item)
+				} else {
+					fmt.Println(item)
+				}
+			}
+			fmt.Printf("(%d/%d) ", page+1, totalPages)
+			if totalPages > 1 {
+				fmt.Print("[n]ext [p]rev ")
+			}
+			fmt.Println("[q]uit")
+			fmt.Print(": ")
+		}
+
+		key, err := ReadKey(cfg.FancyUI)
+		if err != nil {
+			return nil
+		}
+
+		switch key {
+		case 'q', 'Q':
+			if cfg.FancyUI {
+				ui.Clear()
+			}
+			return nil
+		case 'n', 'N':
+			if page < totalPages-1 {
+				page++
+			}
+			continue
+		case 'p', 'P':
+			if page > 0 {
+				page--
+			}
+			continue
+		}
+
+		// Check if it's a selection key
+		for i := 0; i < len(pageResults) && i < len(selectKeys); i++ {
+			if key == selectKeys[i] || key == selectKeys[i+24] { // lowercase or uppercase
+				if cfg.FancyUI {
+					ui.Clear()
+				}
+				return &results[start+i]
+			}
+		}
+	}
+	return nil
+}

@@ -79,6 +79,9 @@ Config:
   gote config format              Format config file
   gote config help                Show config options
 
+Select (interactive):
+  gote select | sel               Interactive note selection and action
+
   gote help | h | man             Show this help message
   gote -v | --version             Show version`)
 }
