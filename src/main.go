@@ -70,6 +70,10 @@ func main() {
 	case "tp": // tag + pin
 		cli.TagCommand(rest, false, false, true)
 
+	// Select (interactive flow)
+	case "select", "sel":
+		cli.SelectCommand()
+
 	// Config
 	case "config", "c":
 		cli.ConfigCommand(rest)
