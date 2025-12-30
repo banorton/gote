@@ -80,6 +80,27 @@ func UpdateLastVisited(title string) error {
 	return data.SaveIndex(index)
 }
 
+// OpenAndReindexNote opens a note in the editor and reindexes it afterward
+// This should be used when opening existing notes to ensure tags/metadata stay in sync
+func OpenAndReindexNote(filePath, title string) error {
+	cfg, err := data.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("error loading config: %w", err)
+	}
+
+	if err := data.OpenFileInEditor(filePath, cfg.Editor); err != nil {
+		return fmt.Errorf("error opening note: %w", err)
+	}
+
+	// Reindex the note to pick up any changes (tags, content, etc.)
+	if err := data.IndexNote(filePath); err != nil {
+		return fmt.Errorf("error reindexing note: %w", err)
+	}
+
+	// Update last visited timestamp
+	return UpdateLastVisited(title)
+}
+
 func GetNoteInfo(noteName string) (data.NoteMeta, error) {
 	index, err := data.LoadIndex()
 	if err != nil {
