@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"gote/src/data"
@@ -146,72 +145,6 @@ func RenameNote(oldName, newName string) error {
 	}
 
 	return nil
-}
-
-func AddTagsToNote(noteName string, tagsToAdd []string) error {
-	index, err := data.LoadIndex()
-	if err != nil {
-		return fmt.Errorf("loading index: %w", err)
-	}
-	noteMeta, exists := index[noteName]
-	if !exists {
-		return fmt.Errorf("note not found: %s", noteName)
-	}
-
-	notePath := noteMeta.FilePath
-	if notePath == "" {
-		return fmt.Errorf("note path missing for: %s", noteName)
-	}
-
-	fileData, err := os.ReadFile(notePath)
-	if err != nil {
-		return fmt.Errorf("error reading note: %w", err)
-	}
-
-	lines := strings.SplitN(string(fileData), "\n", 2)
-	firstLine := ""
-	rest := ""
-	if len(lines) > 0 {
-		firstLine = lines[0]
-	}
-	if len(lines) > 1 {
-		rest = lines[1]
-	}
-
-	existingTags := data.ParseTags(firstLine)
-	tagSet := make(map[string]struct{})
-	for _, t := range existingTags {
-		tagSet[t] = struct{}{}
-	}
-
-	added := false
-	for _, t := range tagsToAdd {
-		t = strings.ToLower(strings.TrimSpace(t))
-		if t == "" {
-			continue
-		}
-		if _, exists := tagSet[t]; !exists {
-			existingTags = append(existingTags, t)
-			tagSet[t] = struct{}{}
-			added = true
-		}
-	}
-
-	if !added {
-		return fmt.Errorf("no new tags to add")
-	}
-
-	newFirstLine := "." + strings.Join(existingTags, ".")
-	newContent := newFirstLine
-	if rest != "" {
-		newContent += "\n" + rest
-	}
-
-	if err := os.WriteFile(notePath, []byte(newContent), 0644); err != nil {
-		return fmt.Errorf("error writing note: %w", err)
-	}
-
-	return data.IndexNote(notePath)
 }
 
 // PromoteQuickNote moves content from quick.md to a new named note

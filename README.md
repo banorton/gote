@@ -29,11 +29,14 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote so <query>` | `search open` | Search + open mode |
 | `gote sd <query>` | `search delete` | Search + delete mode |
 | `gote sp <query>` | `search pin` | Search + pin mode |
-| `gote tags` | `ts` | List all tags |
-| `gote tags popular` | | Show most used tags |
-| `gote tags edit` | | Edit tags file |
-| `gote tags format` | | Format tags file |
-| `gote tag <note> -t .tag1.tag2` | `t` | Add tags to a note |
+| `gote tag` | `t` | List all tags |
+| `gote tag .tag1.tag2` | | Filter notes by tags (AND logic) |
+| `gote to .tag1.tag2` | `tag open` | Filter + open mode |
+| `gote td .tag1.tag2` | `tag delete` | Filter + delete mode |
+| `gote tp .tag1.tag2` | `tag pin` | Filter + pin mode |
+| `gote tag popular` | | Show most used tags |
+| `gote tag edit` | | Edit tags file |
+| `gote tag format` | | Format tags file |
 | `gote pin <note>` | `p` | Pin a note |
 | `gote pin` | | List pinned notes |
 | `gote pinned` | `pd` | List pinned notes |
@@ -101,9 +104,14 @@ gote search -w 241201 241231  # Dec 1-31, 2024
 gote search -w 2412 --modified  # by modification date
 
 # Tags
-gote tags            # list all tags
-gote tags popular    # most used tags
-gote tag mynote -t .work.urgent  # add tags to note
+gote tag             # list all tags
+gote t               # list all tags (shorthand)
+gote tag popular     # most used tags
+gote tag .work       # filter notes by tag (must have "work")
+gote tag .work.urgent  # filter notes with ALL tags (AND logic)
+gote to .work        # filter + open mode (shorthand)
+gote td .work.urgent # filter + delete mode
+gote tp .work        # filter + pin mode
 
 # Pins
 gote pin mynote      # pin a note

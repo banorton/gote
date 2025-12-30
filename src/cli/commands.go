@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"gote/src/core"
@@ -146,7 +147,7 @@ func IndexCommand(rawArgs []string) {
 	}
 }
 
-func TagsCommand(rawArgs []string) {
+func TagCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool) {
 	args := ParseArgs(rawArgs)
 	sub := args.First()
 
@@ -157,6 +158,54 @@ func TagsCommand(rawArgs []string) {
 	}
 	ui := NewUI(cfg.FancyUI)
 
+	openMode := defaultOpen
+	deleteMode := defaultDelete
+	pinMode := defaultPin
+
+	// Check for mode keywords as first positional arg (e.g., "gote tag open .work")
+	if sub == "open" {
+		openMode = true
+		args.Positional = args.Positional[1:]
+		sub = args.First()
+	} else if sub == "delete" {
+		deleteMode = true
+		args.Positional = args.Positional[1:]
+		sub = args.First()
+	} else if sub == "pin" {
+		pinMode = true
+		args.Positional = args.Positional[1:]
+		sub = args.First()
+	}
+
+	// If first arg starts with ".", it's a tag filter
+	if strings.HasPrefix(sub, ".") {
+		// Collect all tag strings from positional args
+		var allTags []string
+		for _, arg := range args.Positional {
+			if strings.HasPrefix(arg, ".") {
+				allTags = append(allTags, ParseTagString(arg)...)
+			}
+		}
+		if len(allTags) == 0 {
+			ui.Empty("No valid tags specified.")
+			return
+		}
+
+		pageSize := args.IntOr(cfg.PageSize(), "n", "limit")
+		results, err := core.FilterNotesByTags(allTags, -1)
+		if err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		if len(results) == 0 {
+			ui.Empty("No notes found with all specified tags.")
+			return
+		}
+		displayPaginatedSearchResultsWithMode(results, openMode || deleteMode || pinMode, deleteMode, pinMode, pageSize)
+		return
+	}
+
+	// Handle subcommands
 	switch sub {
 	case "":
 		tags, err := core.ListTags()
@@ -191,7 +240,7 @@ func TagsCommand(rawArgs []string) {
 		ui.Success("Tags file formatted.")
 	case "popular":
 		n := args.IntOr(cfg.PageSize(), "n", "limit")
-		// Also support bare number: "gote tags popular 5"
+		// Also support bare number: "gote tag popular 5"
 		if n == cfg.PageSize() && len(args.Rest()) > 0 {
 			if v, err := strconv.Atoi(args.Rest()[0]); err == nil && v > 0 {
 				n = v
@@ -220,34 +269,10 @@ func TagsCommand(rawArgs []string) {
 		}
 	default:
 		fmt.Println("Unknown subcommand:", sub)
-		fmt.Println("Usage: gote tags [edit|format|popular]")
+		fmt.Println("Usage: gote tag [.tag1.tag2 | edit | format | popular]")
 	}
 }
 
-func TagCommand(rawArgs []string) {
-	args := ParseArgs(rawArgs)
-	noteName := args.Joined()
-	tagsToAdd := args.TagList("t", "tags")
-
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
-		return
-	}
-	ui := NewUI(cfg.FancyUI)
-
-	if noteName == "" || len(tagsToAdd) == 0 {
-		fmt.Println("Usage: gote tag <note name> -t <tag1> <tag2> ...")
-		return
-	}
-
-	if err := core.AddTagsToNote(noteName, tagsToAdd); err != nil {
-		ui.Error(err.Error())
-		return
-	}
-
-	ui.Success("Tags updated for note: " + noteName)
-}
 
 func ConfigCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)

@@ -43,11 +43,14 @@ Search:
   Examples: -w 24 (year), -w 2412 (month), -w 241223 (day), -w 2412 2501 (range)
 
 Tags:
-  gote tags | ts                  List all tags
-  gote tags popular [-n <limit>]  Show most used tags
-  gote tags edit                  Edit tags file
-  gote tags format                Format tags file
-  gote tag | t <note> -t .tag1.tag2  Add tags to a note
+  gote tag | t                    List all tags
+  gote tag | t .tag1.tag2         Filter notes by tags (AND logic)
+  gote to | tag open .tag1.tag2   Filter + open mode
+  gote td | tag delete .tag1.tag2 Filter + delete mode
+  gote tp | tag pin .tag1.tag2    Filter + pin mode
+  gote tag popular [-n <limit>]   Show most used tags
+  gote tag edit                   Edit tags file
+  gote tag format                 Format tags file
 
 Pins:
   gote pin | p <note>             Pin a note
