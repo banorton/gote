@@ -320,6 +320,38 @@ func (u *UI) ListItemWithMeta(key rune, text string, meta string) {
 	}
 }
 
+// drainStdin discards any pending bytes in stdin (used to clear garbage from terminal init)
+func drainStdin() {
+	// Set stdin to non-blocking temporarily to drain any pending bytes
+	cmd := exec.Command("stty", "-g")
+	cmd.Stdin = os.Stdin
+	saved, err := cmd.Output()
+	if err != nil {
+		return
+	}
+
+	// Set non-blocking with 0 timeout
+	cmd = exec.Command("stty", "-icanon", "min", "0", "time", "0")
+	cmd.Stdin = os.Stdin
+	if err := cmd.Run(); err != nil {
+		return
+	}
+
+	// Read and discard any pending bytes
+	buf := make([]byte, 256)
+	for {
+		n, _ := os.Stdin.Read(buf)
+		if n == 0 {
+			break
+		}
+	}
+
+	// Restore original state
+	cmd = exec.Command("stty", strings.TrimSpace(string(saved)))
+	cmd.Stdin = os.Stdin
+	cmd.Run()
+}
+
 // ReadKey reads a single keypress. In fancy mode, uses raw terminal (no Enter needed).
 // In non-fancy mode, uses buffered input (requires Enter).
 func ReadKey(fancy bool) (rune, error) {
@@ -336,6 +368,9 @@ func ReadKey(fancy bool) (rune, error) {
 		}
 		return rune(input[0]), nil
 	}
+
+	// Drain any garbage bytes before reading (helps with WSL terminal quirks)
+	drainStdin()
 
 	// Raw mode - single keypress, no Enter needed
 	if err := setRawMode(); err != nil {
