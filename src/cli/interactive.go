@@ -12,14 +12,19 @@ import (
 )
 
 // selectKeys are the keys used for selecting items in paginated lists
-// Homerow + bottom row (avoiding n for next) + top row (avoiding q for quit, p for prev)
+// Order: homerow → top row → bottom row, then shift versions of each
 var selectKeys = []rune{
+	// Lowercase
 	'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', // homerow (10)
-	'z', 'x', 'c', 'v', 'b', 'm',                     // bottom row (6, avoiding n)
 	'w', 'e', 'r', 't', 'y', 'u', 'i', 'o',           // top row (8, avoiding q, p)
+	'z', 'x', 'c', 'v', 'b', 'm',                     // bottom row (6, avoiding n)
+	// Shift (uppercase)
+	'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', // shift+homerow (10)
+	'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O',           // shift+top row (8)
+	'Z', 'X', 'C', 'V', 'B', 'M',                     // shift+bottom row (6)
 }
 
-const maxSelectablePageSize = 24 // len(selectKeys)
+const maxSelectablePageSize = 48 // len(selectKeys)
 
 // looksLikeDate returns true if the string looks like a date input
 // (digits only, optionally with a single . for time separator)
