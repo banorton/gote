@@ -61,10 +61,14 @@ func main() {
 		cli.IndexCommand(rest)
 
 	// Tags
-	case "tags", "ts":
-		cli.TagsCommand(rest)
 	case "tag", "t":
-		cli.TagCommand(rest)
+		cli.TagCommand(rest, false, false, false)
+	case "to": // tag + open
+		cli.TagCommand(rest, true, false, false)
+	case "td": // tag + delete
+		cli.TagCommand(rest, false, true, false)
+	case "tp": // tag + pin
+		cli.TagCommand(rest, false, false, true)
 
 	// Config
 	case "config", "c":

@@ -94,9 +94,9 @@ func TestHelpCommand(t *testing.T) {
 }
 
 
-// --- TagsCommand tests ---
+// --- TagCommand tests ---
 
-func TestTagsCommand(t *testing.T) {
+func TestTagCommand(t *testing.T) {
 	_, notesDir, cleanup := testEnv(t)
 	defer cleanup()
 
@@ -106,7 +106,7 @@ func TestTagsCommand(t *testing.T) {
 
 	t.Run("lists all tags", func(t *testing.T) {
 		output := captureOutput(func() {
-			TagsCommand([]string{})
+			TagCommand([]string{}, false, false, false)
 		})
 
 		if !strings.Contains(output, "work") {
@@ -119,13 +119,39 @@ func TestTagsCommand(t *testing.T) {
 
 	t.Run("popular respects limit", func(t *testing.T) {
 		output := captureOutput(func() {
-			TagsCommand([]string{"popular", "-n", "2"})
+			TagCommand([]string{"popular", "-n", "2"}, false, false, false)
 		})
 
 		// Should show header + 2 tags
 		lines := strings.Split(strings.TrimSpace(output), "\n")
 		if len(lines) > 3 { // "Top 2 tags by usage:" + 2 tags
 			t.Errorf("Expected at most 3 lines with popular -n 2, got %d lines", len(lines))
+		}
+	})
+
+	t.Run("filters notes by single tag", func(t *testing.T) {
+		output := captureOutput(func() {
+			TagCommand([]string{".personal"}, false, false, false)
+		})
+
+		if !strings.Contains(output, "note3") {
+			t.Error("Should find note3 with .personal tag")
+		}
+		if strings.Contains(output, "note1") || strings.Contains(output, "note2") {
+			t.Error("Should not find note1 or note2")
+		}
+	})
+
+	t.Run("filters notes by multiple tags AND logic", func(t *testing.T) {
+		output := captureOutput(func() {
+			TagCommand([]string{".work.urgent"}, false, false, false)
+		})
+
+		if !strings.Contains(output, "note1") {
+			t.Error("Should find note1 with both work and urgent tags")
+		}
+		if strings.Contains(output, "note2") {
+			t.Error("Should not find note2 (has work but not urgent)")
 		}
 	})
 }

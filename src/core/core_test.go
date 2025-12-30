@@ -526,3 +526,68 @@ func TestRenameNote(t *testing.T) {
 		}
 	})
 }
+
+func TestFilterNotesByTags(t *testing.T) {
+	_, notesDir, cleanup := testEnv(t)
+	defer cleanup()
+
+	// Create test notes with different tag combinations
+	createTestNote(t, notesDir, "note1", ".work.urgent\nContent 1")
+	createTestNote(t, notesDir, "note2", ".work.project\nContent 2")
+	createTestNote(t, notesDir, "note3", ".personal\nContent 3")
+	createTestNote(t, notesDir, "note4", ".work.urgent.project\nContent 4")
+
+	t.Run("filters by single tag", func(t *testing.T) {
+		results, err := FilterNotesByTags([]string{"personal"}, -1)
+		if err != nil {
+			t.Fatalf("FilterNotesByTags failed: %v", err)
+		}
+		if len(results) != 1 {
+			t.Errorf("Expected 1 result, got %d", len(results))
+		}
+		if len(results) > 0 && results[0].Title != "note3" {
+			t.Errorf("Expected note3, got %s", results[0].Title)
+		}
+	})
+
+	t.Run("filters by multiple tags AND logic", func(t *testing.T) {
+		results, err := FilterNotesByTags([]string{"work", "urgent"}, -1)
+		if err != nil {
+			t.Fatalf("FilterNotesByTags failed: %v", err)
+		}
+		// Should find note1 (work+urgent) and note4 (work+urgent+project)
+		if len(results) != 2 {
+			t.Errorf("Expected 2 results for work+urgent, got %d", len(results))
+		}
+	})
+
+	t.Run("returns empty for nonexistent tag", func(t *testing.T) {
+		results, err := FilterNotesByTags([]string{"nonexistent"}, -1)
+		if err != nil {
+			t.Fatalf("FilterNotesByTags failed: %v", err)
+		}
+		if len(results) != 0 {
+			t.Errorf("Expected 0 results for nonexistent tag, got %d", len(results))
+		}
+	})
+
+	t.Run("returns empty when no notes have all tags", func(t *testing.T) {
+		results, err := FilterNotesByTags([]string{"personal", "work"}, -1)
+		if err != nil {
+			t.Fatalf("FilterNotesByTags failed: %v", err)
+		}
+		if len(results) != 0 {
+			t.Errorf("Expected 0 results (no note has both personal and work), got %d", len(results))
+		}
+	})
+
+	t.Run("respects limit", func(t *testing.T) {
+		results, err := FilterNotesByTags([]string{"work"}, 1)
+		if err != nil {
+			t.Fatalf("FilterNotesByTags failed: %v", err)
+		}
+		if len(results) != 1 {
+			t.Errorf("Expected 1 result with limit=1, got %d", len(results))
+		}
+	})
+}
