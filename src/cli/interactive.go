@@ -74,16 +74,31 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 	page := 0
 	totalPages := (len(results) + pageSize - 1) / pageSize
 
-	// Single page, no navigation needed
+	// Single page, no navigation needed - but still allow [o]pen
 	if totalPages == 1 && !selectable {
 		if cfg.FancyUI {
 			ui.Box("Results", results, 0)
+			fmt.Printf("\n %s[o] open  [q] quit%s\n", Dim, Reset)
 		} else {
 			for _, r := range results {
 				fmt.Println(r)
 			}
+			fmt.Println("[o] open [q] quit")
+			fmt.Print(": ")
 		}
-		return
+		key, err := ReadKey(cfg.FancyUI)
+		if err != nil {
+			return
+		}
+		if key == 'o' || key == 'O' {
+			selectable = true
+			// Fall through to the main loop
+		} else {
+			if cfg.FancyUI {
+				ui.Clear()
+			}
+			return
+		}
 	}
 
 	for {
@@ -105,7 +120,7 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 		if cfg.FancyUI {
 			ui.Clear()
 			ui.SelectableList("Results", pageItems, -1, keys)
-			ui.NavHint(page+1, totalPages)
+			ui.NavHintWithOpen(page+1, totalPages, !selectable)
 		} else {
 			if page > 0 {
 				fmt.Println()
@@ -121,11 +136,14 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 			if totalPages > 1 {
 				fmt.Print("[n] next [p] prev ")
 			}
+			if !selectable {
+				fmt.Print("[o] open ")
+			}
 			fmt.Println("[q] quit")
 			fmt.Print(": ")
 		}
 
-		// Single page non-selectable: just show and exit
+		// Single page non-selectable: handled above, but keep for safety
 		if totalPages == 1 && !selectable {
 			break
 		}
@@ -151,6 +169,11 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 				page--
 			}
 			continue
+		case 'o', 'O':
+			if !selectable {
+				selectable = true
+				continue
+			}
 		}
 
 		if selectable {
@@ -187,6 +210,9 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 		pageSize = maxSelectablePageSize
 	}
 
+	// Track if we're in "open mode" (not delete or pin)
+	openMode := selectable && !deleteMode && !pinMode
+
 	page := 0
 	totalPages := (len(results) + pageSize - 1) / pageSize
 
@@ -221,10 +247,13 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 			title = "Search Results (pin mode)"
 		}
 
+		// Show [o]pen option if not already in a mode
+		showOpen := !selectable && !deleteMode && !pinMode
+
 		if cfg.FancyUI {
 			ui.Clear()
 			ui.SelectableList(title, items, -1, keys)
-			ui.NavHint(page+1, totalPages)
+			ui.NavHintWithOpen(page+1, totalPages, showOpen)
 		} else {
 			if page > 0 {
 				fmt.Println()
@@ -240,13 +269,11 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 			if totalPages > 1 {
 				fmt.Print("[n] next [p] prev ")
 			}
+			if showOpen {
+				fmt.Print("[o] open ")
+			}
 			fmt.Println("[q] quit")
 			fmt.Print(": ")
-		}
-
-		// Single page non-selectable: just show and exit
-		if totalPages == 1 && !selectable {
-			break
 		}
 
 		key, err := ReadKey(cfg.FancyUI)
@@ -270,6 +297,12 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 				page--
 			}
 			continue
+		case 'o', 'O':
+			if !selectable && !deleteMode && !pinMode {
+				selectable = true
+				openMode = true
+				continue
+			}
 		}
 
 		if selectable {
@@ -298,6 +331,8 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 			}
 		}
 	}
+	// Suppress unused variable warning - openMode tracks state for the else branch in selection
+	_ = openMode
 }
 
 func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool) {
