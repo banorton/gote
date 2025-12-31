@@ -200,10 +200,18 @@ func (u *UI) SelectableList(title string, items []string, selected int, keys []r
 
 // NavHint shows navigation hints
 func (u *UI) NavHint(page, total int) {
+	u.NavHintWithOpen(page, total, false)
+}
+
+// NavHintWithOpen shows navigation hints with optional [o]pen option
+func (u *UI) NavHintWithOpen(page, total int, showOpen bool) {
 	if !u.Fancy {
 		fmt.Printf("(%d/%d) ", page, total)
 		if total > 1 {
 			fmt.Print("[n]ext [p]rev ")
+		}
+		if showOpen {
+			fmt.Print("[o]pen ")
 		}
 		fmt.Println("[q]uit")
 		return
@@ -214,6 +222,9 @@ func (u *UI) NavHint(page, total int) {
 	if total > 1 {
 		hints = append(hints, "[n] next")
 		hints = append(hints, "[p] prev")
+	}
+	if showOpen {
+		hints = append(hints, "[o] open")
 	}
 	hints = append(hints, "[q] quit")
 
