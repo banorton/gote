@@ -172,6 +172,9 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 		case 'o', 'O':
 			if !selectable {
 				selectable = true
+				if !cfg.FancyUI {
+					fmt.Println() // Spacing before open mode
+				}
 				continue
 			}
 		}
@@ -301,6 +304,9 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 			if !selectable && !deleteMode && !pinMode {
 				selectable = true
 				openMode = true
+				if !cfg.FancyUI {
+					fmt.Println() // Spacing before open mode
+				}
 				continue
 			}
 		}
