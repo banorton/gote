@@ -57,12 +57,13 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 		return
 	}
 
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
+	cfg, ui, ok := LoadConfigAndUI()
+	if !ok {
 		return
 	}
-	ui := NewUI(cfg.FancyUI)
+
+	// Pre-load index for view mode (avoids loading inside selection loop)
+	index, indexErr := data.LoadIndex()
 
 	if pageSize <= 0 {
 		pageSize = 10
@@ -203,9 +204,8 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 					}
 					if viewMode {
 						// View mode: look up file path and open in browser
-						index, err := data.LoadIndex()
-						if err != nil {
-							ui.Error("Error loading index: " + err.Error())
+						if indexErr != nil {
+							ui.Error("Error loading index: " + indexErr.Error())
 							return
 						}
 						if meta, exists := index[results[start+i]]; exists {
@@ -229,12 +229,10 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 		return
 	}
 
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
+	cfg, ui, ok := LoadConfigAndUI()
+	if !ok {
 		return
 	}
-	ui := NewUI(cfg.FancyUI)
 
 	if pageSize <= 0 {
 		pageSize = 10
@@ -408,9 +406,8 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 		args.Positional = args.Positional[1:]
 	}
 
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
+	cfg, _, ok := LoadConfigAndUI()
+	if !ok {
 		return
 	}
 	pageSize := args.IntOr(cfg.PageSize(), "n", "limit")
@@ -434,6 +431,9 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 	}
 
 	ui := NewUI(cfg.FancyUI)
+
+	// Pre-load index for callbacks (avoids loading per selection)
+	index, indexErr := data.LoadIndex()
 
 	if deleteMode {
 		displayPaginatedResults(titles, true, pageSize, func(title string) {
@@ -459,9 +459,8 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 
 	if viewMode {
 		displayPaginatedResults(titles, true, pageSize, func(title string) {
-			index, err := data.LoadIndex()
-			if err != nil {
-				ui.Error("Error loading index: " + err.Error())
+			if indexErr != nil {
+				ui.Error("Error loading index: " + indexErr.Error())
 				return
 			}
 			if meta, exists := index[title]; exists {
@@ -474,9 +473,8 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 	}
 
 	displayPaginatedResults(titles, openMode, pageSize, func(title string) {
-		index, err := data.LoadIndex()
-		if err != nil {
-			ui.Error("Error loading index: " + err.Error())
+		if indexErr != nil {
+			ui.Error("Error loading index: " + indexErr.Error())
 			return
 		}
 		if meta, exists := index[title]; exists {
@@ -488,12 +486,10 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool, defaultView bool) {
 	args := ParseArgs(rawArgs)
 
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
+	cfg, ui, ok := LoadConfigAndUI()
+	if !ok {
 		return
 	}
-	ui := NewUI(cfg.FancyUI)
 
 	// Handle "search trash <query>" subcommand
 	if args.First() == "trash" {
@@ -619,12 +615,10 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 
 // SelectCommand provides an interactive flow: choose source -> select note -> choose action
 func SelectCommand() {
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
+	cfg, ui, ok := LoadConfigAndUI()
+	if !ok {
 		return
 	}
-	ui := NewUI(cfg.FancyUI)
 	pageSize := cfg.PageSize()
 
 	// Step 1: Choose source (loop until valid input)

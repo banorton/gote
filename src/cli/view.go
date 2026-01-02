@@ -20,12 +20,10 @@ func ViewCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	noteName := args.Joined()
 
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
+	_, ui, ok := LoadConfigAndUI()
+	if !ok {
 		return
 	}
-	ui := NewUI(cfg.FancyUI)
 
 	if noteName == "" {
 		fmt.Println("Usage: gote view <note>")

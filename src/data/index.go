@@ -49,6 +49,15 @@ func SaveIndex(index map[string]NoteMeta) error {
 	return json.NewEncoder(f).Encode(index)
 }
 
+// SaveIndexWithTags atomically saves the index and updates the tags index.
+// Use this instead of separate SaveIndex + UpdateTagsIndex calls.
+func SaveIndexWithTags(index map[string]NoteMeta) error {
+	if err := SaveIndex(index); err != nil {
+		return err
+	}
+	return UpdateTagsIndex(index)
+}
+
 func IndexNotes(notesDir string) error {
 	existingIndex, err := LoadIndex()
 	if err != nil {
@@ -85,11 +94,7 @@ func IndexNotes(notesDir string) error {
 		return err
 	}
 
-	if err := SaveIndex(index); err != nil {
-		return err
-	}
-
-	if err := UpdateTagsIndex(index); err != nil {
+	if err := SaveIndexWithTags(index); err != nil {
 		return err
 	}
 
@@ -121,11 +126,7 @@ func IndexNote(notePath string) error {
 	}
 
 	index[meta.Title] = meta
-	if err := SaveIndex(index); err != nil {
-		return err
-	}
-
-	return UpdateTagsIndex(index)
+	return SaveIndexWithTags(index)
 }
 
 func BuildNoteMeta(notePath string, info os.FileInfo) (NoteMeta, error) {
@@ -179,21 +180,5 @@ func ParseTags(line string) []string {
 }
 
 func FormatIndexFile() error {
-	indPath := IndexPath()
-	data, err := os.ReadFile(indPath)
-	if err != nil {
-		return fmt.Errorf("could not read index file: %w", err)
-	}
-	var m map[string]NoteMeta
-	if err := json.Unmarshal(data, &m); err != nil {
-		return fmt.Errorf("could not parse index file: %w", err)
-	}
-	pretty, err := json.MarshalIndent(m, "", "  ")
-	if err != nil {
-		return fmt.Errorf("could not marshal pretty index: %w", err)
-	}
-	if err := os.WriteFile(indPath, pretty, 0644); err != nil {
-		return fmt.Errorf("could not write pretty index: %w", err)
-	}
-	return nil
+	return FormatJSONFile(IndexPath())
 }

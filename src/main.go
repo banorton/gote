@@ -83,6 +83,8 @@ func main() {
 	// Config
 	case "config", "c":
 		cli.ConfigCommand(rest)
+	case "ce": // config edit shortcut
+		cli.ConfigCommand([]string{"edit"})
 
 	// Templates
 	case "template", "tmpl":

@@ -12,12 +12,10 @@ func TemplateCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	sub := args.First()
 
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
+	cfg, ui, ok := LoadConfigAndUI()
+	if !ok {
 		return
 	}
-	ui := NewUI(cfg.FancyUI)
 
 	switch sub {
 	case "", "list":

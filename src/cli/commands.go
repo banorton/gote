@@ -27,12 +27,10 @@ func NoteCommand(args []string) {
 		return
 	}
 
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
+	cfg, ui, ok := LoadConfigAndUI()
+	if !ok {
 		return
 	}
-	ui := NewUI(cfg.FancyUI)
 
 	// Check if note already exists - if so, just open it
 	index, err := data.LoadIndex()
@@ -91,12 +89,10 @@ func QuickSaveCommand(args []string) {
 	parsedArgs := ParseArgs(args)
 	noteName := parsedArgs.Joined()
 
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
+	_, ui, ok := LoadConfigAndUI()
+	if !ok {
 		return
 	}
-	ui := NewUI(cfg.FancyUI)
 
 	if noteName == "" {
 		fmt.Println("Usage: gote quick save <note name>")
@@ -115,12 +111,10 @@ func IndexCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	sub := args.First()
 
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
+	cfg, ui, ok := LoadConfigAndUI()
+	if !ok {
 		return
 	}
-	ui := NewUI(cfg.FancyUI)
 
 	switch sub {
 	case "":
@@ -169,12 +163,10 @@ func TagCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultP
 	args := ParseArgs(rawArgs)
 	sub := args.First()
 
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
+	cfg, ui, ok := LoadConfigAndUI()
+	if !ok {
 		return
 	}
-	ui := NewUI(cfg.FancyUI)
 
 	openMode := defaultOpen
 	deleteMode := defaultDelete
@@ -301,12 +293,10 @@ func ConfigCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	sub := args.First()
 
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
+	cfg, ui, ok := LoadConfigAndUI()
+	if !ok {
 		return
 	}
-	ui := NewUI(cfg.FancyUI)
 
 	switch sub {
 	case "", "show":

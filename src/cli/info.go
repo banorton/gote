@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"gote/src/core"
-	"gote/src/data"
 )
 
 func RenameCommand(rawArgs []string) {
@@ -14,12 +13,10 @@ func RenameCommand(rawArgs []string) {
 	oldName := args.Joined()
 	newName := strings.Join(args.List("n", "name"), " ")
 
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
+	_, ui, ok := LoadConfigAndUI()
+	if !ok {
 		return
 	}
-	ui := NewUI(cfg.FancyUI)
 
 	if oldName == "" || newName == "" {
 		fmt.Println("Usage: gote rename <note name> -n <new name>")
@@ -37,12 +34,10 @@ func InfoCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	noteName := args.Joined()
 
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
+	cfg, ui, ok := LoadConfigAndUI()
+	if !ok {
 		return
 	}
-	ui := NewUI(cfg.FancyUI)
 
 	if noteName == "" {
 		fmt.Println("Usage: gote info <note name>")

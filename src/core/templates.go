@@ -92,8 +92,5 @@ func CreateNoteFromTemplate(noteName, templateName string) error {
 	}
 	meta.LastVisited = time.Now().Format("060102.150405")
 	index[noteName] = meta
-	if err := data.SaveIndex(index); err != nil {
-		return err
-	}
-	return data.UpdateTagsIndex(index)
+	return data.SaveIndexWithTags(index)
 }

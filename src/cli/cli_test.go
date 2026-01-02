@@ -53,8 +53,7 @@ func createTestNote(t *testing.T, notesDir, name, content string) {
 	meta, _ := data.BuildNoteMeta(notePath, info)
 	index, _ := data.LoadIndex()
 	index[name] = meta
-	data.SaveIndex(index)
-	data.UpdateTagsIndex(index)
+	data.SaveIndexWithTags(index)
 }
 
 // captureOutput captures stdout during a function call
