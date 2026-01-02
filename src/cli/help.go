@@ -28,6 +28,7 @@ Notes:
   gote rd | recent delete         Recent + delete mode
   gote rp | recent pin            Recent + pin mode
   gote info | i <note>            Show note metadata
+  gote preview | view | pv <note> Open note preview in browser
   gote rename | mv | rn <note> -n <new>  Rename a note
 
 Search:
