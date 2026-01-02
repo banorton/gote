@@ -15,6 +15,8 @@ func PrintDefaultHelp() {
 
 Usage:
   gote <note name>                Create or open a note
+  gote <note> -t <template>       Create note from template
+  gote <note> -t                  Create note, pick template interactively
   gote -d <note>                  Create note with date prefix (yymmdd)
   gote -dt <note>                 Create note with datetime prefix (yymmdd-hhmmss)
   gote -nt <note>                 Create note without timestamp (bypass config)
@@ -27,8 +29,9 @@ Notes:
   gote ro | recent open           Recent + open mode
   gote rd | recent delete         Recent + delete mode
   gote rp | recent pin            Recent + pin mode
+  gote rv | recent view           Recent + view mode (browser preview)
   gote info | i <note>            Show note metadata
-  gote preview | view | pv <note> Open note preview in browser
+  gote view <note>                Open note preview in browser
   gote rename | mv | rn <note> -n <new>  Rename a note
 
 Search:
@@ -36,6 +39,7 @@ Search:
   gote so | search open <query>   Search + open mode
   gote sd | search delete <query> Search + delete mode
   gote sp | search pin <query>    Search + pin mode
+  gote sv | search view <query>   Search + view mode (browser preview)
   gote search -t .tag1.tag2       Search by tags
   gote search -w <date> [<date>]  Search by date (created)
   gote search -w <date> --modified  Search by date (modified)
@@ -49,6 +53,7 @@ Tags:
   gote to | tag open .tag1.tag2   Filter + open mode
   gote td | tag delete .tag1.tag2 Filter + delete mode
   gote tp | tag pin .tag1.tag2    Filter + pin mode
+  gote tv | tag view .tag1.tag2   Filter + view mode (browser preview)
   gote tag popular [-n <limit>]   Show most used tags
   gote tag edit                   Edit tags file
   gote tag format                 Format tags file
@@ -58,6 +63,7 @@ Pins:
   gote pin                        List pinned notes
   gote pinned | pd [-n <size>]    List pinned notes
   gote po | pinned open           Pinned + open mode
+  gote pv | pinned view           Pinned + view mode (browser preview)
   gote unpin | u | up <note>      Unpin a note
 
 Trash:
@@ -79,6 +85,11 @@ Config:
   gote config edit                Edit config (uses vim)
   gote config format              Format config file
   gote config help                Show config options
+
+Templates:
+  gote template | tmpl            List all templates
+  gote template <name>            Create or edit a template
+  gote template delete <name>     Delete a template
 
 Select (interactive):
   gote select | sel               Interactive note selection and action

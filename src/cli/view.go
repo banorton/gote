@@ -15,8 +15,8 @@ import (
 	"gote/src/data"
 )
 
-// PreviewCommand opens a markdown preview of a note in the browser
-func PreviewCommand(rawArgs []string) {
+// ViewCommand opens a markdown preview of a note in the browser
+func ViewCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	noteName := args.Joined()
 
@@ -28,7 +28,7 @@ func PreviewCommand(rawArgs []string) {
 	ui := NewUI(cfg.FancyUI)
 
 	if noteName == "" {
-		fmt.Println("Usage: gote preview <note>")
+		fmt.Println("Usage: gote view <note>")
 		return
 	}
 
@@ -45,37 +45,38 @@ func PreviewCommand(rawArgs []string) {
 		return
 	}
 
+	ViewNoteInBrowser(meta.FilePath, noteName)
+}
+
+// ViewNoteInBrowser opens a note's markdown content as HTML in the browser
+func ViewNoteInBrowser(filePath, title string) error {
 	// Read the note content
-	content, err := os.ReadFile(meta.FilePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
-		ui.Error("Error reading note: " + err.Error())
-		return
+		return fmt.Errorf("error reading note: %w", err)
 	}
 
 	// Convert markdown to HTML
 	htmlContent, err := markdownToHTML(content)
 	if err != nil {
-		ui.Error("Error converting markdown: " + err.Error())
-		return
+		return fmt.Errorf("error converting markdown: %w", err)
 	}
 
 	// Create full HTML document
-	fullHTML := wrapInHTMLTemplate(noteName, htmlContent)
+	fullHTML := wrapInHTMLTemplate(title, htmlContent)
 
 	// Write to temp file
-	tempFile := filepath.Join(os.TempDir(), "gote-preview.html")
+	tempFile := filepath.Join(os.TempDir(), "gote-view.html")
 	if err := os.WriteFile(tempFile, []byte(fullHTML), 0644); err != nil {
-		ui.Error("Error writing preview file: " + err.Error())
-		return
+		return fmt.Errorf("error writing view file: %w", err)
 	}
 
 	// Open in browser
 	if err := openInBrowser(tempFile); err != nil {
-		ui.Error("Error opening browser: " + err.Error())
-		return
+		return fmt.Errorf("error opening browser: %w", err)
 	}
 
-	ui.Success("Opened preview in browser")
+	return nil
 }
 
 func markdownToHTML(source []byte) (string, error) {

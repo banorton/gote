@@ -106,7 +106,7 @@ func TestTagCommand(t *testing.T) {
 
 	t.Run("lists all tags", func(t *testing.T) {
 		output := captureOutput(func() {
-			TagCommand([]string{}, false, false, false)
+			TagCommand([]string{}, false, false, false, false)
 		})
 
 		if !strings.Contains(output, "work") {
@@ -119,7 +119,7 @@ func TestTagCommand(t *testing.T) {
 
 	t.Run("popular respects limit", func(t *testing.T) {
 		output := captureOutput(func() {
-			TagCommand([]string{"popular", "-n", "2"}, false, false, false)
+			TagCommand([]string{"popular", "-n", "2"}, false, false, false, false)
 		})
 
 		// Should show header + 2 tags
@@ -131,7 +131,7 @@ func TestTagCommand(t *testing.T) {
 
 	t.Run("filters notes by single tag", func(t *testing.T) {
 		output := captureOutput(func() {
-			TagCommand([]string{".personal"}, false, false, false)
+			TagCommand([]string{".personal"}, false, false, false, false)
 		})
 
 		if !strings.Contains(output, "note3") {
@@ -144,7 +144,7 @@ func TestTagCommand(t *testing.T) {
 
 	t.Run("filters notes by multiple tags AND logic", func(t *testing.T) {
 		output := captureOutput(func() {
-			TagCommand([]string{".work.urgent"}, false, false, false)
+			TagCommand([]string{".work.urgent"}, false, false, false, false)
 		})
 
 		if !strings.Contains(output, "note1") {
@@ -304,7 +304,7 @@ func TestSearchCommand(t *testing.T) {
 
 	t.Run("search by title shows results", func(t *testing.T) {
 		output := captureOutput(func() {
-			SearchCommand([]string{"project"}, false, false, false)
+			SearchCommand([]string{"project"}, false, false, false, false)
 		})
 
 		if !strings.Contains(output, "project-alpha") {
@@ -317,7 +317,7 @@ func TestSearchCommand(t *testing.T) {
 
 	t.Run("search with no results", func(t *testing.T) {
 		output := captureOutput(func() {
-			SearchCommand([]string{"nonexistent"}, false, false, false)
+			SearchCommand([]string{"nonexistent"}, false, false, false, false)
 		})
 
 		if !strings.Contains(output, "No matching") {
@@ -327,7 +327,7 @@ func TestSearchCommand(t *testing.T) {
 
 	t.Run("search by tags", func(t *testing.T) {
 		output := captureOutput(func() {
-			SearchCommand([]string{"-t", ".work"}, false, false, false)
+			SearchCommand([]string{"-t", ".work"}, false, false, false, false)
 		})
 
 		if !strings.Contains(output, "project-alpha") {
@@ -340,7 +340,7 @@ func TestSearchCommand(t *testing.T) {
 
 	t.Run("search with no query prompts for input", func(t *testing.T) {
 		output := captureOutput(func() {
-			SearchCommand([]string{}, false, false, false)
+			SearchCommand([]string{}, false, false, false, false)
 		})
 
 		if !strings.Contains(output, "Search:") {
@@ -361,7 +361,7 @@ func TestRecentCommand(t *testing.T) {
 
 	t.Run("lists recent notes", func(t *testing.T) {
 		output := captureOutput(func() {
-			RecentCommand([]string{}, false, false, false)
+			RecentCommand([]string{}, false, false, false, false)
 		})
 
 		if !strings.Contains(output, "note1") {

@@ -18,10 +18,12 @@ func NoteCommand(args []string) {
 	dateFlag := parsedArgs.Has("d", "date")
 	datetimeFlag := parsedArgs.Has("dt", "datetime")
 	noTimestampFlag := parsedArgs.Has("nt", "no-timestamp")
+	templateFlag := parsedArgs.Has("t", "template")
+	templateName := parsedArgs.String("t", "template")
 	noteName := parsedArgs.Joined()
 
 	if noteName == "" {
-		fmt.Println("Usage: gote <note name> [-d|--date] [-dt|--datetime] [-nt|--no-timestamp]")
+		fmt.Println("Usage: gote <note name> [-d|--date] [-dt|--datetime] [-nt|--no-timestamp] [-t|--template <name>]")
 		return
 	}
 
@@ -30,6 +32,7 @@ func NoteCommand(args []string) {
 		fmt.Println("Error loading config:", err)
 		return
 	}
+	ui := NewUI(cfg.FancyUI)
 
 	// Check if note already exists - if so, just open it
 	index, err := data.LoadIndex()
@@ -58,6 +61,21 @@ func NoteCommand(args []string) {
 		} else if mode == "datetime" {
 			noteName = time.Now().Format("060102-150405") + " " + noteName
 		}
+	}
+
+	// Handle template flag
+	if templateFlag {
+		if templateName == "" {
+			// Show template picker
+			templateName = selectTemplate(cfg, ui, cfg.PageSize())
+			if templateName == "" {
+				return // User cancelled
+			}
+		}
+		if err := core.CreateNoteFromTemplate(noteName, templateName); err != nil {
+			ui.Error(err.Error())
+		}
+		return
 	}
 
 	if err := core.CreateOrOpenNote(noteName); err != nil {
@@ -147,7 +165,7 @@ func IndexCommand(rawArgs []string) {
 	}
 }
 
-func TagCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool) {
+func TagCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool, defaultView bool) {
 	args := ParseArgs(rawArgs)
 	sub := args.First()
 
@@ -161,6 +179,7 @@ func TagCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultP
 	openMode := defaultOpen
 	deleteMode := defaultDelete
 	pinMode := defaultPin
+	viewMode := defaultView
 
 	// Check for mode keywords as first positional arg (e.g., "gote tag open .work")
 	if sub == "open" {
@@ -173,6 +192,10 @@ func TagCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultP
 		sub = args.First()
 	} else if sub == "pin" {
 		pinMode = true
+		args.Positional = args.Positional[1:]
+		sub = args.First()
+	} else if sub == "view" {
+		viewMode = true
 		args.Positional = args.Positional[1:]
 		sub = args.First()
 	}
@@ -201,7 +224,7 @@ func TagCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultP
 			ui.Empty("No notes found with all specified tags.")
 			return
 		}
-		displayPaginatedSearchResultsWithMode(results, openMode || deleteMode || pinMode, deleteMode, pinMode, pageSize)
+		displayPaginatedSearchResultsWithMode(results, openMode || deleteMode || pinMode || viewMode, deleteMode, pinMode, viewMode, pageSize)
 		return
 	}
 

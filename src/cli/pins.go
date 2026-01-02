@@ -65,13 +65,26 @@ func UnpinCommand(rawArgs []string) {
 	ui.Success("Unpinned note: " + noteName)
 }
 
-func PinnedCommand(rawArgs []string, defaultOpen bool) {
+func PinnedCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool, defaultView bool) {
 	args := ParseArgs(rawArgs)
 	openMode := defaultOpen
+	deleteMode := defaultDelete
+	pinMode := defaultPin
+	viewMode := defaultView
 
 	// Check for mode keyword as first positional arg (e.g., "gote pinned open")
-	if args.First() == "open" {
+	first := args.First()
+	if first == "open" {
 		openMode = true
+		args.Positional = args.Positional[1:]
+	} else if first == "delete" {
+		deleteMode = true
+		args.Positional = args.Positional[1:]
+	} else if first == "unpin" {
+		pinMode = true // unpin mode for pinned notes
+		args.Positional = args.Positional[1:]
+	} else if first == "view" {
+		viewMode = true
 		args.Positional = args.Positional[1:]
 	}
 
@@ -90,6 +103,44 @@ func PinnedCommand(rawArgs []string, defaultOpen bool) {
 	}
 	if len(pins) == 0 {
 		ui.Empty("No pinned notes.")
+		return
+	}
+
+	if deleteMode {
+		displayPaginatedResults(pins, true, pageSize, func(title string) {
+			if err := core.DeleteNote(title); err != nil {
+				ui.Error(err.Error())
+				return
+			}
+			ui.Success("Note moved to trash: " + title)
+		})
+		return
+	}
+
+	if pinMode {
+		displayPaginatedResults(pins, true, pageSize, func(title string) {
+			if err := core.UnpinNote(title); err != nil {
+				ui.Error(err.Error())
+				return
+			}
+			ui.Success("Unpinned: " + title)
+		})
+		return
+	}
+
+	if viewMode {
+		displayPaginatedResults(pins, true, pageSize, func(title string) {
+			index, err := data.LoadIndex()
+			if err != nil {
+				ui.Error("Error loading index: " + err.Error())
+				return
+			}
+			if meta, exists := index[title]; exists {
+				if err := ViewNoteInBrowser(meta.FilePath, title); err != nil {
+					ui.Error(err.Error())
+				}
+			}
+		})
 		return
 	}
 

@@ -74,16 +74,18 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 	page := 0
 	totalPages := (len(results) + pageSize - 1) / pageSize
 
-	// Single page, no navigation needed - but still allow [o]pen
+	viewMode := false
+
+	// Single page, no navigation needed - but still allow [o]pen and [v]iew
 	if totalPages == 1 && !selectable {
 		if cfg.FancyUI {
 			ui.Box("Results", results, 0)
-			fmt.Printf("\n %s[o] open  [q] quit%s\n", Dim, Reset)
+			fmt.Printf("\n %s[o] open  [v] view  [q] quit%s\n", Dim, Reset)
 		} else {
 			for _, r := range results {
 				fmt.Println(r)
 			}
-			fmt.Println("[o] open [q] quit")
+			fmt.Println("[o] open [v] view [q] quit")
 			fmt.Print(": ")
 		}
 		key, err := ReadKey(cfg.FancyUI)
@@ -92,6 +94,10 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 		}
 		if key == 'o' || key == 'O' {
 			selectable = true
+			// Fall through to the main loop
+		} else if key == 'v' || key == 'V' {
+			selectable = true
+			viewMode = true
 			// Fall through to the main loop
 		} else {
 			if cfg.FancyUI {
@@ -120,7 +126,7 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 		if cfg.FancyUI {
 			ui.Clear()
 			ui.SelectableList("Results", pageItems, -1, keys)
-			ui.NavHintWithOpen(page+1, totalPages, !selectable)
+			ui.NavHintWithModes(page+1, totalPages, !selectable, !selectable)
 		} else {
 			if page > 0 {
 				fmt.Println()
@@ -137,7 +143,7 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 				fmt.Print("[n] next [p] prev ")
 			}
 			if !selectable {
-				fmt.Print("[o] open ")
+				fmt.Print("[o] open [v] view ")
 			}
 			fmt.Println("[q] quit")
 			fmt.Print(": ")
@@ -172,8 +178,18 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 		case 'o', 'O':
 			if !selectable {
 				selectable = true
+				viewMode = false
 				if !cfg.FancyUI {
 					fmt.Println() // Spacing before open mode
+				}
+				continue
+			}
+		case 'v', 'V':
+			if !selectable {
+				selectable = true
+				viewMode = true
+				if !cfg.FancyUI {
+					fmt.Println() // Spacing before view mode
 				}
 				continue
 			}
@@ -185,7 +201,21 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 					if cfg.FancyUI {
 						ui.Clear()
 					}
-					onSelect(results[start+i])
+					if viewMode {
+						// View mode: look up file path and open in browser
+						index, err := data.LoadIndex()
+						if err != nil {
+							ui.Error("Error loading index: " + err.Error())
+							return
+						}
+						if meta, exists := index[results[start+i]]; exists {
+							if err := ViewNoteInBrowser(meta.FilePath, results[start+i]); err != nil {
+								ui.Error(err.Error())
+							}
+						}
+					} else {
+						onSelect(results[start+i])
+					}
 					return
 				}
 			}
@@ -193,7 +223,7 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 	}
 }
 
-func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectable bool, deleteMode bool, pinMode bool, pageSize int) {
+func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectable bool, deleteMode bool, pinMode bool, viewMode bool, pageSize int) {
 	if len(results) == 0 {
 		fmt.Println("No results found.")
 		return
@@ -250,13 +280,13 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 			title = "Search Results (pin mode)"
 		}
 
-		// Show [o]pen option if not already in a mode
-		showOpen := !selectable && !deleteMode && !pinMode
+		// Show [o]pen and [v]iew options if not already in a mode
+		showOptions := !selectable && !deleteMode && !pinMode && !viewMode
 
 		if cfg.FancyUI {
 			ui.Clear()
 			ui.SelectableList(title, items, -1, keys)
-			ui.NavHintWithOpen(page+1, totalPages, showOpen)
+			ui.NavHintWithModes(page+1, totalPages, showOptions, showOptions)
 		} else {
 			if page > 0 {
 				fmt.Println()
@@ -272,8 +302,8 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 			if totalPages > 1 {
 				fmt.Print("[n] next [p] prev ")
 			}
-			if showOpen {
-				fmt.Print("[o] open ")
+			if showOptions {
+				fmt.Print("[o] open [v] view ")
 			}
 			fmt.Println("[q] quit")
 			fmt.Print(": ")
@@ -301,11 +331,20 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 			}
 			continue
 		case 'o', 'O':
-			if !selectable && !deleteMode && !pinMode {
+			if !selectable && !deleteMode && !pinMode && !viewMode {
 				selectable = true
 				openMode = true
 				if !cfg.FancyUI {
 					fmt.Println() // Spacing before open mode
+				}
+				continue
+			}
+		case 'v', 'V':
+			if !selectable && !deleteMode && !pinMode && !viewMode {
+				selectable = true
+				viewMode = true
+				if !cfg.FancyUI {
+					fmt.Println() // Spacing before view mode
 				}
 				continue
 			}
@@ -329,6 +368,11 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 							return
 						}
 						ui.Success("Pinned: " + results[start+i].Title)
+					} else if viewMode {
+						if err := ViewNoteInBrowser(results[start+i].FilePath, results[start+i].Title); err != nil {
+							ui.Error(err.Error())
+							return
+						}
 					} else {
 						core.OpenAndReindexNote(results[start+i].FilePath, results[start+i].Title)
 					}
@@ -341,11 +385,12 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 	_ = openMode
 }
 
-func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool) {
+func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool, defaultView bool) {
 	args := ParseArgs(rawArgs)
 	openMode := defaultOpen
 	deleteMode := defaultDelete
 	pinMode := defaultPin
+	viewMode := defaultView
 
 	// Check for mode keywords as first positional arg (e.g., "gote recent open")
 	first := args.First()
@@ -357,6 +402,9 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 		args.Positional = args.Positional[1:]
 	} else if first == "pin" {
 		pinMode = true
+		args.Positional = args.Positional[1:]
+	} else if first == "view" {
+		viewMode = true
 		args.Positional = args.Positional[1:]
 	}
 
@@ -409,6 +457,22 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 		return
 	}
 
+	if viewMode {
+		displayPaginatedResults(titles, true, pageSize, func(title string) {
+			index, err := data.LoadIndex()
+			if err != nil {
+				ui.Error("Error loading index: " + err.Error())
+				return
+			}
+			if meta, exists := index[title]; exists {
+				if err := ViewNoteInBrowser(meta.FilePath, title); err != nil {
+					ui.Error(err.Error())
+				}
+			}
+		})
+		return
+	}
+
 	displayPaginatedResults(titles, openMode, pageSize, func(title string) {
 		index, err := data.LoadIndex()
 		if err != nil {
@@ -421,7 +485,7 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 	})
 }
 
-func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool) {
+func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool, defaultView bool) {
 	args := ParseArgs(rawArgs)
 
 	cfg, err := data.LoadConfig()
@@ -460,6 +524,7 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 	openMode := defaultOpen
 	deleteMode := defaultDelete
 	pinMode := defaultPin
+	viewMode := defaultView
 
 	// Check for mode keywords as first positional arg (e.g., "gote search open -w 2512")
 	first := args.First()
@@ -472,9 +537,12 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 	} else if first == "pin" {
 		pinMode = true
 		args.Positional = args.Positional[1:]
+	} else if first == "view" {
+		viewMode = true
+		args.Positional = args.Positional[1:]
 	}
 
-	interactive := openMode || deleteMode || pinMode
+	interactive := openMode || deleteMode || pinMode || viewMode
 	pageSize := args.IntOr(cfg.PageSize(), "n", "limit")
 	tags := args.TagList("t", "tags")
 	dateValues := args.List("w", "when")
@@ -491,7 +559,7 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 			ui.Empty("No notes found in that date range.")
 			return
 		}
-		displayPaginatedSearchResultsWithMode(results, interactive, deleteMode, pinMode, pageSize)
+		displayPaginatedSearchResultsWithMode(results, interactive, deleteMode, pinMode, viewMode, pageSize)
 		return
 	}
 
@@ -518,7 +586,7 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 			ui.Empty("No notes found for the given tags.")
 			return
 		}
-		displayPaginatedSearchResultsWithMode(results, interactive, deleteMode, pinMode, pageSize)
+		displayPaginatedSearchResultsWithMode(results, interactive, deleteMode, pinMode, viewMode, pageSize)
 		return
 	}
 
@@ -546,7 +614,7 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 		ui.Empty("No matching note titles found.")
 		return
 	}
-	displayPaginatedSearchResultsWithMode(results, interactive, deleteMode, pinMode, pageSize)
+	displayPaginatedSearchResultsWithMode(results, interactive, deleteMode, pinMode, viewMode, pageSize)
 }
 
 // SelectCommand provides an interactive flow: choose source -> select note -> choose action
