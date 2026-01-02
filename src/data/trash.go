@@ -23,12 +23,13 @@ func TrashNote(noteName string, noteMeta NoteMeta) error {
 	}
 
 	pins, err := LoadPins()
-	if err == nil {
-		if _, pinned := pins[noteName]; pinned {
-			delete(pins, noteName)
-			if err := SavePins(pins); err != nil {
-				return fmt.Errorf("error saving pins: %w", err)
-			}
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("error loading pins: %w", err)
+	}
+	if _, pinned := pins[noteName]; pinned {
+		delete(pins, noteName)
+		if err := SavePins(pins); err != nil {
+			return fmt.Errorf("error saving pins: %w", err)
 		}
 	}
 

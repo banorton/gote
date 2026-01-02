@@ -11,8 +11,7 @@ func GetRecentNotes(limit int) ([]data.NoteMeta, error) {
 	if err != nil {
 		return nil, err
 	}
-	var notes []data.NoteMeta
-
+	notes := make([]data.NoteMeta, 0, len(index))
 	for _, n := range index {
 		notes = append(notes, n)
 	}
