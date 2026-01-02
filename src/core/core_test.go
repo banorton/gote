@@ -205,10 +205,10 @@ func TestPinOperations(t *testing.T) {
 		}
 	})
 
-	t.Run("UnpinNote not pinned", func(t *testing.T) {
+	t.Run("UnpinNote is idempotent", func(t *testing.T) {
 		err := UnpinNote("test-note")
-		if err == nil {
-			t.Error("Should error when unpinning not-pinned note")
+		if err != nil {
+			t.Errorf("UnpinNote should be idempotent, got error: %v", err)
 		}
 	})
 }

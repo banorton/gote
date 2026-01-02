@@ -45,7 +45,7 @@ func UnpinNote(noteName string) error {
 	}
 
 	if _, pinned := pins[noteName]; !pinned {
-		return fmt.Errorf("note was not pinned: %s", noteName)
+		return nil // idempotent - already unpinned is success
 	}
 
 	delete(pins, noteName)

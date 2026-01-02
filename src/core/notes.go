@@ -145,6 +145,7 @@ func RenameNote(oldName, newName string) error {
 	delete(index, oldName)
 	meta.Title = newName
 	meta.FilePath = newPath
+	meta.LastVisited = time.Now().Format("060102.150405")
 	index[newName] = meta
 
 	if err := data.SaveIndex(index); err != nil {

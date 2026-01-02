@@ -204,13 +204,14 @@ func TestPinCommands(t *testing.T) {
 		}
 	})
 
-	t.Run("UnpinCommand shows error for not pinned", func(t *testing.T) {
+	t.Run("UnpinCommand is idempotent for not pinned", func(t *testing.T) {
 		output := captureOutput(func() {
 			UnpinCommand([]string{"test-note"})
 		})
 
-		if !strings.Contains(output, "Error") {
-			t.Errorf("Expected error for not pinned, got: %s", output)
+		// Idempotent - unpinning an unpinned note should succeed
+		if strings.Contains(output, "Error") {
+			t.Errorf("Should succeed when unpinning not-pinned note, got: %s", output)
 		}
 	})
 
