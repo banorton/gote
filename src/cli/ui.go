@@ -205,6 +205,11 @@ func (u *UI) NavHint(page, total int) {
 
 // NavHintWithOpen shows navigation hints with optional [o]pen option
 func (u *UI) NavHintWithOpen(page, total int, showOpen bool) {
+	u.NavHintWithModes(page, total, showOpen, false)
+}
+
+// NavHintWithModes shows navigation hints with optional [o]pen and [v]iew options
+func (u *UI) NavHintWithModes(page, total int, showOpen bool, showView bool) {
 	if !u.Fancy {
 		fmt.Printf("(%d/%d) ", page, total)
 		if total > 1 {
@@ -212,6 +217,9 @@ func (u *UI) NavHintWithOpen(page, total int, showOpen bool) {
 		}
 		if showOpen {
 			fmt.Print("[o]pen ")
+		}
+		if showView {
+			fmt.Print("[v]iew ")
 		}
 		fmt.Println("[q]uit")
 		return
@@ -225,6 +233,9 @@ func (u *UI) NavHintWithOpen(page, total int, showOpen bool) {
 	}
 	if showOpen {
 		hints = append(hints, "[o] open")
+	}
+	if showView {
+		hints = append(hints, "[v] view")
 	}
 	hints = append(hints, "[q] quit")
 
