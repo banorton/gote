@@ -101,14 +101,14 @@ func main() {
 		cli.RenameCommand(rest)
 	case "info", "i":
 		cli.InfoCommand(rest)
+	case "preview", "view", "pv":
+		cli.PreviewCommand(rest)
 
 	// Help
 	case "help", "h", "man":
 		cli.HelpCommand(rest)
 
 	// Not implemented
-	case "view":
-		cli.NotImplementedCommand("view")
 	case "popular", "pop":
 		cli.NotImplementedCommand("popular")
 	case "today":
