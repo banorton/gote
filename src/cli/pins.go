@@ -11,12 +11,10 @@ func PinCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	sub := args.First()
 
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
+	_, ui, ok := LoadConfigAndUI()
+	if !ok {
 		return
 	}
-	ui := NewUI(cfg.FancyUI)
 
 	// Handle subcommands
 	switch sub {
@@ -46,12 +44,10 @@ func UnpinCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	noteName := args.Joined()
 
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
+	_, ui, ok := LoadConfigAndUI()
+	if !ok {
 		return
 	}
-	ui := NewUI(cfg.FancyUI)
 
 	if noteName == "" {
 		fmt.Println("Usage: gote unpin <note name>")
@@ -88,13 +84,14 @@ func PinnedCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 		args.Positional = args.Positional[1:]
 	}
 
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
+	cfg, ui, ok := LoadConfigAndUI()
+	if !ok {
 		return
 	}
 	pageSize := args.IntOr(cfg.PageSize(), "n", "limit")
-	ui := NewUI(cfg.FancyUI)
+
+	// Pre-load index for callbacks
+	index, indexErr := data.LoadIndex()
 
 	pins, err := core.ListPinnedNotes()
 	if err != nil {
@@ -130,9 +127,8 @@ func PinnedCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 
 	if viewMode {
 		displayPaginatedResults(pins, true, pageSize, func(title string) {
-			index, err := data.LoadIndex()
-			if err != nil {
-				ui.Error("Error loading index: " + err.Error())
+			if indexErr != nil {
+				ui.Error("Error loading index: " + indexErr.Error())
 				return
 			}
 			if meta, exists := index[title]; exists {
@@ -145,9 +141,8 @@ func PinnedCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 	}
 
 	displayPaginatedResults(pins, openMode, pageSize, func(title string) {
-		index, err := data.LoadIndex()
-		if err != nil {
-			ui.Error("Error loading index: " + err.Error())
+		if indexErr != nil {
+			ui.Error("Error loading index: " + indexErr.Error())
 			return
 		}
 		if meta, exists := index[title]; exists {
@@ -157,12 +152,10 @@ func PinnedCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 }
 
 func listPinnedNotes() {
-	cfg, err := data.LoadConfig()
-	if err != nil {
-		fmt.Println("Error loading config:", err)
+	cfg, ui, ok := LoadConfigAndUI()
+	if !ok {
 		return
 	}
-	ui := NewUI(cfg.FancyUI)
 
 	pins, err := core.ListPinnedNotes()
 	if err != nil {

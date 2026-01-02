@@ -2,7 +2,6 @@ package data
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -50,21 +49,5 @@ func LoadTags() (map[string]TagMeta, error) {
 }
 
 func FormatTagsFile() error {
-	tagPath := TagsPath()
-	data, err := os.ReadFile(tagPath)
-	if err != nil {
-		return fmt.Errorf("could not read tags file: %w", err)
-	}
-	var m map[string]TagMeta
-	if err := json.Unmarshal(data, &m); err != nil {
-		return fmt.Errorf("could not parse tags file: %w", err)
-	}
-	pretty, err := json.MarshalIndent(m, "", "  ")
-	if err != nil {
-		return fmt.Errorf("could not marshal pretty tags: %w", err)
-	}
-	if err := os.WriteFile(TagsPath(), pretty, 0644); err != nil {
-		return fmt.Errorf("could not write pretty tags: %w", err)
-	}
-	return nil
+	return FormatJSONFile(TagsPath())
 }

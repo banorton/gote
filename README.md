@@ -12,6 +12,8 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 |---------|---------|-------------|
 | `gote` | | Open quick note (default) |
 | `gote <note>` | | Create or open a note by name |
+| `gote <note> -t <template>` | | Create note from template |
+| `gote <note> -t` | | Create note, pick template interactively |
 | `gote -d <note>` | `--date` | Create note with date prefix (yymmdd) |
 | `gote -dt <note>` | `--datetime` | Create note with datetime prefix (yymmdd-hhmmss) |
 | `gote -nt <note>` | `--no-timestamp` | Create note without timestamp (bypass config) |
@@ -21,6 +23,7 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote ro` | `recent open` | Recent + open mode |
 | `gote rd` | `recent delete` | Recent + delete mode |
 | `gote rp` | `recent pin` | Recent + pin mode |
+| `gote rv` | `recent view` | Recent + view mode (browser preview) |
 | `gote search [query]` | `s` | Search notes by title (prompts if no query) |
 | `gote search -t .tag1.tag2` | | Search notes by tags |
 | `gote search -w <date>` | `--when` | Search by creation date |
@@ -29,11 +32,13 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote so <query>` | `search open` | Search + open mode |
 | `gote sd <query>` | `search delete` | Search + delete mode |
 | `gote sp <query>` | `search pin` | Search + pin mode |
+| `gote sv <query>` | `search view` | Search + view mode (browser preview) |
 | `gote tag` | `t` | List all tags |
 | `gote tag .tag1.tag2` | | Filter notes by tags (AND logic) |
 | `gote to .tag1.tag2` | `tag open` | Filter + open mode |
 | `gote td .tag1.tag2` | `tag delete` | Filter + delete mode |
 | `gote tp .tag1.tag2` | `tag pin` | Filter + pin mode |
+| `gote tv .tag1.tag2` | `tag view` | Filter + view mode (browser preview) |
 | `gote tag popular` | | Show most used tags |
 | `gote tag edit` | | Edit tags file |
 | `gote tag format` | | Format tags file |
@@ -41,6 +46,7 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote pin` | | List pinned notes |
 | `gote pinned` | `pd` | List pinned notes |
 | `gote po` | `pinned open` | Pinned + open mode |
+| `gote pv` | `pinned view` | Pinned + view mode (browser preview) |
 | `gote unpin <note>` | `u`, `up` | Unpin a note |
 | `gote delete <note>` | `d`, `del` | Move note to trash |
 | `gote trash` | | List trashed notes |
@@ -50,15 +56,19 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote recover <note>` | | Restore note from trash |
 | `gote rename <note> -n <new>` | `mv`, `rn` | Rename a note |
 | `gote info <note>` | `i` | Show note metadata |
+| `gote view <note>` | | Open note preview in browser |
 | `gote index` | `idx` | Rebuild the note index |
 | `gote index edit` | | Edit index file |
 | `gote index format` | | Format index file |
 | `gote index clear` | | Clear and rebuild index from scratch |
 | `gote config` | `c` | Show config |
-| `gote config edit` | | Edit config (uses vim) |
+| `gote config edit` | `ce` | Edit config (uses vim) |
 | `gote config format` | | Format config file |
 | `gote config help` | | Show config options |
 | `gote select` | `sel` | Interactive note selection and action |
+| `gote template` | `tmpl` | List all templates |
+| `gote template <name>` | | Create or edit a template |
+| `gote template delete <name>` | | Delete a template |
 | `gote help` | `h`, `man` | Show help message |
 | `gote -v` | `--version` | Show version |
 
@@ -131,10 +141,25 @@ gote recover mynote  # restore from trash
 gote select          # choose source -> select note -> choose action
 gote sel             # shorthand
 
+# Templates
+gote template           # list templates
+gote template meeting   # create/edit meeting template
+gote template delete meeting  # delete template
+gote standup -t meeting # create note from meeting template
+gote standup -t         # create note, pick template interactively
+
+# View (browser preview)
+gote view mynote        # open note as HTML in browser
+gote rv                 # recent + view mode
+gote sv meeting         # search + view mode
+gote tv .work           # tag filter + view mode
+gote pv                 # pinned + view mode
+
 # Other
 gote rename mynote -n project-notes
 gote info mynote
-gote config edit
+gote ce                 # edit config (shortcut)
+gote config edit        # edit config
 gote help
 gote -v
 ```
@@ -181,6 +206,7 @@ Tags are automatically indexed and searchable.
 | Index | `~/.gote/index.json` | Note metadata for fast lookup |
 | Tags | `~/.gote/tags.json` | Tag index |
 | Pins | `~/.gote/pins.json` | Pinned notes |
+| Templates | `~/.gote/templates/*.md` | Note templates |
 | Trash | `~/.gote/trash/` | Deleted notes |
 | Config | `~/.gote/config.json` | User configuration |
 

@@ -100,21 +100,5 @@ func LoadConfig() (Config, error) {
 }
 
 func FormatConfigFile() error {
-	cfgPath := configPath()
-	data, err := os.ReadFile(cfgPath)
-	if err != nil {
-		return fmt.Errorf("could not read config file: %w", err)
-	}
-	var m map[string]interface{}
-	if err := json.Unmarshal(data, &m); err != nil {
-		return fmt.Errorf("could not parse config file: %w", err)
-	}
-	pretty, err := json.MarshalIndent(m, "", "  ")
-	if err != nil {
-		return fmt.Errorf("could not marshal pretty config: %w", err)
-	}
-	if err := os.WriteFile(cfgPath, pretty, 0644); err != nil {
-		return fmt.Errorf("could not write pretty config: %w", err)
-	}
-	return nil
+	return FormatJSONFile(configPath())
 }

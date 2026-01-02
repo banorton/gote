@@ -38,10 +38,7 @@ func TrashNote(noteName string, noteMeta NoteMeta) error {
 		return fmt.Errorf("loading index: %w", err)
 	}
 	delete(index, noteName)
-	if err := SaveIndex(index); err != nil {
-		return err
-	}
-	return UpdateTagsIndex(index)
+	return SaveIndexWithTags(index)
 }
 
 func ListTrashedNotes() ([]string, error) {
@@ -87,10 +84,7 @@ func RecoverNote(noteName, notesDir string) error {
 		return fmt.Errorf("error indexing restored note: %w", err)
 	}
 	index[noteName] = meta
-	if err := SaveIndex(index); err != nil {
-		return err
-	}
-	return UpdateTagsIndex(index)
+	return SaveIndexWithTags(index)
 }
 
 func SearchTrash(query string) ([]string, error) {

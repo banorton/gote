@@ -59,10 +59,7 @@ func CreateOrOpenNote(noteName string) error {
 	}
 	meta.LastVisited = time.Now().Format("060102.150405")
 	index[noteName] = meta
-	if err := data.SaveIndex(index); err != nil {
-		return err
-	}
-	return data.UpdateTagsIndex(index)
+	return data.SaveIndexWithTags(index)
 }
 
 // UpdateLastVisited updates the LastVisited timestamp for a note
@@ -148,11 +145,8 @@ func RenameNote(oldName, newName string) error {
 	meta.LastVisited = time.Now().Format("060102.150405")
 	index[newName] = meta
 
-	if err := data.SaveIndex(index); err != nil {
+	if err := data.SaveIndexWithTags(index); err != nil {
 		return fmt.Errorf("error updating index: %w", err)
-	}
-	if err := data.UpdateTagsIndex(index); err != nil {
-		return fmt.Errorf("error updating tags index: %w", err)
 	}
 
 	pins, err := data.LoadPins()

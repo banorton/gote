@@ -2,7 +2,6 @@ package data
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -39,21 +38,5 @@ func SavePins(pins map[string]EmptyStruct) error {
 }
 
 func FormatPinsFile() error {
-	pinsPath := PinsPath()
-	data, err := os.ReadFile(pinsPath)
-	if err != nil {
-		return fmt.Errorf("could not read pins file: %w", err)
-	}
-	var pins map[string]EmptyStruct
-	if err := json.Unmarshal(data, &pins); err != nil {
-		return fmt.Errorf("could not parse pins file: %w", err)
-	}
-	pretty, err := json.MarshalIndent(pins, "", "  ")
-	if err != nil {
-		return fmt.Errorf("could not marshal pretty pins: %w", err)
-	}
-	if err := os.WriteFile(pinsPath, pretty, 0644); err != nil {
-		return fmt.Errorf("could not write pretty pins: %w", err)
-	}
-	return nil
+	return FormatJSONFile(PinsPath())
 }
