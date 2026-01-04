@@ -285,7 +285,7 @@ After each phase:
 | 2.1 | LoadConfigAndUI helper | ✅ Done |
 | 2.2 | SaveIndexWithTags atomic | ✅ Done |
 | 2.3 | FormatJSONFile generic | ✅ Done |
-| 3.1 | Merge tag parsers | ⬜ Pending |
+| 3.1 | Merge tag parsers | ⏭️ Skipped (intentionally different) |
 | 3.2 | Mode handler abstraction | ⬜ Pending |
 | 4.1 | Break up NoteCommand | ⬜ Pending |
 | 4.1 | Break up SearchCommand | ⬜ Pending |

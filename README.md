@@ -65,7 +65,7 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote config edit` | `ce` | Edit config (uses vim) |
 | `gote config format` | | Format config file |
 | `gote config help` | | Show config options |
-| `gote select` | `sel` | Interactive note selection and action |
+| `gote get` | `g` | Interactive note selection and action |
 | `gote template` | `tmpl` | List all templates |
 | `gote template <name>` | | Create or edit a template |
 | `gote template delete <name>` | | Delete a template |
@@ -137,9 +137,9 @@ gote trash           # list trashed notes
 gote trash empty     # permanently delete all
 gote recover mynote  # restore from trash
 
-# Select (interactive)
-gote select          # choose source -> select note -> choose action
-gote sel             # shorthand
+# Get (interactive)
+gote get             # choose source -> select note -> choose action
+gote g               # shorthand
 
 # Templates
 gote template           # list templates

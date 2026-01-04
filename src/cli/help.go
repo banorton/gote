@@ -91,8 +91,8 @@ Templates:
   gote template <name>            Create or edit a template
   gote template delete <name>     Delete a template
 
-Select (interactive):
-  gote select | sel               Interactive note selection and action
+Get (interactive):
+  gote get | g                    Interactive note selection and action
 
   gote help | h | man             Show this help message
   gote -v | --version             Show version`)
