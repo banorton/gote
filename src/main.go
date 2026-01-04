@@ -76,9 +76,9 @@ func main() {
 	case "tv": // tag + view
 		cli.TagCommand(rest, false, false, false, true)
 
-	// Select (interactive flow)
-	case "select", "sel":
-		cli.SelectCommand()
+	// Get (interactive flow)
+	case "get", "g":
+		cli.GetCommand()
 
 	// Config
 	case "config", "c":

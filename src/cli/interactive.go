@@ -613,8 +613,8 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 	displayPaginatedSearchResultsWithMode(results, interactive, deleteMode, pinMode, viewMode, pageSize)
 }
 
-// SelectCommand provides an interactive flow: choose source -> select note -> choose action
-func SelectCommand() {
+// GetCommand provides an interactive flow: choose source -> select note -> choose action
+func GetCommand() {
 	cfg, ui, ok := LoadConfigAndUI()
 	if !ok {
 		return
