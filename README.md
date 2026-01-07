@@ -43,8 +43,8 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote tag edit` | | Edit tags file |
 | `gote tag format` | | Format tags file |
 | `gote pin <note>` | `p` | Pin a note |
-| `gote pin` | | List pinned notes |
-| `gote pinned` | `pd` | List pinned notes |
+| `gote pin` | `p` | Interactive pinned menu |
+| `gote pinned` | | Interactive pinned menu |
 | `gote po` | `pinned open` | Pinned + open mode |
 | `gote pv` | `pinned view` | Pinned + view mode (browser preview) |
 | `gote pu` | `pinned unpin` | Pinned + unpin mode |

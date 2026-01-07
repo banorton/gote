@@ -95,7 +95,7 @@ func main() {
 		cli.PinCommand(rest)
 	case "unpin", "u", "up":
 		cli.UnpinCommand(rest)
-	case "pinned", "pd":
+	case "pinned":
 		cli.PinnedCommand(rest, false, false, false, false)
 	case "po": // pinned + open
 		cli.PinnedCommand(rest, true, false, false, false)
