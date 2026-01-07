@@ -81,12 +81,12 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 	if totalPages == 1 && !selectable {
 		if cfg.FancyUI {
 			ui.Box("Results", results, 0)
-			fmt.Printf("\n %s[o] open  [v] view  [q] quit%s\n", Dim, Reset)
+			fmt.Printf("\n %s[o]pen  [v]iew  [q]uit%s\n", Dim, Reset)
 		} else {
 			for _, r := range results {
 				fmt.Println(r)
 			}
-			fmt.Println("[o] open [v] view [q] quit")
+			fmt.Println("[o]pen [v]iew [q]uit")
 			fmt.Print(": ")
 		}
 		key, err := ReadKey(cfg.FancyUI)
@@ -95,11 +95,9 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 		}
 		if key == 'o' || key == 'O' {
 			selectable = true
-			// Fall through to the main loop
 		} else if key == 'v' || key == 'V' {
 			selectable = true
 			viewMode = true
-			// Fall through to the main loop
 		} else {
 			if cfg.FancyUI {
 				ui.Clear()
@@ -141,12 +139,12 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 			}
 			fmt.Printf("(%d/%d)────────────────────────\n", page+1, totalPages)
 			if totalPages > 1 {
-				fmt.Print("[n] next [p] prev ")
+				fmt.Print("[n]ext [p]rev ")
 			}
 			if !selectable {
-				fmt.Print("[o] open [v] view ")
+				fmt.Print("[o]pen [v]iew ")
 			}
-			fmt.Println("[q] quit")
+			fmt.Println("[q]uit")
 			fmt.Print(": ")
 		}
 
@@ -298,12 +296,12 @@ func displayPaginatedSearchResultsWithMode(results []core.SearchResult, selectab
 			}
 			fmt.Printf("(%d/%d)────────────────────────\n", page+1, totalPages)
 			if totalPages > 1 {
-				fmt.Print("[n] next [p] prev ")
+				fmt.Print("[n]ext [p]rev ")
 			}
 			if showOptions {
-				fmt.Print("[o] open [v] view ")
+				fmt.Print("[o]pen [v]iew ")
 			}
-			fmt.Println("[q] quit")
+			fmt.Println("[q]uit")
 			fmt.Print(": ")
 		}
 

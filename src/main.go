@@ -101,6 +101,8 @@ func main() {
 		cli.PinnedCommand(rest, true, false, false, false)
 	case "pv": // pinned + view
 		cli.PinnedCommand(rest, false, false, false, true)
+	case "pu": // pinned + unpin
+		cli.PinnedCommand(rest, false, false, true, false)
 
 	// Trash
 	case "delete", "d", "del":

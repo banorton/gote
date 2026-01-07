@@ -64,6 +64,7 @@ Pins:
   gote pinned | pd [-n <size>]    List pinned notes
   gote po | pinned open           Pinned + open mode
   gote pv | pinned view           Pinned + view mode (browser preview)
+  gote pu | pinned unpin          Pinned + unpin mode
   gote unpin | u | up <note>      Unpin a note
 
 Trash:

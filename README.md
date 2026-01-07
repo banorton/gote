@@ -47,6 +47,7 @@ A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files
 | `gote pinned` | `pd` | List pinned notes |
 | `gote po` | `pinned open` | Pinned + open mode |
 | `gote pv` | `pinned view` | Pinned + view mode (browser preview) |
+| `gote pu` | `pinned unpin` | Pinned + unpin mode |
 | `gote unpin <note>` | `u`, `up` | Unpin a note |
 | `gote delete <note>` | `d`, `del` | Move note to trash |
 | `gote trash` | | List trashed notes |
