@@ -60,8 +60,8 @@ Tags:
 
 Pins:
   gote pin | p <note>             Pin a note
-  gote pin                        List pinned notes
-  gote pinned | pd [-n <size>]    List pinned notes
+  gote pin | p                    Interactive pinned menu
+  gote pinned [-n <size>]         Interactive pinned menu
   gote po | pinned open           Pinned + open mode
   gote pv | pinned view           Pinned + view mode (browser preview)
   gote pu | pinned unpin          Pinned + unpin mode

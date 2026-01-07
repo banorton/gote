@@ -26,8 +26,8 @@ func PinCommand(rawArgs []string) {
 		ui.Success("Pins file formatted.")
 		return
 	case "":
-		// No args = list pinned notes
-		listPinnedNotes()
+		// No args = show interactive pinned menu
+		PinnedCommand(nil, false, false, false, false)
 		return
 	}
 
