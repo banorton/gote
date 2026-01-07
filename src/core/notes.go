@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"gote/src/data"
@@ -131,8 +132,11 @@ func RenameNote(oldName, newName string) error {
 
 	oldPath := meta.FilePath
 	newPath := filepath.Join(cfg.NoteDir, newName+".md")
-	if _, err := os.Stat(newPath); err == nil {
-		return fmt.Errorf("a note with the new name already exists: %s", newName)
+	// Allow case-only renames (e.g., "rde" -> "RDE") on case-insensitive filesystems
+	if !strings.EqualFold(oldName, newName) {
+		if _, err := os.Stat(newPath); err == nil {
+			return fmt.Errorf("a note with the new name already exists: %s", newName)
+		}
 	}
 
 	if err := os.Rename(oldPath, newPath); err != nil {

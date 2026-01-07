@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"strings"
 
 	"gote/src/data"
 )
@@ -58,9 +59,23 @@ func ListPinnedNotes() ([]string, error) {
 		return nil, fmt.Errorf("error loading pins: %w", err)
 	}
 
+	index, err := data.LoadIndex()
+	if err != nil {
+		return nil, fmt.Errorf("error loading index: %w", err)
+	}
+
+	// Build case-insensitive lookup from index
+	lowerToActual := make(map[string]string)
+	for title := range index {
+		lowerToActual[strings.ToLower(title)] = title
+	}
+
 	var pinnedNotes []string
-	for title := range pins {
-		pinnedNotes = append(pinnedNotes, title)
+	for pin := range pins {
+		// Use actual case from index, skip if note no longer exists
+		if actual, exists := lowerToActual[strings.ToLower(pin)]; exists {
+			pinnedNotes = append(pinnedNotes, actual)
+		}
 	}
 
 	return pinnedNotes, nil
