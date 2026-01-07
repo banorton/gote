@@ -4,7 +4,7 @@
 
 # gote
 
-A fast CLI note-taking tool. Notes are plain Markdown files with tagging, pinning, trash, and search.
+A CLI note-taking tool. Notes are plain Markdown files with tagging, pinning, search, and more.
 
 ## Commands
 
