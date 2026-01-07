@@ -228,16 +228,16 @@ func (u *UI) NavHintWithModes(page, total int, showOpen bool, showView bool) {
 	var hints []string
 	hints = append(hints, fmt.Sprintf("(%d/%d)", page, total))
 	if total > 1 {
-		hints = append(hints, "[n] next")
-		hints = append(hints, "[p] prev")
+		hints = append(hints, "[n]ext")
+		hints = append(hints, "[p]rev")
 	}
 	if showOpen {
-		hints = append(hints, "[o] open")
+		hints = append(hints, "[o]pen")
 	}
 	if showView {
-		hints = append(hints, "[v] view")
+		hints = append(hints, "[v]iew")
 	}
-	hints = append(hints, "[q] quit")
+	hints = append(hints, "[q]uit")
 
 	fmt.Printf("\n %s%s%s\n", Dim, strings.Join(hints, "  "), Reset)
 }
