@@ -83,11 +83,11 @@ func TestHelpCommand(t *testing.T) {
 		if !strings.Contains(output, "gote") {
 			t.Error("Help should mention 'gote'")
 		}
-		if !strings.Contains(output, "new") {
-			t.Error("Help should mention 'new' command")
+		if !strings.Contains(output, "Recent") {
+			t.Error("Help should mention recent notes")
 		}
-		if !strings.Contains(output, "search") {
-			t.Error("Help should mention 'search' command")
+		if !strings.Contains(output, "Search") {
+			t.Error("Help should mention search")
 		}
 	})
 }
