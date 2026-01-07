@@ -81,11 +81,12 @@ func displayPaginatedResults(results []string, selectable bool, pageSize int, on
 	if totalPages == 1 && !selectable {
 		if cfg.FancyUI {
 			ui.Box("Results", results, 0)
-			fmt.Printf("\n %s[o]pen  [v]iew  [q]uit%s\n", Dim, Reset)
+			fmt.Printf("\n %s(1/1) [o]pen  [v]iew  [q]uit%s\n", Dim, Reset)
 		} else {
 			for _, r := range results {
 				fmt.Println(r)
 			}
+			fmt.Println("(1/1)────────────────────────")
 			fmt.Println("[o]pen [v]iew [q]uit")
 			fmt.Print(": ")
 		}

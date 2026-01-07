@@ -162,11 +162,12 @@ func displayPaginatedPinnedResults(pins []string, selectable bool, pageSize int,
 	if totalPages == 1 && !selectable {
 		if cfg.FancyUI {
 			ui.Box("Pinned", pins, 0)
-			fmt.Printf("\n %s[o]pen  [v]iew  [u]npin  [q]uit%s\n", Dim, Reset)
+			fmt.Printf("\n %s(1/1) [o]pen  [v]iew  [u]npin  [q]uit%s\n", Dim, Reset)
 		} else {
 			for _, p := range pins {
 				fmt.Println(p)
 			}
+			fmt.Println("(1/1)────────────────────────")
 			fmt.Println("[o]pen [v]iew [u]npin [q]uit")
 			fmt.Print(": ")
 		}
