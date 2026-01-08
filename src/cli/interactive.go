@@ -111,6 +111,7 @@ func displayMenu(cfg MenuConfig, ui *UI, fancyUI bool) MenuResult {
 			for i, item := range pageItems {
 				fmt.Printf("[%c] %s\n", keys[i], item)
 			}
+			fmt.Println()
 			fmt.Printf("(%d/%d)────────────────────────\n", page+1, totalPages)
 			if totalPages > 1 {
 				fmt.Print("[n]ext [p]rev ")
