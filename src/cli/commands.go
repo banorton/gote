@@ -168,33 +168,36 @@ func TagCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultP
 		return
 	}
 
-	openMode := defaultOpen
-	deleteMode := defaultDelete
-	pinMode := defaultPin
-	viewMode := defaultView
-
-	// Check for mode keywords as first positional arg (e.g., "gote tag open .work")
-	if sub == "open" {
-		openMode = true
-		args.Positional = args.Positional[1:]
-		sub = args.First()
-	} else if sub == "delete" {
-		deleteMode = true
-		args.Positional = args.Positional[1:]
-		sub = args.First()
-	} else if sub == "pin" {
-		pinMode = true
-		args.Positional = args.Positional[1:]
-		sub = args.First()
-	} else if sub == "view" {
-		viewMode = true
-		args.Positional = args.Positional[1:]
-		sub = args.First()
+	// Determine pre-selected action
+	var preSelected string
+	if sub == "open" || defaultOpen {
+		preSelected = "open"
+		if sub == "open" {
+			args.Positional = args.Positional[1:]
+			sub = args.First()
+		}
+	} else if sub == "delete" || defaultDelete {
+		preSelected = "delete"
+		if sub == "delete" {
+			args.Positional = args.Positional[1:]
+			sub = args.First()
+		}
+	} else if sub == "pin" || defaultPin {
+		preSelected = "pin"
+		if sub == "pin" {
+			args.Positional = args.Positional[1:]
+			sub = args.First()
+		}
+	} else if sub == "view" || defaultView {
+		preSelected = "view"
+		if sub == "view" {
+			args.Positional = args.Positional[1:]
+			sub = args.First()
+		}
 	}
 
 	// If first arg starts with ".", it's a tag filter
 	if strings.HasPrefix(sub, ".") {
-		// Collect all tag strings from positional args
 		var allTags []string
 		for _, arg := range args.Positional {
 			if strings.HasPrefix(arg, ".") {
@@ -216,7 +219,18 @@ func TagCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultP
 			ui.Empty("No notes found with all specified tags.")
 			return
 		}
-		displayPaginatedSearchResultsWithMode(results, openMode || deleteMode || pinMode || viewMode, deleteMode, pinMode, viewMode, pageSize)
+
+		titles, paths := searchResultsToMenu(results)
+		result := displayMenu(MenuConfig{
+			Title:             "Tagged Notes",
+			Items:             titles,
+			ItemPaths:         paths,
+			PreSelectedAction: preSelected,
+			ShowPin:           true,
+			PageSize:          pageSize,
+		}, ui, cfg.FancyUI)
+
+		executeMenuAction(result, paths, ui)
 		return
 	}
 
