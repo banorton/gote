@@ -88,6 +88,19 @@ func DeleteTemplate(name string) error {
 	return nil
 }
 
+// RenameTemplate renames a template file
+func RenameTemplate(oldName, newName string) error {
+	oldPath := templatePath(oldName)
+	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
+		return fmt.Errorf("template '%s' not found", oldName)
+	}
+	newPath := templatePath(newName)
+	if _, err := os.Stat(newPath); err == nil {
+		return fmt.Errorf("template '%s' already exists", newName)
+	}
+	return os.Rename(oldPath, newPath)
+}
+
 // TemplateExists checks if a template exists
 func TemplateExists(name string) bool {
 	path := templatePath(name)
