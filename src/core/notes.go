@@ -24,7 +24,20 @@ func CreateOrOpenNote(noteName string) error {
 	if err != nil {
 		return fmt.Errorf("loading index: %w", err)
 	}
+
+	// Case-insensitive lookup - use existing key if found
+	actualName := noteName
 	noteMeta, exists := index[noteName]
+	if !exists {
+		for key := range index {
+			if strings.EqualFold(key, noteName) {
+				actualName = key
+				noteMeta = index[key]
+				exists = true
+				break
+			}
+		}
+	}
 	notePath := ""
 	if exists {
 		notePath = noteMeta.FilePath
@@ -59,7 +72,7 @@ func CreateOrOpenNote(noteName string) error {
 		return fmt.Errorf("error building note metadata: %w", err)
 	}
 	meta.LastVisited = time.Now().Format("060102.150405")
-	index[noteName] = meta
+	index[actualName] = meta
 	return data.SaveIndexWithTags(index)
 }
 
@@ -69,12 +82,24 @@ func UpdateLastVisited(title string) error {
 	if err != nil {
 		return err
 	}
+	// Case-insensitive lookup
+	actualKey := title
 	meta, exists := index[title]
+	if !exists {
+		for key := range index {
+			if strings.EqualFold(key, title) {
+				actualKey = key
+				meta = index[key]
+				exists = true
+				break
+			}
+		}
+	}
 	if !exists {
 		return nil
 	}
 	meta.LastVisited = time.Now().Format("060102.150405")
-	index[title] = meta
+	index[actualKey] = meta
 	return data.SaveIndex(index)
 }
 
@@ -104,11 +129,16 @@ func GetNoteInfo(noteName string) (data.NoteMeta, error) {
 	if err != nil {
 		return data.NoteMeta{}, fmt.Errorf("loading index: %w", err)
 	}
-	meta, exists := index[noteName]
-	if !exists {
-		return data.NoteMeta{}, fmt.Errorf("note not found: %s", noteName)
+	// Case-insensitive lookup
+	if meta, exists := index[noteName]; exists {
+		return meta, nil
 	}
-	return meta, nil
+	for key, meta := range index {
+		if strings.EqualFold(key, noteName) {
+			return meta, nil
+		}
+	}
+	return data.NoteMeta{}, fmt.Errorf("note not found: %s", noteName)
 }
 
 func RenameNote(oldName, newName string) error {
@@ -125,7 +155,19 @@ func RenameNote(oldName, newName string) error {
 	if err != nil {
 		return fmt.Errorf("loading index: %w", err)
 	}
+	// Case-insensitive lookup for old name
+	actualOldName := oldName
 	meta, exists := index[oldName]
+	if !exists {
+		for key := range index {
+			if strings.EqualFold(key, oldName) {
+				actualOldName = key
+				meta = index[key]
+				exists = true
+				break
+			}
+		}
+	}
 	if !exists {
 		return fmt.Errorf("note not found: %s", oldName)
 	}
@@ -143,7 +185,7 @@ func RenameNote(oldName, newName string) error {
 		return fmt.Errorf("error renaming note: %w", err)
 	}
 
-	delete(index, oldName)
+	delete(index, actualOldName)
 	meta.Title = newName
 	meta.FilePath = newPath
 	meta.LastVisited = time.Now().Format("060102.150405")
@@ -155,8 +197,8 @@ func RenameNote(oldName, newName string) error {
 
 	pins, err := data.LoadPins()
 	if err == nil {
-		if _, pinned := pins[oldName]; pinned {
-			delete(pins, oldName)
+		if _, pinned := pins[actualOldName]; pinned {
+			delete(pins, actualOldName)
 			pins[newName] = data.EmptyStruct{}
 			if err := data.SavePins(pins); err != nil {
 				return fmt.Errorf("error saving pins: %w", err)
