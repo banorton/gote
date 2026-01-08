@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 )
@@ -342,108 +341,14 @@ func (u *UI) ListItemWithMeta(key rune, text string, meta string) {
 	}
 }
 
-// drainStdin discards any pending bytes in stdin (used to clear garbage from terminal init)
-func drainStdin() {
-	// Set stdin to non-blocking temporarily to drain any pending bytes
-	cmd := exec.Command("stty", "-g")
-	cmd.Stdin = os.Stdin
-	saved, err := cmd.Output()
+// ReadMenuInput reads a line of input (requires Enter). Returns trimmed lowercase string.
+func (u *UI) ReadMenuInput() string {
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
 	if err != nil {
-		return
+		return ""
 	}
-
-	// Set non-blocking with 0 timeout
-	cmd = exec.Command("stty", "-icanon", "min", "0", "time", "0")
-	cmd.Stdin = os.Stdin
-	if err := cmd.Run(); err != nil {
-		return
-	}
-
-	// Read and discard any pending bytes
-	buf := make([]byte, 256)
-	for {
-		n, _ := os.Stdin.Read(buf)
-		if n == 0 {
-			break
-		}
-	}
-
-	// Restore original state
-	cmd = exec.Command("stty", strings.TrimSpace(string(saved)))
-	cmd.Stdin = os.Stdin
-	cmd.Run()
-}
-
-// ReadKey reads a single keypress. In fancy mode, uses raw terminal (no Enter needed).
-// In non-fancy mode, uses buffered input (requires Enter).
-func ReadKey(fancy bool) (rune, error) {
-	if !fancy {
-		// Buffered input - requires Enter
-		reader := bufio.NewReader(os.Stdin)
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			return 0, err
-		}
-		input = strings.TrimSpace(input)
-		if len(input) == 0 {
-			return 0, nil
-		}
-		return rune(input[0]), nil
-	}
-
-	// Drain any garbage bytes before reading (helps with WSL terminal quirks)
-	drainStdin()
-
-	// Raw mode - single keypress, no Enter needed
-	if err := setRawMode(); err != nil {
-		// Fallback to buffered if raw mode fails
-		reader := bufio.NewReader(os.Stdin)
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			return 0, err
-		}
-		input = strings.TrimSpace(input)
-		if len(input) == 0 {
-			return 0, nil
-		}
-		return rune(input[0]), nil
-	}
-	defer restoreTerminal()
-
-	var buf [1]byte
-	_, err := os.Stdin.Read(buf[:])
-	if err != nil {
-		return 0, err
-	}
-	return rune(buf[0]), nil
-}
-
-var originalSttyState string
-
-func setRawMode() error {
-	// Save current state
-	cmd := exec.Command("stty", "-g")
-	cmd.Stdin = os.Stdin
-	out, err := cmd.Output()
-	if err != nil {
-		return err
-	}
-	originalSttyState = strings.TrimSpace(string(out))
-
-	// Set raw mode: -echo (no echo), -icanon (no line buffering), min 1 (read at least 1 char)
-	cmd = exec.Command("stty", "-echo", "-icanon", "min", "1")
-	cmd.Stdin = os.Stdin
-	return cmd.Run()
-}
-
-func restoreTerminal() {
-	if originalSttyState != "" {
-		cmd := exec.Command("stty", originalSttyState)
-		cmd.Stdin = os.Stdin
-		if err := cmd.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, "Warning: failed to restore terminal:", err)
-		}
-	}
+	return strings.ToLower(strings.TrimSpace(input))
 }
 
 // InfoBox displays key-value info in a box

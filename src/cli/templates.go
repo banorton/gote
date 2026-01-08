@@ -124,36 +124,39 @@ func selectTemplate(cfg data.Config, ui *UI, pageSize int) string {
 			fmt.Print(": ")
 		}
 
-		key, err := ReadKey(cfg.FancyUI)
-		if err != nil {
-			return ""
+		input := ui.ReadMenuInput()
+		if input == "" {
+			continue
 		}
 
-		switch key {
-		case 'q', 'Q':
+		switch input {
+		case "q":
 			if cfg.FancyUI {
 				ui.Clear()
 			}
 			return ""
-		case 'n', 'N':
+		case "n":
 			if page < totalPages-1 {
 				page++
 			}
 			continue
-		case 'p', 'P':
+		case "p":
 			if page > 0 {
 				page--
 			}
 			continue
 		}
 
-		// Check selection keys
-		for i := 0; i < len(pageItems) && i < len(selectKeys); i++ {
-			if key == selectKeys[i] {
-				if cfg.FancyUI {
-					ui.Clear()
+		// Check selection keys (single letter)
+		if len(input) == 1 {
+			key := rune(input[0])
+			for i := 0; i < len(pageItems) && i < len(selectKeys); i++ {
+				if key == selectKeys[i] {
+					if cfg.FancyUI {
+						ui.Clear()
+					}
+					return templates[start+i]
 				}
-				return templates[start+i]
 			}
 		}
 	}
