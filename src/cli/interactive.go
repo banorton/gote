@@ -28,13 +28,14 @@ const maxSelectablePageSize = 48 // len(selectKeys)
 
 // MenuConfig configures the unified menu display
 type MenuConfig struct {
-	Title           string
-	Items           []string                   // Note titles to display
-	ItemPaths       map[string]string          // Title -> FilePath mapping
-	PreSelectedAction string                   // "open", "delete", etc. or "" for full menu
-	ShowPin         bool                       // Show pin action
-	ShowUnpin       bool                       // Show unpin action (mutually exclusive with ShowPin)
-	PageSize        int
+	Title             string
+	Items             []string          // Note titles to display
+	ItemPaths         map[string]string // Title -> FilePath mapping
+	PreSelectedAction string            // "open", "delete", etc. or "" for full menu
+	ShowPin           bool              // Show pin action
+	ShowUnpin         bool              // Show unpin action (mutually exclusive with ShowPin)
+	HideView          bool              // Hide view action (for non-note items like templates)
+	PageSize          int
 }
 
 // MenuResult is returned from displayMenu
@@ -68,7 +69,11 @@ func displayMenu(cfg MenuConfig, ui *UI, fancyUI bool) MenuResult {
 	if cfg.PreSelectedAction != "" {
 		actions = fmt.Sprintf("Select note to %s:", cfg.PreSelectedAction)
 	} else {
-		actions = "[o]pen [v]iew [d]elete [r]ename"
+		actions = "[o]pen"
+		if !cfg.HideView {
+			actions += " [v]iew"
+		}
+		actions += " [d]elete [r]ename"
 		if cfg.ShowPin {
 			actions += " [p]in"
 		}
@@ -156,7 +161,9 @@ func displayMenu(cfg MenuConfig, ui *UI, fancyUI bool) MenuResult {
 				case 'o':
 					action = "open"
 				case 'v':
-					action = "view"
+					if !cfg.HideView {
+						action = "view"
+					}
 				case 'd':
 					action = "delete"
 				case 'r':

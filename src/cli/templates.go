@@ -1,7 +1,11 @@
 package cli
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"gote/src/core"
 	"gote/src/data"
@@ -19,7 +23,7 @@ func TemplateCommand(rawArgs []string) {
 
 	switch sub {
 	case "", "list":
-		listTemplates(ui, cfg)
+		templateMenu(ui, cfg)
 	case "delete":
 		rest := args.Rest()
 		if len(rest) == 0 {
@@ -27,10 +31,6 @@ func TemplateCommand(rawArgs []string) {
 			return
 		}
 		name := rest[0]
-		if name == "" {
-			fmt.Println("Usage: gote template delete <name>")
-			return
-		}
 		if err := data.DeleteTemplate(name); err != nil {
 			ui.Error(err.Error())
 			return
@@ -45,7 +45,7 @@ func TemplateCommand(rawArgs []string) {
 	}
 }
 
-func listTemplates(ui *UI, cfg data.Config) {
+func templateMenu(ui *UI, cfg data.Config) {
 	templates, err := core.ListTemplates()
 	if err != nil {
 		ui.Error(err.Error())
@@ -55,13 +55,69 @@ func listTemplates(ui *UI, cfg data.Config) {
 		ui.Empty("No templates. Create one with: gote template <name>")
 		return
 	}
-	if cfg.FancyUI {
-		ui.Box("Templates", templates, 0)
-	} else {
-		fmt.Println("Templates:")
-		for _, t := range templates {
-			fmt.Println("  " + t)
+
+	// Build paths map
+	paths := make(map[string]string)
+	for _, t := range templates {
+		paths[t] = filepath.Join(data.TemplatesDir(), t+".md")
+	}
+
+	result := displayMenu(MenuConfig{
+		Title:     "Templates",
+		Items:     templates,
+		ItemPaths: paths,
+		HideView:  true,
+		PageSize:  cfg.PageSize(),
+	}, ui, cfg.FancyUI)
+
+	executeTemplateAction(result, ui)
+}
+
+func executeTemplateAction(result MenuResult, ui *UI) {
+	if result.Note == "" || result.Action == "" {
+		return
+	}
+
+	switch result.Action {
+	case "open":
+		if err := core.CreateOrEditTemplate(result.Note); err != nil {
+			ui.Error(err.Error())
 		}
+	case "delete":
+		fmt.Printf("Delete template \"%s\"? [y/n]: ", result.Note)
+		confirm := ui.ReadMenuInput()
+		if confirm != "y" {
+			ui.Info("Cancelled")
+			return
+		}
+		if err := data.DeleteTemplate(result.Note); err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		ui.Success("Deleted template: " + result.Note)
+	case "rename":
+		fmt.Print("New name: ")
+		reader := bufio.NewReader(os.Stdin)
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return
+		}
+		newName := strings.TrimSpace(input)
+		if newName == "" {
+			ui.Info("Cancelled")
+			return
+		}
+		if err := data.RenameTemplate(result.Note, newName); err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		ui.Success("Renamed to: " + newName)
+	case "info":
+		// Show template path
+		path := filepath.Join(data.TemplatesDir(), result.Note+".md")
+		ui.InfoBox(result.Note, [][2]string{
+			{"Path", path},
+		})
 	}
 }
 
@@ -77,88 +133,23 @@ func selectTemplate(cfg data.Config, ui *UI, pageSize int) string {
 		return ""
 	}
 
+	paths := make(map[string]string)
+	for _, t := range templates {
+		paths[t] = filepath.Join(data.TemplatesDir(), t+".md")
+	}
+
 	if pageSize <= 0 {
 		pageSize = cfg.PageSize()
 	}
-	if pageSize > maxSelectablePageSize {
-		pageSize = maxSelectablePageSize
-	}
 
-	page := 0
-	totalPages := (len(templates) + pageSize - 1) / pageSize
+	result := displayMenu(MenuConfig{
+		Title:             "Select Template",
+		Items:             templates,
+		ItemPaths:         paths,
+		PreSelectedAction: "open",
+		HideView:          true,
+		PageSize:          pageSize,
+	}, ui, cfg.FancyUI)
 
-	for {
-		start := page * pageSize
-		end := min(start+pageSize, len(templates))
-		if start >= end {
-			break
-		}
-
-		pageItems := templates[start:end]
-		var keys []rune
-		for i := 0; i < len(pageItems) && i < len(selectKeys); i++ {
-			keys = append(keys, selectKeys[i])
-		}
-
-		if cfg.FancyUI {
-			ui.Clear()
-			ui.SelectableList("Select Template", pageItems, -1, keys)
-			ui.NavHint(page+1, totalPages)
-		} else {
-			if page > 0 {
-				fmt.Println()
-			}
-			fmt.Println("Select template:")
-			for i, item := range pageItems {
-				if i < len(selectKeys) {
-					fmt.Printf("[%c] %s\n", selectKeys[i], item)
-				} else {
-					fmt.Println(item)
-				}
-			}
-			fmt.Printf("(%d/%d) ", page+1, totalPages)
-			if totalPages > 1 {
-				fmt.Print("[n]ext [p]rev ")
-			}
-			fmt.Println("[q]uit")
-			fmt.Print(": ")
-		}
-
-		input := ui.ReadMenuInput()
-		if input == "" {
-			continue
-		}
-
-		switch input {
-		case "q":
-			if cfg.FancyUI {
-				ui.Clear()
-			}
-			return ""
-		case "n":
-			if page < totalPages-1 {
-				page++
-			}
-			continue
-		case "p":
-			if page > 0 {
-				page--
-			}
-			continue
-		}
-
-		// Check selection keys (single letter)
-		if len(input) == 1 {
-			key := rune(input[0])
-			for i := 0; i < len(pageItems) && i < len(selectKeys); i++ {
-				if key == selectKeys[i] {
-					if cfg.FancyUI {
-						ui.Clear()
-					}
-					return templates[start+i]
-				}
-			}
-		}
-	}
-	return ""
+	return result.Note
 }
