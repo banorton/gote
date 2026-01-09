@@ -236,7 +236,7 @@ func TestTrashOperations(t *testing.T) {
 		}
 
 		// Should be in trash
-		trashed, _ := ListTrashedNotes()
+		trashed, _ := data.ListTrashedNotes()
 		found := false
 		for _, n := range trashed {
 			if n == "to-delete" {
@@ -284,9 +284,9 @@ func TestTagOperations(t *testing.T) {
 	createTestNote(t, notesDir, "note3", ".work.project\nContent")
 
 	t.Run("ListTags", func(t *testing.T) {
-		tags, err := ListTags()
+		tags, err := data.LoadTags()
 		if err != nil {
-			t.Fatalf("ListTags failed: %v", err)
+			t.Fatalf("LoadTags failed: %v", err)
 		}
 
 		if _, exists := tags["work"]; !exists {

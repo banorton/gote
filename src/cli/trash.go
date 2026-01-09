@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"gote/src/core"
+	"gote/src/data"
 )
 
 func DeleteCommand(rawArgs []string) {
@@ -61,7 +62,7 @@ func TrashCommand(rawArgs []string) {
 	switch sub {
 	case "":
 		// List trashed notes
-		notes, err := core.ListTrashedNotes()
+		notes, err := data.ListTrashedNotes()
 		if err != nil {
 			ui.Error(err.Error())
 			return
@@ -79,7 +80,7 @@ func TrashCommand(rawArgs []string) {
 			}
 		}
 	case "empty":
-		count, err := core.EmptyTrash()
+		count, err := data.EmptyTrash()
 		if err != nil {
 			ui.Error(err.Error())
 			return
@@ -95,7 +96,7 @@ func TrashCommand(rawArgs []string) {
 			fmt.Println("Usage: gote trash search <query>")
 			return
 		}
-		results, err := core.SearchTrash(query)
+		results, err := data.SearchTrash(query)
 		if err != nil {
 			ui.Error(err.Error())
 			return

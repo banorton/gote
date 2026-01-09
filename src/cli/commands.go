@@ -256,7 +256,7 @@ func TagCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultP
 	// Handle subcommands
 	switch sub {
 	case "":
-		tags, err := core.ListTags()
+		tags, err := data.LoadTags()
 		if err != nil {
 			ui.Error(err.Error())
 			return

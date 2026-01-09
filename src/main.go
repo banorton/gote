@@ -128,20 +128,6 @@ func main() {
 	case "help", "h", "man":
 		cli.HelpCommand(rest)
 
-	// Not implemented
-	case "popular", "pop":
-		cli.NotImplementedCommand("popular")
-	case "today":
-		cli.NotImplementedCommand("today")
-	case "journal", "j":
-		cli.NotImplementedCommand("journal")
-	case "transfer":
-		cli.NotImplementedCommand("transfer")
-	case "calendar", "cal":
-		cli.NotImplementedCommand("calendar")
-	case "lint", "l":
-		cli.NotImplementedCommand("lint")
-
 	// Default: open/create note
 	default:
 		cli.NoteCommand(args[1:])

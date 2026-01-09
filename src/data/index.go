@@ -182,3 +182,16 @@ func ParseTags(line string) []string {
 func FormatIndexFile() error {
 	return FormatJSONFile(IndexPath())
 }
+
+// LookupNote finds a note by name (case-insensitive). Returns actual key, metadata, and found bool.
+func LookupNote(index map[string]NoteMeta, name string) (string, NoteMeta, bool) {
+	if meta, ok := index[name]; ok {
+		return name, meta, true
+	}
+	for key, meta := range index {
+		if strings.EqualFold(key, name) {
+			return key, meta, true
+		}
+	}
+	return "", NoteMeta{}, false
+}
