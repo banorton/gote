@@ -36,6 +36,10 @@ func main() {
 	case "qs":
 		cli.QuickSaveCommand(rest)
 
+	// Last opened note
+	case "-":
+		cli.LastCommand()
+
 	// Recent notes
 	case "recent", "r":
 		cli.RecentCommand(rest, false, false, false, false)
