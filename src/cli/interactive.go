@@ -67,7 +67,7 @@ func displayMenu(cfg MenuConfig, ui *UI, fancyUI bool) MenuResult {
 	// Build action display based on config
 	var actions string
 	if cfg.PreSelectedAction != "" {
-		actions = fmt.Sprintf("Select note to %s:", cfg.PreSelectedAction)
+		actions = "" // No actions line needed in pre-selected mode
 	} else {
 		actions = "[o]pen"
 		if !cfg.HideView {
@@ -106,7 +106,9 @@ func displayMenu(cfg MenuConfig, ui *UI, fancyUI bool) MenuResult {
 				fmt.Printf(" %s[n]ext [p]rev%s", Dim, Reset)
 			}
 			fmt.Printf(" %s[q]uit%s\n", Dim, Reset)
-			fmt.Printf(" %s%s%s\n", Dim, actions, Reset)
+			if actions != "" {
+				fmt.Printf(" %s%s%s\n", Dim, actions, Reset)
+			}
 		} else {
 			for i, item := range pageItems {
 				fmt.Printf("[%c] %s\n", keys[i], item)
@@ -117,7 +119,9 @@ func displayMenu(cfg MenuConfig, ui *UI, fancyUI bool) MenuResult {
 				fmt.Print("[n]ext [p]rev ")
 			}
 			fmt.Println("[q]uit")
-			fmt.Println(actions)
+			if actions != "" {
+				fmt.Println(actions)
+			}
 			fmt.Print(": ")
 		}
 

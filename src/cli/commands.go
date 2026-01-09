@@ -81,6 +81,25 @@ func NoteCommand(args []string) {
 	}
 }
 
+func LastCommand() {
+	_, ui, ok := LoadConfigAndUI()
+	if !ok {
+		return
+	}
+
+	notes, err := core.GetRecentNotes(1)
+	if err != nil {
+		ui.Error(err.Error())
+		return
+	}
+	if len(notes) == 0 {
+		ui.Empty("No notes found.")
+		return
+	}
+
+	core.OpenAndReindexNote(notes[0].FilePath, notes[0].Title)
+}
+
 func QuickCommand() {
 	NoteCommand([]string{"quick"})
 }
