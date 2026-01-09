@@ -14,6 +14,7 @@ Usage:
   gote <note> -t [template]       Create from template
   gote -d/-dt/-nt <note>          Date/datetime/no-timestamp prefix
   gote                            Open quick note
+  gote -                          Open last opened note
   gote quick save <name> | qs     Save quick note as named note
 
 Recent: (gote recent | r)
