@@ -7,10 +7,6 @@ import (
 	"gote/src/data"
 )
 
-func ListTags() (map[string]data.TagMeta, error) {
-	return data.LoadTags()
-}
-
 func GetPopularTags(limit int) ([]data.TagMeta, error) {
 	tags, err := data.LoadTags()
 	if err != nil {

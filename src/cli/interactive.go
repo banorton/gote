@@ -396,7 +396,7 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 			fmt.Println("Usage: gote search trash <query>")
 			return
 		}
-		results, err := core.SearchTrash(query)
+		results, err := data.SearchTrash(query)
 		if err != nil {
 			ui.Error(err.Error())
 			return

@@ -6,10 +6,6 @@ func HelpCommand(args []string) {
 	PrintDefaultHelp()
 }
 
-func NotImplementedCommand(name string) {
-	fmt.Printf("%s: not implemented\n", name)
-}
-
 func PrintDefaultHelp() {
 	fmt.Println(`gote - CLI note-taking tool
 

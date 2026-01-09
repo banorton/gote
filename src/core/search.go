@@ -134,7 +134,3 @@ func FilterNotesByTags(tags []string, limit int) ([]SearchResult, error) {
 
 	return results, nil
 }
-
-func SearchTrash(query string) ([]string, error) {
-	return data.SearchTrash(query)
-}
