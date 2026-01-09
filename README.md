@@ -14,6 +14,7 @@ A CLI note-taking tool. Notes are plain Markdown files with tagging, pinning, se
 | `gote <note> -t [template]` | | Create from template |
 | `gote -d/-dt/-nt <note>` | | Date/datetime/no-timestamp prefix |
 | `gote quick` | `q` | Open quick note |
+| `gote -` | | Open last opened note |
 | `gote quick save <name>` | `qs` | Save quick note |
 | `gote recent` | `r` | Recent notes |
 | `gote recent open/delete/pin/view` | `ro/rd/rp/rv` | Recent + mode |
