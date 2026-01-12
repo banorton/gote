@@ -40,6 +40,7 @@ A CLI note-taking tool. Notes are plain Markdown files with tagging, pinning, se
 | `gote view <note>` | | Preview in browser |
 | `gote rename <note> -n <new>` | `mv` | Rename note |
 | `gote help` | `h` | Show help |
+| `gote -v` | | Show version |
 
 ## Examples
 
