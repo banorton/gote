@@ -22,6 +22,12 @@ func DeleteCommand(rawArgs []string) {
 		return
 	}
 
+	noteName, err := ResolveNoteName(noteName)
+	if err != nil {
+		ui.Error(err.Error())
+		return
+	}
+
 	if err := core.DeleteNote(noteName); err != nil {
 		ui.Error(err.Error())
 		return

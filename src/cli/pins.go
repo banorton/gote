@@ -33,6 +33,11 @@ func PinCommand(rawArgs []string) {
 
 	// Otherwise, pin the note
 	noteName := args.Joined()
+	noteName, err := ResolveNoteName(noteName)
+	if err != nil {
+		ui.Error(err.Error())
+		return
+	}
 	if err := core.PinNote(noteName); err != nil {
 		ui.Error(err.Error())
 		return
@@ -51,6 +56,12 @@ func UnpinCommand(rawArgs []string) {
 
 	if noteName == "" {
 		fmt.Println("Usage: gote unpin <note name>")
+		return
+	}
+
+	noteName, err := ResolveNoteName(noteName)
+	if err != nil {
+		ui.Error(err.Error())
 		return
 	}
 

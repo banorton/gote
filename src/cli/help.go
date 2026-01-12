@@ -16,6 +16,7 @@ Usage:
   gote                            Open quick note
   gote -                          Open last opened note
   gote quick save <name> | qs     Save quick note as named note
+  Note: "-" works as last note alias (e.g., gote view -, gote pin -)
 
 Recent: (gote recent | r)
   gote recent [-n size]           List recent notes
