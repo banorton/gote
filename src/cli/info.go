@@ -23,6 +23,12 @@ func RenameCommand(rawArgs []string) {
 		return
 	}
 
+	oldName, err := ResolveNoteName(oldName)
+	if err != nil {
+		ui.Error(err.Error())
+		return
+	}
+
 	if err := core.RenameNote(oldName, newName); err != nil {
 		ui.Error(err.Error())
 		return
@@ -41,6 +47,12 @@ func InfoCommand(rawArgs []string) {
 
 	if noteName == "" {
 		fmt.Println("Usage: gote info <note name>")
+		return
+	}
+
+	noteName, err := ResolveNoteName(noteName)
+	if err != nil {
+		ui.Error(err.Error())
 		return
 	}
 

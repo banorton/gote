@@ -30,6 +30,12 @@ func ViewCommand(rawArgs []string) {
 		return
 	}
 
+	noteName, err := ResolveNoteName(noteName)
+	if err != nil {
+		ui.Error(err.Error())
+		return
+	}
+
 	// Find the note
 	index, err := data.LoadIndex()
 	if err != nil {
