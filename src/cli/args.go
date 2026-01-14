@@ -28,13 +28,9 @@ func ParseArgs(args []string) Args {
 	for i < len(args) {
 		arg := args[i]
 
-		if strings.HasPrefix(arg, "-") {
-			// Strip leading dashes
+		if strings.HasPrefix(arg, "-") && arg != "-" {
+			// Strip leading dashes (but "-" alone is a positional arg)
 			name := strings.TrimLeft(arg, "-")
-			if name == "" {
-				i++
-				continue
-			}
 
 			// Collect values until next flag or end
 			values := []string{}
