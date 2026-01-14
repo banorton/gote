@@ -121,7 +121,7 @@ func main() {
 		cli.RenameCommand(rest)
 	case "info", "i":
 		cli.InfoCommand(rest)
-	case "view":
+	case "view", "v":
 		cli.ViewCommand(rest)
 
 	// Help

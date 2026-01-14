@@ -54,7 +54,7 @@ Other:
   gote config | c                 Show config
   gote config edit | ce           Edit config
   gote info | i <note>            Note metadata
-  gote view <note>                Preview in browser
+  gote view | v <note>            Preview in browser
   gote rename | mv <note> -n <new>  Rename note
   gote help | h                   Show this help
   gote -v                         Show version`)

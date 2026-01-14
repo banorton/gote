@@ -37,7 +37,7 @@ A CLI note-taking tool. Notes are plain Markdown files with tagging, pinning, se
 | `gote config` | `c` | Show config |
 | `gote config edit` | `ce` | Edit config |
 | `gote info <note>` | `i` | Note metadata |
-| `gote view <note>` | | Preview in browser |
+| `gote view <note>` | `v` | Preview in browser |
 | `gote rename <note> -n <new>` | `mv` | Rename note |
 | `gote help` | `h` | Show help |
 | `gote -v` | | Show version |
