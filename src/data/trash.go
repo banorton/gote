@@ -22,23 +22,17 @@ func TrashNote(noteName string, noteMeta NoteMeta) error {
 		return fmt.Errorf("error moving note to trash: %w", err)
 	}
 
-	pins, err := LoadPins()
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("error loading pins: %w", err)
-	}
-	if _, pinned := pins[noteName]; pinned {
+	// Update pins with lock
+	_ = WithPinsLock(func(pins map[string]EmptyStruct) error {
 		delete(pins, noteName)
-		if err := SavePins(pins); err != nil {
-			return fmt.Errorf("error saving pins: %w", err)
-		}
-	}
+		return nil
+	})
 
-	index, err := LoadIndex()
-	if err != nil {
-		return fmt.Errorf("loading index: %w", err)
-	}
-	delete(index, noteName)
-	return SaveIndexWithTags(index)
+	// Update index with lock
+	return WithIndexLock(func(index map[string]NoteMeta) error {
+		delete(index, noteName)
+		return nil
+	})
 }
 
 func ListTrashedNotes() ([]string, error) {
@@ -71,20 +65,18 @@ func RecoverNote(noteName, notesDir string) error {
 		return fmt.Errorf("error restoring note: %w", err)
 	}
 
-	index, err := LoadIndex()
-	if err != nil {
-		return fmt.Errorf("loading index: %w", err)
-	}
-	info, err := os.Stat(recoveredFile)
-	if err != nil {
-		return fmt.Errorf("error stating restored note: %w", err)
-	}
-	meta, err := BuildNoteMeta(recoveredFile, info)
-	if err != nil {
-		return fmt.Errorf("error indexing restored note: %w", err)
-	}
-	index[noteName] = meta
-	return SaveIndexWithTags(index)
+	return WithIndexLock(func(index map[string]NoteMeta) error {
+		info, err := os.Stat(recoveredFile)
+		if err != nil {
+			return fmt.Errorf("error stating restored note: %w", err)
+		}
+		meta, err := BuildNoteMeta(recoveredFile, info)
+		if err != nil {
+			return fmt.Errorf("error indexing restored note: %w", err)
+		}
+		index[noteName] = meta
+		return nil
+	})
 }
 
 func SearchTrash(query string) ([]string, error) {

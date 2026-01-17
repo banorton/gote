@@ -29,12 +29,7 @@ func LoadPins() (map[string]EmptyStruct, error) {
 }
 
 func SavePins(pins map[string]EmptyStruct) error {
-	f, err := os.Create(PinsPath())
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return json.NewEncoder(f).Encode(pins)
+	return AtomicWriteJSON(PinsPath(), pins)
 }
 
 func FormatPinsFile() error {

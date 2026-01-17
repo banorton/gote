@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -50,5 +51,32 @@ func ValidateNoteName(name string) error {
 		return fmt.Errorf("note name cannot contain null bytes")
 	}
 	return nil
+}
+
+// AtomicWriteJSON writes data to path atomically via temp file + rename.
+func AtomicWriteJSON(path string, data interface{}) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, ".gote-*.tmp")
+	if err != nil {
+		return fmt.Errorf("creating temp file: %w", err)
+	}
+	tmpPath := tmp.Name()
+
+	enc := json.NewEncoder(tmp)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("encoding json: %w", err)
+	}
+
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("syncing file: %w", err)
+	}
+	tmp.Close()
+
+	return os.Rename(tmpPath, path)
 }
 
