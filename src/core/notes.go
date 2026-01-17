@@ -68,17 +68,15 @@ func CreateOrOpenNote(noteName string) error {
 
 // UpdateLastVisited updates the LastVisited timestamp for a note
 func UpdateLastVisited(title string) error {
-	index, err := data.LoadIndex()
-	if err != nil {
-		return err
-	}
-	actualKey, meta, exists := data.LookupNote(index, title)
-	if !exists {
+	return data.WithIndexLock(func(index map[string]data.NoteMeta) error {
+		actualKey, meta, exists := data.LookupNote(index, title)
+		if !exists {
+			return nil
+		}
+		meta.LastVisited = time.Now().Format(timeFmt)
+		index[actualKey] = meta
 		return nil
-	}
-	meta.LastVisited = time.Now().Format(timeFmt)
-	index[actualKey] = meta
-	return data.SaveIndex(index)
+	})
 }
 
 // OpenAndReindexNote opens a note in the editor and reindexes it afterward
@@ -124,50 +122,49 @@ func RenameNote(oldName, newName string) error {
 		return fmt.Errorf("error loading config: %w", err)
 	}
 
-	index, err := data.LoadIndex()
-	if err != nil {
-		return fmt.Errorf("loading index: %w", err)
-	}
-	actualOldName, meta, exists := data.LookupNote(index, oldName)
-	if !exists {
-		return fmt.Errorf("note not found: %s", oldName)
-	}
+	var actualOldName string
 
-	oldPath := meta.FilePath
-	newPath := filepath.Join(cfg.NoteDir, newName+".md")
-	// Allow case-only renames (e.g., "rde" -> "RDE") on case-insensitive filesystems
-	if !strings.EqualFold(oldName, newName) {
-		if _, err := os.Stat(newPath); err == nil {
-			return fmt.Errorf("a note with the new name already exists: %s", newName)
+	// Update index with lock
+	err = data.WithIndexLock(func(index map[string]data.NoteMeta) error {
+		var meta data.NoteMeta
+		var exists bool
+		actualOldName, meta, exists = data.LookupNote(index, oldName)
+		if !exists {
+			return fmt.Errorf("note not found: %s", oldName)
 		}
+
+		oldPath := meta.FilePath
+		newPath := filepath.Join(cfg.NoteDir, newName+".md")
+		// Allow case-only renames (e.g., "rde" -> "RDE") on case-insensitive filesystems
+		if !strings.EqualFold(oldName, newName) {
+			if _, err := os.Stat(newPath); err == nil {
+				return fmt.Errorf("a note with the new name already exists: %s", newName)
+			}
+		}
+
+		if err := os.Rename(oldPath, newPath); err != nil {
+			return fmt.Errorf("error renaming note: %w", err)
+		}
+
+		delete(index, actualOldName)
+		meta.Title = newName
+		meta.FilePath = newPath
+		meta.LastVisited = time.Now().Format(timeFmt)
+		index[newName] = meta
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
-	if err := os.Rename(oldPath, newPath); err != nil {
-		return fmt.Errorf("error renaming note: %w", err)
-	}
-
-	delete(index, actualOldName)
-	meta.Title = newName
-	meta.FilePath = newPath
-	meta.LastVisited = time.Now().Format(timeFmt)
-	index[newName] = meta
-
-	if err := data.SaveIndexWithTags(index); err != nil {
-		return fmt.Errorf("error updating index: %w", err)
-	}
-
-	pins, err := data.LoadPins()
-	if err == nil {
+	// Update pins with lock
+	return data.WithPinsLock(func(pins map[string]data.EmptyStruct) error {
 		if _, pinned := pins[actualOldName]; pinned {
 			delete(pins, actualOldName)
 			pins[newName] = data.EmptyStruct{}
-			if err := data.SavePins(pins); err != nil {
-				return fmt.Errorf("error saving pins: %w", err)
-			}
 		}
-	}
-
-	return nil
+		return nil
+	})
 }
 
 // PromoteQuickNote moves content from quick.md to a new named note

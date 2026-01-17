@@ -41,12 +41,7 @@ func LoadIndex() (map[string]NoteMeta, error) {
 }
 
 func SaveIndex(index map[string]NoteMeta) error {
-	f, err := os.Create(IndexPath())
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return json.NewEncoder(f).Encode(index)
+	return AtomicWriteJSON(IndexPath(), index)
 }
 
 // SaveIndexWithTags atomically saves the index and updates the tags index.
@@ -181,6 +176,47 @@ func ParseTags(line string) []string {
 
 func FormatIndexFile() error {
 	return FormatJSONFile(IndexPath())
+}
+
+// WithIndexLock executes fn with exclusive access to the index.
+// The function receives the current index and can modify it; changes are saved atomically.
+func WithIndexLock(fn func(map[string]NoteMeta) error) error {
+	lock, err := LockFile(IndexPath())
+	if err != nil {
+		return fmt.Errorf("acquiring index lock: %w", err)
+	}
+	defer lock.Unlock()
+
+	index, err := LoadIndex()
+	if err != nil {
+		return err
+	}
+
+	if err := fn(index); err != nil {
+		return err
+	}
+
+	return SaveIndexWithTags(index)
+}
+
+// WithPinsLock executes fn with exclusive access to pins.
+func WithPinsLock(fn func(map[string]EmptyStruct) error) error {
+	lock, err := LockFile(PinsPath())
+	if err != nil {
+		return fmt.Errorf("acquiring pins lock: %w", err)
+	}
+	defer lock.Unlock()
+
+	pins, err := LoadPins()
+	if err != nil {
+		return err
+	}
+
+	if err := fn(pins); err != nil {
+		return err
+	}
+
+	return SavePins(pins)
 }
 
 // LookupNote finds a note by name (case-insensitive). Returns actual key, metadata, and found bool.

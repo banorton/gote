@@ -27,12 +27,7 @@ func UpdateTagsIndex(notes map[string]NoteMeta) error {
 			tagMap[tag] = tm
 		}
 	}
-	f, err := os.Create(TagsPath())
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return json.NewEncoder(f).Encode(tagMap)
+	return AtomicWriteJSON(TagsPath(), tagMap)
 }
 
 func LoadTags() (map[string]TagMeta, error) {

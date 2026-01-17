@@ -53,22 +53,7 @@ func SaveConfig(cfg Config) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("unable to create config directory: %w", err)
 	}
-	f, err := os.Create(configPath())
-	if err != nil {
-		return fmt.Errorf("unable to create config file: %w", err)
-	}
-	defer f.Close()
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return fmt.Errorf("unable to marshal config: %w", err)
-	}
-	if _, err := f.Write(data); err != nil {
-		return fmt.Errorf("unable to write config: %w", err)
-	}
-	if _, err := f.Write([]byte("\n")); err != nil {
-		return fmt.Errorf("unable to write newline: %w", err)
-	}
-	return nil
+	return AtomicWriteJSON(configPath(), cfg)
 }
 
 func LoadConfig() (Config, error) {
