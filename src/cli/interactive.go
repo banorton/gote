@@ -234,14 +234,8 @@ func executeMenuAction(result MenuResult, paths map[string]string, ui *UI) {
 		}
 		ui.Success("Moved to trash: " + result.Note)
 	case "rename":
-		fmt.Print("New name: ")
-		reader := bufio.NewReader(os.Stdin)
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			return
-		}
-		newName := strings.TrimSpace(input)
-		if newName == "" {
+		newName := ui.ReadInputWithDefault("New name: ", result.Note)
+		if newName == "" || newName == result.Note {
 			ui.Info("Cancelled")
 			return
 		}
@@ -303,7 +297,7 @@ func looksLikeDate(s string) bool {
 	return (l == 9 || l == 11 || l == 13) && len(s) > 6 && s[6] == '.'
 }
 
-func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool, defaultView bool) {
+func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool, defaultView bool, defaultRename bool) {
 	args := ParseArgs(rawArgs)
 
 	// Determine pre-selected action from flags or keywords
@@ -327,6 +321,11 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 	} else if first == "view" || defaultView {
 		preSelected = "view"
 		if first == "view" {
+			args.Positional = args.Positional[1:]
+		}
+	} else if first == "rename" || defaultRename {
+		preSelected = "rename"
+		if first == "rename" {
 			args.Positional = args.Positional[1:]
 		}
 	}
@@ -381,7 +380,7 @@ func searchResultsToMenu(results []core.SearchResult) ([]string, map[string]stri
 	return titles, paths
 }
 
-func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool, defaultView bool) {
+func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool, defaultView bool, defaultRename bool) {
 	args := ParseArgs(rawArgs)
 
 	cfg, ui, ok := LoadConfigAndUI()
@@ -436,6 +435,11 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 	} else if first == "view" || defaultView {
 		preSelected = "view"
 		if first == "view" {
+			args.Positional = args.Positional[1:]
+		}
+	} else if first == "rename" || defaultRename {
+		preSelected = "rename"
+		if first == "rename" {
 			args.Positional = args.Positional[1:]
 		}
 	}

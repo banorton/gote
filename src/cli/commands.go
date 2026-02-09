@@ -178,7 +178,7 @@ func IndexCommand(rawArgs []string) {
 	}
 }
 
-func TagCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool, defaultView bool) {
+func TagCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool, defaultView bool, defaultRename bool) {
 	args := ParseArgs(rawArgs)
 	sub := args.First()
 
@@ -210,6 +210,12 @@ func TagCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultP
 	} else if sub == "view" || defaultView {
 		preSelected = "view"
 		if sub == "view" {
+			args.Positional = args.Positional[1:]
+			sub = args.First()
+		}
+	} else if sub == "rename" || defaultRename {
+		preSelected = "rename"
+		if sub == "rename" {
 			args.Positional = args.Positional[1:]
 			sub = args.First()
 		}

@@ -1,11 +1,8 @@
 package cli
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"path/filepath"
-	"strings"
 
 	"gote/src/core"
 	"gote/src/data"
@@ -96,14 +93,8 @@ func executeTemplateAction(result MenuResult, ui *UI) {
 		}
 		ui.Success("Deleted template: " + result.Note)
 	case "rename":
-		fmt.Print("New name: ")
-		reader := bufio.NewReader(os.Stdin)
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			return
-		}
-		newName := strings.TrimSpace(input)
-		if newName == "" {
+		newName := ui.ReadInputWithDefault("New name: ", result.Note)
+		if newName == "" || newName == result.Note {
 			ui.Info("Cancelled")
 			return
 		}

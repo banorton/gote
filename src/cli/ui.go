@@ -6,6 +6,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 // ANSI escape codes
@@ -349,6 +351,52 @@ func (u *UI) ReadMenuInput() string {
 		return ""
 	}
 	return strings.ToLower(strings.TrimSpace(input))
+}
+
+// ReadInputWithDefault prompts for input with an editable default value.
+// Returns empty string on Escape/Ctrl-C (cancel).
+func (u *UI) ReadInputWithDefault(prompt, defaultVal string) string {
+	fmt.Print(prompt)
+
+	fd := int(os.Stdin.Fd())
+	oldState, err := term.MakeRaw(fd)
+	if err != nil {
+		// Fallback to basic input
+		fmt.Print(defaultVal)
+		reader := bufio.NewReader(os.Stdin)
+		input, _ := reader.ReadString('\n')
+		return strings.TrimSpace(input)
+	}
+	defer term.Restore(fd, oldState)
+
+	buf := []byte(defaultVal)
+	fmt.Print(string(buf))
+
+	b := make([]byte, 1)
+	for {
+		if _, err := os.Stdin.Read(b); err != nil {
+			fmt.Print("\r\n")
+			return ""
+		}
+		switch b[0] {
+		case '\r', '\n':
+			fmt.Print("\r\n")
+			return string(buf)
+		case 3, 27: // Ctrl-C, Escape
+			fmt.Print("\r\n")
+			return ""
+		case 127, 8: // Backspace (macOS / others)
+			if len(buf) > 0 {
+				buf = buf[:len(buf)-1]
+				fmt.Print("\b \b")
+			}
+		default:
+			if b[0] >= 32 && b[0] < 127 {
+				buf = append(buf, b[0])
+				fmt.Print(string(b[0]))
+			}
+		}
+	}
 }
 
 // InfoBox displays key-value info in a box

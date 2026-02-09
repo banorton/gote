@@ -42,27 +42,31 @@ func main() {
 
 	// Recent notes
 	case "recent", "r":
-		cli.RecentCommand(rest, false, false, false, false)
+		cli.RecentCommand(rest, false, false, false, false, false)
 	case "ro": // recent + open
-		cli.RecentCommand(rest, true, false, false, false)
+		cli.RecentCommand(rest, true, false, false, false, false)
 	case "rd": // recent + delete
-		cli.RecentCommand(rest, false, true, false, false)
+		cli.RecentCommand(rest, false, true, false, false, false)
 	case "rp": // recent + pin
-		cli.RecentCommand(rest, false, false, true, false)
+		cli.RecentCommand(rest, false, false, true, false, false)
 	case "rv": // recent + view
-		cli.RecentCommand(rest, false, false, false, true)
+		cli.RecentCommand(rest, false, false, false, true, false)
+	case "rr": // recent + rename
+		cli.RecentCommand(rest, false, false, false, false, true)
 
 	// Search
 	case "search", "s":
-		cli.SearchCommand(rest, false, false, false, false)
+		cli.SearchCommand(rest, false, false, false, false, false)
 	case "so": // search + open
-		cli.SearchCommand(rest, true, false, false, false)
+		cli.SearchCommand(rest, true, false, false, false, false)
 	case "sd": // search + delete
-		cli.SearchCommand(rest, false, true, false, false)
+		cli.SearchCommand(rest, false, true, false, false, false)
 	case "sp": // search + pin
-		cli.SearchCommand(rest, false, false, true, false)
+		cli.SearchCommand(rest, false, false, true, false, false)
 	case "sv": // search + view
-		cli.SearchCommand(rest, false, false, false, true)
+		cli.SearchCommand(rest, false, false, false, true, false)
+	case "sr": // search + rename
+		cli.SearchCommand(rest, false, false, false, false, true)
 
 	// Index management
 	case "index", "idx":
@@ -70,15 +74,17 @@ func main() {
 
 	// Tags
 	case "tag", "t":
-		cli.TagCommand(rest, false, false, false, false)
+		cli.TagCommand(rest, false, false, false, false, false)
 	case "to": // tag + open
-		cli.TagCommand(rest, true, false, false, false)
+		cli.TagCommand(rest, true, false, false, false, false)
 	case "td": // tag + delete
-		cli.TagCommand(rest, false, true, false, false)
+		cli.TagCommand(rest, false, true, false, false, false)
 	case "tp": // tag + pin
-		cli.TagCommand(rest, false, false, true, false)
+		cli.TagCommand(rest, false, false, true, false, false)
 	case "tv": // tag + view
-		cli.TagCommand(rest, false, false, false, true)
+		cli.TagCommand(rest, false, false, false, true, false)
+	case "tr": // tag + rename
+		cli.TagCommand(rest, false, false, false, false, true)
 
 	// Get (interactive flow)
 	case "get", "g":
@@ -100,13 +106,15 @@ func main() {
 	case "unpin", "u", "up":
 		cli.UnpinCommand(rest)
 	case "pinned":
-		cli.PinnedCommand(rest, false, false, false, false)
+		cli.PinnedCommand(rest, false, false, false, false, false)
 	case "po": // pinned + open
-		cli.PinnedCommand(rest, true, false, false, false)
+		cli.PinnedCommand(rest, true, false, false, false, false)
 	case "pv": // pinned + view
-		cli.PinnedCommand(rest, false, false, false, true)
+		cli.PinnedCommand(rest, false, false, false, true, false)
 	case "pu": // pinned + unpin
-		cli.PinnedCommand(rest, false, false, true, false)
+		cli.PinnedCommand(rest, false, false, true, false, false)
+	case "pr": // pinned + rename
+		cli.PinnedCommand(rest, false, false, false, false, true)
 
 	// Trash
 	case "delete", "d", "del":
