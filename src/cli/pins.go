@@ -27,7 +27,7 @@ func PinCommand(rawArgs []string) {
 		return
 	case "":
 		// No args = show interactive pinned menu
-		PinnedCommand(nil, false, false, false, false)
+		PinnedCommand(nil, false, false, false, false, false)
 		return
 	}
 
@@ -72,7 +72,7 @@ func UnpinCommand(rawArgs []string) {
 	ui.Success("Unpinned note: " + noteName)
 }
 
-func PinnedCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultUnpin bool, defaultView bool) {
+func PinnedCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultUnpin bool, defaultView bool, defaultRename bool) {
 	args := ParseArgs(rawArgs)
 
 	// Determine pre-selected action
@@ -96,6 +96,11 @@ func PinnedCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 	} else if first == "view" || defaultView {
 		preSelected = "view"
 		if first == "view" {
+			args.Positional = args.Positional[1:]
+		}
+	} else if first == "rename" || defaultRename {
+		preSelected = "rename"
+		if first == "rename" {
 			args.Positional = args.Positional[1:]
 		}
 	}
