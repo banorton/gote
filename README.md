@@ -4,7 +4,7 @@
 
 # gote
 
-A fast and simple CLI note-taking tool. Notes are stored as plain Markdown files, with robust tagging, pinning, trash, and search features.
+A fast and simple CLI note-taking tool written in Go. Notes are stored as plain Markdown files, with robust tagging, pinning, trash, and search features.
 
 ## Commands
 
