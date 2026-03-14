@@ -64,7 +64,7 @@ func IndexNotes(notesDir string) error {
 			return err
 		}
 
-		if info.IsDir() || filepath.Ext(path) != ".md" {
+		if info.IsDir() || filepath.Ext(path) != ".md" || info.Mode()&os.ModeSymlink != 0 {
 			return nil
 		}
 
