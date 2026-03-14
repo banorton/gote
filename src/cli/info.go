@@ -36,6 +36,39 @@ func RenameCommand(rawArgs []string) {
 	ui.Success(fmt.Sprintf("Renamed '%s' to '%s'", oldName, newName))
 }
 
+func DuplicateCommand(rawArgs []string) {
+	args := ParseArgs(rawArgs)
+	noteName := args.Joined()
+
+	_, ui, ok := LoadConfigAndUI()
+	if !ok {
+		return
+	}
+
+	if noteName == "" {
+		fmt.Println("Usage: gote duplicate <note name>")
+		return
+	}
+
+	noteName, err := ResolveNoteName(noteName)
+	if err != nil {
+		ui.Error(err.Error())
+		return
+	}
+
+	newName := ui.ReadInputWithDefault("New name: ", noteName+" (copy)")
+	if newName == "" {
+		ui.Info("Cancelled")
+		return
+	}
+
+	if err := core.DuplicateNote(noteName, newName); err != nil {
+		ui.Error(err.Error())
+		return
+	}
+	ui.Success("Duplicated to: " + newName)
+}
+
 func InfoCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	noteName := args.Joined()

@@ -73,7 +73,7 @@ func displayMenu(cfg MenuConfig, ui *UI, fancyUI bool) MenuResult {
 		if !cfg.HideView {
 			actions += " [v]iew"
 		}
-		actions += " [d]elete [r]ename"
+		actions += " [d]elete [r]ename [c]opy"
 		if cfg.ShowPin {
 			actions += " [p]in"
 		}
@@ -181,6 +181,8 @@ func displayMenu(cfg MenuConfig, ui *UI, fancyUI bool) MenuResult {
 					if cfg.ShowUnpin {
 						action = "unpin"
 					}
+				case 'c':
+					action = "duplicate"
 				case 'i':
 					action = "info"
 				}
@@ -244,6 +246,17 @@ func executeMenuAction(result MenuResult, paths map[string]string, ui *UI) {
 			return
 		}
 		ui.Success("Renamed to: " + newName)
+	case "duplicate":
+		newName := ui.ReadInputWithDefault("New name: ", result.Note+" (copy)")
+		if newName == "" {
+			ui.Info("Cancelled")
+			return
+		}
+		if err := core.DuplicateNote(result.Note, newName); err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		ui.Success("Duplicated to: " + newName)
 	case "pin":
 		if err := core.PinNote(result.Note); err != nil {
 			ui.Error(err.Error())

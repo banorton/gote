@@ -8,10 +8,10 @@ import (
 	"gote/src/data"
 )
 
-// sortResultsByTitle sorts search results alphabetically by title
-func sortResultsByTitle(results []SearchResult) {
+// sortResultsByCreated sorts search results by creation date (newest first)
+func sortResultsByCreated(results []SearchResult) {
 	sort.Slice(results, func(i, j int) bool {
-		return results[i].Title < results[j].Title
+		return results[i].Created > results[j].Created
 	})
 }
 
@@ -19,6 +19,7 @@ type SearchResult struct {
 	Title    string
 	FilePath string
 	Score    int
+	Created  string
 }
 
 func SearchNotesByTitle(query string, limit int) ([]SearchResult, error) {
@@ -36,11 +37,12 @@ func SearchNotesByTitle(query string, limit int) ([]SearchResult, error) {
 				Title:    title,
 				FilePath: meta.FilePath,
 				Score:    1,
+				Created:  meta.Created,
 			})
 		}
 	}
 
-	sortResultsByTitle(results)
+	sortResultsByCreated(results)
 
 	if limit > 0 && limit < len(results) {
 		results = results[:limit]
@@ -52,6 +54,11 @@ func SearchNotesByTitle(query string, limit int) ([]SearchResult, error) {
 // SearchNotesByTags returns notes matching ANY of the specified tags (OR logic)
 func SearchNotesByTags(tags []string, limit int) ([]SearchResult, error) {
 	tagsMap, err := data.LoadTags()
+	if err != nil {
+		return nil, err
+	}
+
+	index, err := data.LoadIndex()
 	if err != nil {
 		return nil, err
 	}
@@ -70,15 +77,23 @@ func SearchNotesByTags(tags []string, limit int) ([]SearchResult, error) {
 	var results []SearchResult
 	for notePath, count := range noteCount {
 		title := strings.TrimSuffix(filepath.Base(notePath), ".md")
+		created := ""
+		if meta, exists := index[title]; exists {
+			created = meta.Created
+		}
 		results = append(results, SearchResult{
 			Title:    title,
 			FilePath: notePath,
 			Score:    count,
+			Created:  created,
 		})
 	}
 
 	sort.Slice(results, func(i, j int) bool {
-		return results[i].Score > results[j].Score
+		if results[i].Score != results[j].Score {
+			return results[i].Score > results[j].Score
+		}
+		return results[i].Created > results[j].Created
 	})
 
 	if limit > 0 && limit < len(results) {
@@ -97,6 +112,11 @@ func FilterNotesByTags(tags []string, limit int) ([]SearchResult, error) {
 
 	if len(tags) == 0 {
 		return nil, nil
+	}
+
+	index, err := data.LoadIndex()
+	if err != nil {
+		return nil, err
 	}
 
 	// Count how many of the specified tags each note has
@@ -118,15 +138,20 @@ func FilterNotesByTags(tags []string, limit int) ([]SearchResult, error) {
 	for notePath, count := range noteCount {
 		if count == requiredCount {
 			title := strings.TrimSuffix(filepath.Base(notePath), ".md")
+			created := ""
+			if meta, exists := index[title]; exists {
+				created = meta.Created
+			}
 			results = append(results, SearchResult{
 				Title:    title,
 				FilePath: notePath,
 				Score:    count,
+				Created:  created,
 			})
 		}
 	}
 
-	sortResultsByTitle(results)
+	sortResultsByCreated(results)
 
 	if limit > 0 && limit < len(results) {
 		results = results[:limit]

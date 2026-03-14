@@ -149,11 +149,12 @@ func SearchNotesByDate(dateInputs []string, useCreated bool, limit int) ([]Searc
 				Title:    title,
 				FilePath: meta.FilePath,
 				Score:    1,
+				Created:  meta.Created,
 			})
 		}
 	}
 
-	sortResultsByTitle(results)
+	sortResultsByCreated(results)
 
 	if limit > 0 && limit < len(results) {
 		results = results[:limit]

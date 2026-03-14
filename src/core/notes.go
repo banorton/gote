@@ -167,6 +167,44 @@ func RenameNote(oldName, newName string) error {
 	})
 }
 
+// DuplicateNote copies a note's content to a new note with the given name
+func DuplicateNote(oldName, newName string) error {
+	if err := data.ValidateNoteName(newName); err != nil {
+		return err
+	}
+
+	cfg, err := data.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("error loading config: %w", err)
+	}
+
+	index, err := data.LoadIndex()
+	if err != nil {
+		return fmt.Errorf("loading index: %w", err)
+	}
+
+	_, meta, exists := data.LookupNote(index, oldName)
+	if !exists {
+		return fmt.Errorf("note not found: %s", oldName)
+	}
+
+	newPath := filepath.Join(cfg.NoteDir, newName+".md")
+	if _, err := os.Stat(newPath); err == nil {
+		return fmt.Errorf("a note with that name already exists: %s", newName)
+	}
+
+	content, err := os.ReadFile(meta.FilePath)
+	if err != nil {
+		return fmt.Errorf("error reading note: %w", err)
+	}
+
+	if err := os.WriteFile(newPath, content, 0644); err != nil {
+		return fmt.Errorf("error creating duplicate: %w", err)
+	}
+
+	return data.IndexNote(newPath)
+}
+
 // PromoteQuickNote moves content from quick.md to a new named note
 func PromoteQuickNote(newName string) error {
 	if err := data.ValidateNoteName(newName); err != nil {
