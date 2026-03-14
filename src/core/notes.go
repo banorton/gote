@@ -175,31 +175,37 @@ func DuplicateNote(oldName, newName string) error {
 		return fmt.Errorf("error loading config: %w", err)
 	}
 
-	index, err := data.LoadIndex()
-	if err != nil {
-		return fmt.Errorf("loading index: %w", err)
-	}
+	return data.WithIndexLock(func(index map[string]data.NoteMeta) error {
+		_, meta, exists := data.LookupNote(index, oldName)
+		if !exists {
+			return fmt.Errorf("note not found: %s", oldName)
+		}
 
-	_, meta, exists := data.LookupNote(index, oldName)
-	if !exists {
-		return fmt.Errorf("note not found: %s", oldName)
-	}
+		newPath := filepath.Join(cfg.NoteDir, newName+".md")
+		if _, err := os.Stat(newPath); err == nil {
+			return fmt.Errorf("a note with that name already exists: %s", newName)
+		}
 
-	newPath := filepath.Join(cfg.NoteDir, newName+".md")
-	if _, err := os.Stat(newPath); err == nil {
-		return fmt.Errorf("a note with that name already exists: %s", newName)
-	}
+		content, err := os.ReadFile(meta.FilePath)
+		if err != nil {
+			return fmt.Errorf("error reading note: %w", err)
+		}
 
-	content, err := os.ReadFile(meta.FilePath)
-	if err != nil {
-		return fmt.Errorf("error reading note: %w", err)
-	}
+		if err := os.WriteFile(newPath, content, 0644); err != nil {
+			return fmt.Errorf("error creating duplicate: %w", err)
+		}
 
-	if err := os.WriteFile(newPath, content, 0644); err != nil {
-		return fmt.Errorf("error creating duplicate: %w", err)
-	}
-
-	return data.IndexNote(newPath)
+		info, err := os.Stat(newPath)
+		if err != nil {
+			return fmt.Errorf("error stating duplicate: %w", err)
+		}
+		newMeta, err := data.BuildNoteMeta(newPath, info)
+		if err != nil {
+			return fmt.Errorf("error building metadata: %w", err)
+		}
+		index[newName] = newMeta
+		return nil
+	})
 }
 
 // PromoteQuickNote moves content from quick.md to a new named note
