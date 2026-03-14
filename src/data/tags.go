@@ -33,6 +33,9 @@ func UpdateTagsIndex(notes map[string]NoteMeta) error {
 func LoadTags() (map[string]TagMeta, error) {
 	data, err := os.ReadFile(TagsPath())
 	if err != nil {
+		if os.IsNotExist(err) {
+			return make(map[string]TagMeta), nil
+		}
 		return nil, err
 	}
 
