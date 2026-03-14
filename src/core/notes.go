@@ -218,20 +218,19 @@ func PromoteQuickNote(newName string) error {
 		return fmt.Errorf("note already exists: %s", newName)
 	}
 
-	// Read quick.md content
-	content, err := os.ReadFile(quickPath)
-	if err != nil {
+	// Check quick.md exists
+	if _, err := os.Stat(quickPath); os.IsNotExist(err) {
 		return fmt.Errorf("could not read quick.md: %w", err)
 	}
 
-	// Write content to new note
-	if err := os.WriteFile(newPath, content, 0644); err != nil {
-		return fmt.Errorf("error creating note: %w", err)
+	// Atomic rename: move quick.md to new note
+	if err := os.Rename(quickPath, newPath); err != nil {
+		return fmt.Errorf("error moving quick note: %w", err)
 	}
 
-	// Clear quick.md
+	// Recreate empty quick.md
 	if err := os.WriteFile(quickPath, []byte{}, 0644); err != nil {
-		return fmt.Errorf("error clearing quick.md: %w", err)
+		return fmt.Errorf("error recreating quick.md: %w", err)
 	}
 
 	// Index the new note
