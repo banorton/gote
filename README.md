@@ -15,6 +15,7 @@ A CLI note-taking tool written in Go. Notes are plain Markdown files with taggin
 | `gote -d/-dt/-nt <note>` | | Date/datetime/no-timestamp prefix |
 | `gote quick` | `q` | Open quick note |
 | `gote -` | | Open last opened note (also works as alias: `gote view -`) |
+| `gote - v/i/d/rn/dup` | | View/info/delete/rename/duplicate last note |
 | `gote quick save <name>` | `qs` | Save quick note |
 | `gote recent` | `r` | Recent notes |
 | `gote recent open/delete/pin/view` | `ro/rd/rp/rv` | Recent + mode |
@@ -26,7 +27,7 @@ A CLI note-taking tool written in Go. Notes are plain Markdown files with taggin
 | `gote tag open/delete/pin/view` | `to/td/tp/tv` | Tag filter + mode |
 | `gote pin <note>` | `p` | Pin a note |
 | `gote pin` | `p` | Interactive pinned menu |
-| `gote pinned open/view/unpin` | `po/pv/pu` | Pinned + mode |
+| `gote pinned open/delete/view/unpin` | `po/pd/pv/pu` | Pinned + mode |
 | `gote unpin <note>` | `u` | Unpin a note |
 | `gote delete <note>` | `d` | Move to trash |
 | `gote trash` | | List trash |

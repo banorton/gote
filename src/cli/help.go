@@ -15,6 +15,7 @@ Usage:
   gote -d/-dt/-nt <note>          Date/datetime/no-timestamp prefix
   gote                            Open quick note
   gote -                          Open last opened note
+  gote - v/i/d/rn/dup            View/info/delete/rename/duplicate last note
   gote quick save <name> | qs     Save quick note as named note
   Note: "-" works as last note alias (e.g., gote view -, gote pin -)
 
@@ -38,7 +39,7 @@ Tags: (gote tag | t)
 Pins: (gote pin | p)
   gote pin <note>                 Pin a note
   gote pin                        Interactive pinned menu
-  gote po/pv/pu                   + open/view/unpin mode
+  gote po/pd/pv/pu                + open/delete/view/unpin mode
   gote unpin | u <note>           Unpin a note
 
 Trash: (gote delete | d)
