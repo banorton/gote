@@ -18,7 +18,7 @@ func DeleteCommand(rawArgs []string) {
 	}
 
 	if noteName == "" {
-		fmt.Println("Usage: gote delete <note name>")
+		ui.Info("Usage: gote delete <note name>")
 		return
 	}
 
@@ -45,7 +45,7 @@ func RecoverCommand(rawArgs []string) {
 	}
 
 	if noteName == "" {
-		fmt.Println("Usage: gote recover <note name>")
+		ui.Info("Usage: gote recover <note name>")
 		return
 	}
 
@@ -99,7 +99,7 @@ func TrashCommand(rawArgs []string) {
 	case "search":
 		query := strings.ToLower(strings.Join(args.Rest(), " "))
 		if query == "" {
-			fmt.Println("Usage: gote trash search <query>")
+			ui.Info("Usage: gote trash search <query>")
 			return
 		}
 		results, err := data.SearchTrash(query)

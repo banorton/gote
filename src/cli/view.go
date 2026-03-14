@@ -26,7 +26,7 @@ func ViewCommand(rawArgs []string) {
 	}
 
 	if noteName == "" {
-		fmt.Println("Usage: gote view <note>")
+		ui.Info("Usage: gote view <note>")
 		return
 	}
 

@@ -19,7 +19,7 @@ func RenameCommand(rawArgs []string) {
 	}
 
 	if oldName == "" || newName == "" {
-		fmt.Println("Usage: gote rename <note name> -n <new name>")
+		ui.Info("Usage: gote rename <note name> -n <new name>")
 		return
 	}
 
@@ -46,7 +46,7 @@ func DuplicateCommand(rawArgs []string) {
 	}
 
 	if noteName == "" {
-		fmt.Println("Usage: gote duplicate <note name>")
+		ui.Info("Usage: gote duplicate <note name>")
 		return
 	}
 
@@ -79,7 +79,7 @@ func InfoCommand(rawArgs []string) {
 	}
 
 	if noteName == "" {
-		fmt.Println("Usage: gote info <note name>")
+		ui.Info("Usage: gote info <note name>")
 		return
 	}
 
