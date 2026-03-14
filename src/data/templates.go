@@ -52,6 +52,9 @@ func ListTemplateFiles() ([]string, error) {
 
 // LoadTemplate reads the content of a template file
 func LoadTemplate(name string) (string, error) {
+	if err := ValidateNoteName(name); err != nil {
+		return "", fmt.Errorf("invalid template name: %w", err)
+	}
 	path := templatePath(name)
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -65,6 +68,9 @@ func LoadTemplate(name string) (string, error) {
 
 // SaveTemplate writes content to a template file
 func SaveTemplate(name, content string) error {
+	if err := ValidateNoteName(name); err != nil {
+		return fmt.Errorf("invalid template name: %w", err)
+	}
 	if err := EnsureTemplatesDir(); err != nil {
 		return fmt.Errorf("could not create templates directory: %w", err)
 	}
@@ -78,6 +84,9 @@ func SaveTemplate(name, content string) error {
 
 // DeleteTemplate removes a template file
 func DeleteTemplate(name string) error {
+	if err := ValidateNoteName(name); err != nil {
+		return fmt.Errorf("invalid template name: %w", err)
+	}
 	path := templatePath(name)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return fmt.Errorf("template '%s' not found", name)
@@ -90,6 +99,12 @@ func DeleteTemplate(name string) error {
 
 // RenameTemplate renames a template file
 func RenameTemplate(oldName, newName string) error {
+	if err := ValidateNoteName(oldName); err != nil {
+		return fmt.Errorf("invalid template name: %w", err)
+	}
+	if err := ValidateNoteName(newName); err != nil {
+		return fmt.Errorf("invalid template name: %w", err)
+	}
 	oldPath := templatePath(oldName)
 	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
 		return fmt.Errorf("template '%s' not found", oldName)
@@ -103,6 +118,9 @@ func RenameTemplate(oldName, newName string) error {
 
 // TemplateExists checks if a template exists
 func TemplateExists(name string) bool {
+	if ValidateNoteName(name) != nil {
+		return false
+	}
 	path := templatePath(name)
 	_, err := os.Stat(path)
 	return err == nil
