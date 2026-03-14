@@ -22,16 +22,14 @@ func TrashNote(noteName string, noteMeta NoteMeta) error {
 		return fmt.Errorf("error moving note to trash: %w", err)
 	}
 
-	// Update pins with lock
-	_ = WithPinsLock(func(pins map[string]EmptyStruct) error {
-		delete(pins, noteName)
-		return nil
-	})
-
-	// Update index with lock
+	// Update index with lock, nesting pins lock inside
 	return WithIndexLock(func(index map[string]NoteMeta) error {
 		delete(index, noteName)
-		return nil
+
+		return WithPinsLock(func(pins map[string]EmptyStruct) error {
+			delete(pins, noteName)
+			return nil
+		})
 	})
 }
 
