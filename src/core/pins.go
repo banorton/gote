@@ -12,12 +12,13 @@ func PinNote(noteName string) error {
 	if err != nil {
 		return fmt.Errorf("loading index: %w", err)
 	}
-	if _, exists := index[noteName]; !exists {
+	actualKey, _, exists := data.LookupNote(index, noteName)
+	if !exists {
 		return fmt.Errorf("note not found: %s", noteName)
 	}
 
 	return data.WithPinsLock(func(pins map[string]data.EmptyStruct) error {
-		pins[noteName] = data.EmptyStruct{}
+		pins[actualKey] = data.EmptyStruct{}
 		return nil
 	})
 }
