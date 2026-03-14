@@ -372,29 +372,40 @@ func (u *UI) ReadInputWithDefault(prompt, defaultVal string) string {
 	buf := []byte(defaultVal)
 	fmt.Print(string(buf))
 
-	b := make([]byte, 1)
+	b := make([]byte, 4) // up to 4 bytes for a UTF-8 sequence
 	for {
-		if _, err := os.Stdin.Read(b); err != nil {
+		n, err := os.Stdin.Read(b)
+		if err != nil || n == 0 {
 			fmt.Print("\r\n")
 			return ""
 		}
-		switch b[0] {
-		case '\r', '\n':
-			fmt.Print("\r\n")
-			return string(buf)
-		case 3, 27: // Ctrl-C, Escape
-			fmt.Print("\r\n")
-			return ""
-		case 127, 8: // Backspace (macOS / others)
-			if len(buf) > 0 {
-				buf = buf[:len(buf)-1]
-				fmt.Print("\b \b")
+		// Handle single-byte control characters
+		if n == 1 {
+			switch b[0] {
+			case '\r', '\n':
+				fmt.Print("\r\n")
+				return string(buf)
+			case 3, 27: // Ctrl-C, Escape
+				fmt.Print("\r\n")
+				return ""
+			case 127, 8: // Backspace (macOS / others)
+				if len(buf) > 0 {
+					// Remove last UTF-8 rune
+					s := string(buf)
+					runes := []rune(s)
+					if len(runes) > 0 {
+						runes = runes[:len(runes)-1]
+						buf = []byte(string(runes))
+					}
+					fmt.Print("\b \b")
+				}
+				continue
 			}
-		default:
-			if b[0] >= 32 && b[0] < 127 {
-				buf = append(buf, b[0])
-				fmt.Print(string(b[0]))
-			}
+		}
+		// Accept printable bytes (including multi-byte UTF-8)
+		if b[0] >= 32 {
+			buf = append(buf, b[:n]...)
+			fmt.Print(string(b[:n]))
 		}
 	}
 }
