@@ -12,19 +12,14 @@ import (
 )
 
 // selectKeys are the keys used for selecting items in paginated lists
-// Order: homerow → top row → bottom row, then shift versions of each
+// Order: homerow → top row → bottom row (lowercase only, case-insensitive matching)
 var selectKeys = []rune{
-	// Lowercase
 	'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', // homerow (10)
 	'w', 'e', 'r', 't', 'y', 'u', 'i', 'o',           // top row (8, avoiding q, p)
 	'z', 'x', 'c', 'v', 'b', 'm',                     // bottom row (6, avoiding n)
-	// Shift (uppercase)
-	'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', // shift+homerow (10)
-	'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O',           // shift+top row (8)
-	'Z', 'X', 'C', 'V', 'B', 'M',                     // shift+bottom row (6)
 }
 
-const maxSelectablePageSize = 48 // len(selectKeys)
+const maxSelectablePageSize = 24 // len(selectKeys)
 
 // MenuConfig configures the unified menu display
 type MenuConfig struct {
@@ -193,10 +188,10 @@ func displayMenu(cfg MenuConfig, ui *UI, fancyUI bool) MenuResult {
 			continue // Invalid input
 		}
 
-		// Find selected item
+		// Find selected item (case-insensitive match for letter keys)
 		for i := 0; i < len(pageItems) && i < len(selectKeys); i++ {
-			if itemKey == selectKeys[i] || itemKey == selectKeys[i]+32 || itemKey == selectKeys[i]-32 {
-				// Handle both cases for letter keys
+			sk := selectKeys[i]
+			if itemKey == sk || (sk >= 'a' && sk <= 'z' && itemKey == sk-32) {
 				if fancyUI {
 					ui.Clear()
 				}
