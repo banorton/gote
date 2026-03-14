@@ -184,6 +184,38 @@ func TestTagsOperations(t *testing.T) {
 	GoteDir = func() string { return dir }
 	defer func() { GoteDir = origGoteDir }()
 
+	t.Run("LoadTags returns empty map for missing file", func(t *testing.T) {
+		emptyDir, cleanup2 := testDir(t)
+		defer cleanup2()
+		origDir := GoteDir
+		GoteDir = func() string { return emptyDir }
+		defer func() { GoteDir = origDir }()
+
+		tags, err := LoadTags()
+		if err != nil {
+			t.Fatalf("LoadTags should not error for missing file: %v", err)
+		}
+		if len(tags) != 0 {
+			t.Errorf("LoadTags() should return empty map, got %v", tags)
+		}
+	})
+
+	t.Run("LoadTags returns error for corrupted file", func(t *testing.T) {
+		corruptDir, cleanup2 := testDir(t)
+		defer cleanup2()
+		origDir := GoteDir
+		GoteDir = func() string { return corruptDir }
+		defer func() { GoteDir = origDir }()
+
+		// Write invalid JSON
+		os.WriteFile(TagsPath(), []byte("not json"), 0644)
+
+		_, err := LoadTags()
+		if err == nil {
+			t.Error("LoadTags should error for corrupted file")
+		}
+	})
+
 	t.Run("UpdateTagsIndex and LoadTags", func(t *testing.T) {
 		index := map[string]NoteMeta{
 			"note1": {FilePath: "/note1.md", Title: "note1", Tags: []string{"work", "urgent"}},
