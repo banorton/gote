@@ -22,48 +22,45 @@ func CreateOrOpenNote(noteName string) error {
 		return fmt.Errorf("error loading config: %w", err)
 	}
 
-	index, err := data.LoadIndex()
-	if err != nil {
-		return fmt.Errorf("loading index: %w", err)
-	}
-
-	actualName, noteMeta, exists := data.LookupNote(index, noteName)
-	if !exists {
-		actualName = noteName
-	}
-	notePath := noteMeta.FilePath
-
-	noteDir := cfg.NoteDir
-	if err := os.MkdirAll(noteDir, 0755); err != nil {
-		return fmt.Errorf("error creating notes directory: %w", err)
-	}
-
-	if notePath == "" {
-		notePath = filepath.Join(noteDir, noteName+".md")
-		if _, err := os.Stat(notePath); os.IsNotExist(err) {
-			f, err := os.Create(notePath)
-			if err != nil {
-				return fmt.Errorf("error creating note: %w", err)
-			}
-			f.Close()
+	return data.WithIndexLock(func(index map[string]data.NoteMeta) error {
+		actualName, noteMeta, exists := data.LookupNote(index, noteName)
+		if !exists {
+			actualName = noteName
 		}
-	}
+		notePath := noteMeta.FilePath
 
-	if err := data.OpenFileInEditor(notePath, cfg.Editor); err != nil {
-		return fmt.Errorf("error opening note in editor: %w", err)
-	}
+		noteDir := cfg.NoteDir
+		if err := os.MkdirAll(noteDir, 0755); err != nil {
+			return fmt.Errorf("error creating notes directory: %w", err)
+		}
 
-	info, err := os.Stat(notePath)
-	if err != nil {
-		return fmt.Errorf("error stating note after edit: %w", err)
-	}
-	meta, err := data.BuildNoteMeta(notePath, info)
-	if err != nil {
-		return fmt.Errorf("error building note metadata: %w", err)
-	}
-	meta.LastVisited = time.Now().Format(timeFmt)
-	index[actualName] = meta
-	return data.SaveIndexWithTags(index)
+		if notePath == "" {
+			notePath = filepath.Join(noteDir, noteName+".md")
+			if _, err := os.Stat(notePath); os.IsNotExist(err) {
+				f, err := os.Create(notePath)
+				if err != nil {
+					return fmt.Errorf("error creating note: %w", err)
+				}
+				f.Close()
+			}
+		}
+
+		if err := data.OpenFileInEditor(notePath, cfg.Editor); err != nil {
+			return fmt.Errorf("error opening note in editor: %w", err)
+		}
+
+		info, err := os.Stat(notePath)
+		if err != nil {
+			return fmt.Errorf("error stating note after edit: %w", err)
+		}
+		meta, err := data.BuildNoteMeta(notePath, info)
+		if err != nil {
+			return fmt.Errorf("error building note metadata: %w", err)
+		}
+		meta.LastVisited = time.Now().Format(timeFmt)
+		index[actualName] = meta
+		return nil
+	})
 }
 
 // UpdateLastVisited updates the LastVisited timestamp for a note
