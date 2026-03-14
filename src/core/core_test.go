@@ -526,6 +526,55 @@ func TestRenameNote(t *testing.T) {
 	})
 }
 
+// --- DuplicateNote tests ---
+
+func TestDuplicateNote(t *testing.T) {
+	_, notesDir, cleanup := testEnv(t)
+	defer cleanup()
+
+	createTestNote(t, notesDir, "original", ".work\nOriginal content here")
+
+	t.Run("duplicates successfully", func(t *testing.T) {
+		err := DuplicateNote("original", "copy-of-original")
+		if err != nil {
+			t.Fatalf("DuplicateNote failed: %v", err)
+		}
+
+		// Check file exists
+		newPath := filepath.Join(notesDir, "copy-of-original.md")
+		if _, err := os.Stat(newPath); os.IsNotExist(err) {
+			t.Error("Duplicated file should exist")
+		}
+
+		// Check content matches
+		content, _ := os.ReadFile(newPath)
+		if string(content) != ".work\nOriginal content here" {
+			t.Errorf("Content mismatch: got %q", string(content))
+		}
+
+		// Check index entry
+		index, _ := data.LoadIndex()
+		if _, exists := index["copy-of-original"]; !exists {
+			t.Error("Duplicate should be in index")
+		}
+	})
+
+	t.Run("fails for nonexistent source", func(t *testing.T) {
+		err := DuplicateNote("nonexistent", "copy")
+		if err == nil {
+			t.Error("Should error for nonexistent note")
+		}
+	})
+
+	t.Run("fails for existing target name", func(t *testing.T) {
+		createTestNote(t, notesDir, "existing", ".tag\nExisting note")
+		err := DuplicateNote("original", "existing")
+		if err == nil {
+			t.Error("Should error when target name already exists")
+		}
+	})
+}
+
 func TestFilterNotesByTags(t *testing.T) {
 	_, notesDir, cleanup := testEnv(t)
 	defer cleanup()
