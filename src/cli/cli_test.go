@@ -93,6 +93,47 @@ func TestHelpCommand(t *testing.T) {
 }
 
 
+// --- Subcommand routing tests ---
+
+func TestDashSubcommandRouting(t *testing.T) {
+	_, notesDir, cleanup := testEnv(t)
+	defer cleanup()
+
+	createTestNote(t, notesDir, "last-note", ".tag\nContent")
+
+	// Set up last visited so "-" resolves
+	index, _ := data.LoadIndex()
+	m := index["last-note"]
+	m.LastVisited = "991231.235959"
+	index["last-note"] = m
+	data.SaveIndex(index)
+
+	t.Run("view subcommand accepts dash", func(t *testing.T) {
+		// ViewCommand with "-" should resolve to last note
+		// It will fail to open browser but shouldn't panic
+		output := captureOutput(func() {
+			ViewCommand([]string{"-"})
+		})
+		// Should not show usage error
+		if strings.Contains(output, "Usage") {
+			t.Error("ViewCommand should accept '-' as note name")
+		}
+	})
+
+	t.Run("info subcommand accepts dash", func(t *testing.T) {
+		output := captureOutput(func() {
+			InfoCommand([]string{"-"})
+		})
+		// Should show note info, not usage
+		if strings.Contains(output, "Usage") {
+			t.Error("InfoCommand should accept '-' as note name")
+		}
+		if !strings.Contains(output, "last-note") {
+			t.Error("InfoCommand should resolve '-' to last note")
+		}
+	})
+}
+
 // --- TagCommand tests ---
 
 func TestTagCommand(t *testing.T) {
