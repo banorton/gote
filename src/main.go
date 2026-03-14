@@ -127,6 +127,8 @@ func main() {
 		cli.PinnedCommand(rest, false, false, false, false, false)
 	case "po": // pinned + open
 		cli.PinnedCommand(rest, true, false, false, false, false)
+	case "pd": // pinned + delete
+		cli.PinnedCommand(rest, false, true, false, false, false)
 	case "pv": // pinned + view
 		cli.PinnedCommand(rest, false, false, false, true, false)
 	case "pu": // pinned + unpin
