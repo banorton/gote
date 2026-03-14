@@ -23,8 +23,15 @@ func LockFile(path string) (*FileLock, error) {
 
 // Unlock releases the lock and removes the lock file.
 func (l *FileLock) Unlock() error {
-	syscall.Flock(int(l.file.Fd()), syscall.LOCK_UN)
-	l.file.Close()
-	os.Remove(l.path)
-	return nil
+	// Remove lock file before releasing the flock so other waiters
+	// don't see a stale file after we unlock.
+	removeErr := os.Remove(l.path)
+	if err := syscall.Flock(int(l.file.Fd()), syscall.LOCK_UN); err != nil {
+		l.file.Close()
+		return err
+	}
+	if err := l.file.Close(); err != nil {
+		return err
+	}
+	return removeErr
 }
