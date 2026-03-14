@@ -119,13 +119,8 @@ func RenameNote(oldName, newName string) error {
 		return fmt.Errorf("error loading config: %w", err)
 	}
 
-	var actualOldName string
-
-	// Update index with lock
-	err = data.WithIndexLock(func(index map[string]data.NoteMeta) error {
-		var meta data.NoteMeta
-		var exists bool
-		actualOldName, meta, exists = data.LookupNote(index, oldName)
+	return data.WithIndexLock(func(index map[string]data.NoteMeta) error {
+		actualOldName, meta, exists := data.LookupNote(index, oldName)
 		if !exists {
 			return fmt.Errorf("note not found: %s", oldName)
 		}
@@ -148,19 +143,15 @@ func RenameNote(oldName, newName string) error {
 		meta.FilePath = newPath
 		meta.LastVisited = time.Now().Format(timeFmt)
 		index[newName] = meta
-		return nil
-	})
-	if err != nil {
-		return err
-	}
 
-	// Update pins with lock
-	return data.WithPinsLock(func(pins map[string]data.EmptyStruct) error {
-		if _, pinned := pins[actualOldName]; pinned {
-			delete(pins, actualOldName)
-			pins[newName] = data.EmptyStruct{}
-		}
-		return nil
+		// Update pins inside the index lock to prevent inconsistency
+		return data.WithPinsLock(func(pins map[string]data.EmptyStruct) error {
+			if _, pinned := pins[actualOldName]; pinned {
+				delete(pins, actualOldName)
+				pins[newName] = data.EmptyStruct{}
+			}
+			return nil
+		})
 	})
 }
 
