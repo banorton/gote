@@ -397,6 +397,58 @@ func TestTrashOperations(t *testing.T) {
 	})
 }
 
+// --- Template validation tests ---
+
+func TestTemplateNameValidation(t *testing.T) {
+	dir, cleanup := testDir(t)
+	defer cleanup()
+
+	origGoteDir := GoteDir
+	GoteDir = func() string { return dir }
+	defer func() { GoteDir = origGoteDir }()
+
+	t.Run("path traversal in SaveTemplate is rejected", func(t *testing.T) {
+		err := SaveTemplate("../evil", "malicious content")
+		if err == nil {
+			t.Error("SaveTemplate should reject path traversal")
+		}
+	})
+
+	t.Run("path traversal in LoadTemplate is rejected", func(t *testing.T) {
+		_, err := LoadTemplate("../evil")
+		if err == nil {
+			t.Error("LoadTemplate should reject path traversal")
+		}
+	})
+
+	t.Run("path traversal in DeleteTemplate is rejected", func(t *testing.T) {
+		err := DeleteTemplate("../evil")
+		if err == nil {
+			t.Error("DeleteTemplate should reject path traversal")
+		}
+	})
+
+	t.Run("path traversal in RenameTemplate is rejected", func(t *testing.T) {
+		err := RenameTemplate("../evil", "safe")
+		if err == nil {
+			t.Error("RenameTemplate should reject path traversal in old name")
+		}
+		// Create a valid template first
+		EnsureTemplatesDir()
+		SaveTemplate("safe", "content")
+		err = RenameTemplate("safe", "../evil")
+		if err == nil {
+			t.Error("RenameTemplate should reject path traversal in new name")
+		}
+	})
+
+	t.Run("TemplateExists rejects path traversal", func(t *testing.T) {
+		if TemplateExists("../evil") {
+			t.Error("TemplateExists should return false for path traversal")
+		}
+	})
+}
+
 // --- Config tests ---
 
 func TestConfigOperations(t *testing.T) {
