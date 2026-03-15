@@ -15,9 +15,8 @@ Usage:
   gote -d/-dt/-nt <note>          Date/datetime/no-timestamp prefix
   gote                            Open quick note
   gote -                          Open last opened note
-  gote - v/i/d/rn/dup            View/info/delete/rename/duplicate last note
   gote quick save <name> | qs     Save quick note as named note
-  Note: "-" works as last note alias (e.g., gote view -, gote pin -)
+  Note: "-" works as last note alias (e.g., gote view -, gote delete -)
 
 Recent: (gote recent | r)
   gote recent [-n size]           List recent notes

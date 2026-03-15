@@ -14,8 +14,8 @@ A CLI note-taking tool written in Go. Notes are plain Markdown files with taggin
 | `gote <note> -t [template]` | | Create from template |
 | `gote -d/-dt/-nt <note>` | | Date/datetime/no-timestamp prefix |
 | `gote quick` | `q` | Open quick note |
-| `gote -` | | Open last opened note (also works as alias: `gote view -`) |
-| `gote - v/i/d/rn/dup` | | View/info/delete/rename/duplicate last note |
+| `gote -` | | Open last opened note |
+| `gote view -` / `gote info -` / etc. | | Use `-` as last note alias in any command |
 | `gote quick save <name>` | `qs` | Save quick note |
 | `gote recent` | `r` | Recent notes |
 | `gote recent open/delete/pin/view` | `ro/rd/rp/rv` | Recent + mode |
