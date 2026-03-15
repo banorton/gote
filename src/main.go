@@ -38,25 +38,7 @@ func main() {
 
 	// Last opened note
 	case "-":
-		if len(rest) > 0 {
-			// Resolve "-" to last note name, pass to subcommand
-			switch rest[0] {
-			case "v", "view":
-				cli.ViewCommand([]string{"-"})
-			case "i", "info":
-				cli.InfoCommand([]string{"-"})
-			case "d", "del", "delete":
-				cli.DeleteCommand([]string{"-"})
-			case "rn", "rename":
-				cli.RenameCommand(append([]string{"-"}, rest[1:]...))
-			case "dup", "duplicate", "cp":
-				cli.DuplicateCommand([]string{"-"})
-			default:
-				cli.LastCommand()
-			}
-		} else {
-			cli.LastCommand()
-		}
+		cli.LastCommand()
 
 	// Recent notes
 	case "recent", "r":
