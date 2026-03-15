@@ -19,7 +19,8 @@ A CLI note-taking tool written in Go. Notes are plain Markdown files with taggin
 | `gote quick save <name>` | `qs` | Save quick note |
 | `gote recent` | `r` | Recent notes |
 | `gote recent open/delete/pin/view` | `ro/rd/rp/rv` | Recent + mode |
-| `gote search <query>` | `s` | Search by title |
+| `gote search <query>` | `s` | Search titles + content |
+| `gote search --title <query>` | | Search by title only |
 | `gote search -t .tag1.tag2` | | Search by tags |
 | `gote search -w <date>` | | Search by date |
 | `gote tag` | `t` | List tags |
@@ -34,7 +35,8 @@ A CLI note-taking tool written in Go. Notes are plain Markdown files with taggin
 | `gote recover <note>` | | Restore from trash |
 | `gote get` | `g` | Interactive select |
 | `gote template` | `tmpl` | List templates |
-| `gote index` | `idx` | Rebuild index |
+| `gote index` | `idx` | Rebuild index (includes FTS) |
+| `gote index fts` | | Rebuild FTS index only |
 | `gote config` | `c` | Show config |
 | `gote config edit` | `ce` | Edit config |
 | `gote info <note>` | `i` | Note metadata |
@@ -53,7 +55,8 @@ gote mynote -t meeting   # from template
 gote r                   # recent notes
 gote ro                  # recent + open mode
 
-gote s meeting           # search
+gote s meeting           # search titles + content
+gote s --title meeting   # title-only search
 gote s -t .work          # search by tag
 gote s -w 2412           # notes from Dec 2024
 gote s -w 2412 2501      # date range
@@ -100,6 +103,7 @@ First line of note, period-separated:
 | Notes | `~/gotes/*.md` |
 | Index | `~/.gote/index.json` |
 | Tags | `~/.gote/tags.json` |
+| FTS Index | `~/.gote/fts.json` |
 | Pins | `~/.gote/pins.json` |
 | Templates | `~/.gote/templates/*.md` |
 | Trash | `~/.gote/trash/` |

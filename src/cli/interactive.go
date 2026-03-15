@@ -495,7 +495,8 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 			return
 		}
 	} else {
-		// Title search mode
+		// Search mode: full-text by default, --title for title-only
+		titleOnly := args.Has("title")
 		query := strings.ToLower(args.Joined())
 		if query == "" {
 			fmt.Print("Search: ")
@@ -509,13 +510,17 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 				return
 			}
 		}
-		results, err = core.SearchNotesByTitle(query, -1)
+		if titleOnly {
+			results, err = core.SearchNotesByTitle(query, -1)
+		} else {
+			results, err = core.SearchNotesCombined(query, -1)
+		}
 		if err != nil {
 			ui.Error(err.Error())
 			return
 		}
 		if len(results) == 0 {
-			ui.Empty("No matching note titles found.")
+			ui.Empty("No matching notes found.")
 			return
 		}
 	}
@@ -583,7 +588,7 @@ sourceLoop:
 			if query == "" {
 				return
 			}
-			results, err = core.SearchNotesByTitle(query, -1)
+			results, err = core.SearchNotesCombined(query, -1)
 			if err != nil {
 				ui.Error(err.Error())
 				return

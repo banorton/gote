@@ -93,6 +93,10 @@ func IndexNotes(notesDir string) error {
 		return err
 	}
 
+	if err := IndexAllFTS(notesDir, index); err != nil {
+		return fmt.Errorf("building FTS index: %w", err)
+	}
+
 	return FormatTagsFile()
 }
 
@@ -121,7 +125,15 @@ func IndexNote(notePath string) error {
 	}
 
 	index[meta.Title] = meta
-	return SaveIndexWithTags(index)
+	if err := SaveIndexWithTags(index); err != nil {
+		return err
+	}
+
+	content, err := os.ReadFile(notePath)
+	if err != nil {
+		return fmt.Errorf("reading note for FTS: %w", err)
+	}
+	return IndexDocFTS(meta.Title, meta.FilePath, string(content))
 }
 
 func BuildNoteMeta(notePath string, info os.FileInfo) (NoteMeta, error) {

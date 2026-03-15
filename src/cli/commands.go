@@ -154,6 +154,17 @@ func IndexCommand(rawArgs []string) {
 			return
 		}
 		ui.Success("Index file formatted.")
+	case "fts":
+		index, err := data.LoadIndex()
+		if err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		if err := data.IndexAllFTS(cfg.NoteDir, index); err != nil {
+			ui.Error(err.Error())
+		} else {
+			ui.Success("FTS index rebuilt.")
+		}
 	case "clear":
 		fmt.Print("This will delete and rebuild the index. Continue? [y/N]: ")
 		input := ui.ReadMenuInput()
@@ -163,6 +174,7 @@ func IndexCommand(rawArgs []string) {
 		}
 		os.Remove(data.IndexPath())
 		os.Remove(data.TagsPath())
+		os.Remove(data.FTSPath())
 		if err := data.IndexNotes(cfg.NoteDir); err != nil {
 			ui.Error(err.Error())
 		} else {
@@ -170,7 +182,7 @@ func IndexCommand(rawArgs []string) {
 		}
 	default:
 		fmt.Println("Unknown subcommand:", sub)
-		fmt.Println("Usage: gote index [edit|format|clear]")
+		fmt.Println("Usage: gote index [edit|format|clear|fts]")
 	}
 }
 

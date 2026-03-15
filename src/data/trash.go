@@ -22,6 +22,11 @@ func TrashNote(noteName string, noteMeta NoteMeta) error {
 		return fmt.Errorf("error moving note to trash: %w", err)
 	}
 
+	// Remove from FTS index
+	if err := RemoveDocFTS(noteName); err != nil {
+		return fmt.Errorf("removing from FTS index: %w", err)
+	}
+
 	// Update index with lock, nesting pins lock inside
 	return WithIndexLock(func(index map[string]NoteMeta) error {
 		delete(index, noteName)

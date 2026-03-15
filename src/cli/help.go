@@ -24,7 +24,8 @@ Recent: (gote recent | r)
   gote ro/rd/rp/rv                + open/delete/pin/view mode
 
 Search: (gote search | s)
-  gote search <query>             Search by title
+  gote search <query>             Search titles + content
+  gote search --title <query>     Search by title only
   gote so/sd/sp/sv <query>        + open/delete/pin/view mode
   gote search -t .tag1.tag2       Search by tags
   gote search -w <date> [date]    Search by date (created)
@@ -51,7 +52,8 @@ Trash: (gote delete | d)
 Other:
   gote get | g                    Interactive select
   gote template | tmpl [name]     List/edit templates
-  gote index | idx                Rebuild index
+  gote index | idx                Rebuild index (includes FTS)
+  gote index fts                  Rebuild FTS index only
   gote config | c                 Show config
   gote config edit | ce           Edit config
   gote info | i <note>            Note metadata

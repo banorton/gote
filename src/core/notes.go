@@ -144,6 +144,12 @@ func RenameNote(oldName, newName string) error {
 		meta.LastVisited = time.Now().Format(timeFmt)
 		index[newName] = meta
 
+		// Update FTS index: remove old, add new
+		_ = data.RemoveDocFTS(actualOldName)
+		if content, err := os.ReadFile(newPath); err == nil {
+			_ = data.IndexDocFTS(newName, newPath, string(content))
+		}
+
 		// Update pins inside the index lock to prevent inconsistency
 		return data.WithPinsLock(func(pins map[string]data.EmptyStruct) error {
 			if _, pinned := pins[actualOldName]; pinned {
@@ -195,6 +201,10 @@ func DuplicateNote(oldName, newName string) error {
 			return fmt.Errorf("error building metadata: %w", err)
 		}
 		index[newName] = newMeta
+
+		// Index in FTS
+		_ = data.IndexDocFTS(newName, newPath, string(content))
+
 		return nil
 	})
 }
