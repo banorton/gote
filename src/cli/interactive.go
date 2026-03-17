@@ -153,7 +153,7 @@ func displayMenu(cfg MenuConfig, ui *UI, fancyUI bool) MenuResult {
 				itemKey = rune(input[0])
 			}
 		} else {
-			// Full menu mode: input is action+item (e.g., "oa")
+			// Full menu mode: action+item (e.g., "oa"), or just item letter to open
 			if len(input) == 2 {
 				actionKey := input[0]
 				itemKey = rune(input[1])
@@ -181,6 +181,10 @@ func displayMenu(cfg MenuConfig, ui *UI, fancyUI bool) MenuResult {
 				case 'i':
 					action = "info"
 				}
+			} else if len(input) == 1 {
+				// Single letter defaults to "open"
+				action = "open"
+				itemKey = rune(input[0])
 			}
 		}
 

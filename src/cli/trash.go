@@ -22,17 +22,24 @@ func DeleteCommand(rawArgs []string) {
 		return
 	}
 
-	noteName, err := ResolveNoteName(noteName)
+	resolved, err := ResolveNoteName(noteName)
 	if err != nil {
 		ui.Error(err.Error())
 		return
 	}
 
-	if err := core.DeleteNote(noteName); err != nil {
+	if noteName == "-" {
+		fmt.Printf("Delete \"%s\"? [y/n]: ", resolved)
+		if ui.ReadMenuInput() != "y" {
+			return
+		}
+	}
+
+	if err := core.DeleteNote(resolved); err != nil {
 		ui.Error(err.Error())
 		return
 	}
-	ui.Success("Note moved to trash: " + noteName)
+	ui.Success("Note moved to trash: " + resolved)
 }
 
 func RecoverCommand(rawArgs []string) {
