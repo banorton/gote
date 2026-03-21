@@ -95,7 +95,7 @@ func InfoCommand(rawArgs []string) {
 		return
 	}
 
-	if cfg.FancyUI {
+	if cfg.IsTUI() {
 		kvPairs := [][2]string{
 			{"Path", meta.FilePath},
 			{"Created", meta.Created},

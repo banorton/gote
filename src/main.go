@@ -42,31 +42,31 @@ func main() {
 
 	// Recent notes
 	case "recent", "r":
-		cli.RecentCommand(rest, false, false, false, false, false)
+		cli.RecentCommand(rest, cli.ActionDefaults{})
 	case "ro": // recent + open
-		cli.RecentCommand(rest, true, false, false, false, false)
+		cli.RecentCommand(rest, cli.ActionDefaults{Open: true})
 	case "rd": // recent + delete
-		cli.RecentCommand(rest, false, true, false, false, false)
+		cli.RecentCommand(rest, cli.ActionDefaults{Delete: true})
 	case "rp": // recent + pin
-		cli.RecentCommand(rest, false, false, true, false, false)
+		cli.RecentCommand(rest, cli.ActionDefaults{Pin: true})
 	case "rv": // recent + view
-		cli.RecentCommand(rest, false, false, false, true, false)
+		cli.RecentCommand(rest, cli.ActionDefaults{View: true})
 	case "rr": // recent + rename
-		cli.RecentCommand(rest, false, false, false, false, true)
+		cli.RecentCommand(rest, cli.ActionDefaults{Rename: true})
 
 	// Search
 	case "search", "s":
-		cli.SearchCommand(rest, false, false, false, false, false)
+		cli.SearchCommand(rest, cli.ActionDefaults{})
 	case "so": // search + open
-		cli.SearchCommand(rest, true, false, false, false, false)
+		cli.SearchCommand(rest, cli.ActionDefaults{Open: true})
 	case "sd": // search + delete
-		cli.SearchCommand(rest, false, true, false, false, false)
+		cli.SearchCommand(rest, cli.ActionDefaults{Delete: true})
 	case "sp": // search + pin
-		cli.SearchCommand(rest, false, false, true, false, false)
+		cli.SearchCommand(rest, cli.ActionDefaults{Pin: true})
 	case "sv": // search + view
-		cli.SearchCommand(rest, false, false, false, true, false)
+		cli.SearchCommand(rest, cli.ActionDefaults{View: true})
 	case "sr": // search + rename
-		cli.SearchCommand(rest, false, false, false, false, true)
+		cli.SearchCommand(rest, cli.ActionDefaults{Rename: true})
 
 	// Index management
 	case "index", "idx":
@@ -74,17 +74,17 @@ func main() {
 
 	// Tags
 	case "tag", "t":
-		cli.TagCommand(rest, false, false, false, false, false)
+		cli.TagCommand(rest, cli.ActionDefaults{})
 	case "to": // tag + open
-		cli.TagCommand(rest, true, false, false, false, false)
+		cli.TagCommand(rest, cli.ActionDefaults{Open: true})
 	case "td": // tag + delete
-		cli.TagCommand(rest, false, true, false, false, false)
+		cli.TagCommand(rest, cli.ActionDefaults{Delete: true})
 	case "tp": // tag + pin
-		cli.TagCommand(rest, false, false, true, false, false)
+		cli.TagCommand(rest, cli.ActionDefaults{Pin: true})
 	case "tv": // tag + view
-		cli.TagCommand(rest, false, false, false, true, false)
+		cli.TagCommand(rest, cli.ActionDefaults{View: true})
 	case "tr": // tag + rename
-		cli.TagCommand(rest, false, false, false, false, true)
+		cli.TagCommand(rest, cli.ActionDefaults{Rename: true})
 
 	// Get (interactive flow)
 	case "get", "g":
@@ -106,17 +106,17 @@ func main() {
 	case "unpin", "u", "up":
 		cli.UnpinCommand(rest)
 	case "pinned":
-		cli.PinnedCommand(rest, false, false, false, false, false)
+		cli.PinnedCommand(rest, cli.ActionDefaults{})
 	case "po": // pinned + open
-		cli.PinnedCommand(rest, true, false, false, false, false)
+		cli.PinnedCommand(rest, cli.ActionDefaults{Open: true})
 	case "pd": // pinned + delete
-		cli.PinnedCommand(rest, false, true, false, false, false)
+		cli.PinnedCommand(rest, cli.ActionDefaults{Delete: true})
 	case "pv": // pinned + view
-		cli.PinnedCommand(rest, false, false, false, true, false)
+		cli.PinnedCommand(rest, cli.ActionDefaults{View: true})
 	case "pu": // pinned + unpin
-		cli.PinnedCommand(rest, false, false, true, false, false)
+		cli.PinnedCommand(rest, cli.ActionDefaults{Unpin: true})
 	case "pr": // pinned + rename
-		cli.PinnedCommand(rest, false, false, false, false, true)
+		cli.PinnedCommand(rest, cli.ActionDefaults{Rename: true})
 
 	// Trash
 	case "delete", "d", "del":

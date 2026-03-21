@@ -91,7 +91,7 @@ func SearchNotesFullText(query string, limit int) ([]SearchResult, error) {
 		out = append(out, SearchResult{
 			Title:    r.title,
 			FilePath: r.filePath,
-			Score:    int(r.score * 100), // scale for display
+			Score:    int(math.Round(r.score * 100)), // scale for display
 		})
 	}
 	return out, nil

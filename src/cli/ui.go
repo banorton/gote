@@ -49,38 +49,56 @@ func visibleLen(s string) int {
 
 // UI holds the UI state
 type UI struct {
-	Fancy bool
+	Mode string // "default", "minimal", "tui"
 }
 
 // NewUI creates a UI instance
-func NewUI(fancy bool) *UI {
-	return &UI{Fancy: fancy}
+func NewUI(mode string) *UI {
+	if mode == "" {
+		mode = "default"
+	}
+	return &UI{Mode: mode}
+}
+
+// IsTUI returns true if the UI is in TUI mode
+func (u *UI) IsTUI() bool {
+	return u.Mode == "tui"
+}
+
+// IsMinimal returns true if the UI is in minimal mode
+func (u *UI) IsMinimal() bool {
+	return u.Mode == "minimal"
+}
+
+// IsDefault returns true if the UI is in default mode
+func (u *UI) IsDefault() bool {
+	return u.Mode == "default"
 }
 
 // Clear clears the screen and moves cursor home
 func (u *UI) Clear() {
-	if u.Fancy {
+	if u.IsTUI() {
 		fmt.Print(ClearScreen + CursorHome)
 	}
 }
 
 // HideCursor hides the cursor
 func (u *UI) HideCursor() {
-	if u.Fancy {
+	if u.IsTUI() {
 		fmt.Print(CursorHide)
 	}
 }
 
 // ShowCursor shows the cursor
 func (u *UI) ShowCursor() {
-	if u.Fancy {
+	if u.IsTUI() {
 		fmt.Print(CursorShow)
 	}
 }
 
 // Box draws a box with title and content
 func (u *UI) Box(title string, lines []string, width int) {
-	if !u.Fancy {
+	if !u.IsTUI() {
 		if title != "" {
 			fmt.Println(title + ":")
 		}
@@ -92,7 +110,7 @@ func (u *UI) Box(title string, lines []string, width int) {
 
 	// Calculate width based on visible content
 	if width == 0 {
-		width = len(title) + 4
+		width = visibleLen(title) + 4
 		for _, line := range lines {
 			visible := visibleLen(line) + 4
 			if visible > width {
@@ -107,7 +125,7 @@ func (u *UI) Box(title string, lines []string, width int) {
 	// Top border with title
 	if title != "" {
 		titlePart := fmt.Sprintf(" %s ", title)
-		remaining := width - len(titlePart) - 2
+		remaining := width - visibleLen(titlePart) - 2
 		left := remaining / 2
 		right := remaining - left
 		fmt.Printf("%s%s%s%s%s%s%s\n",
@@ -145,7 +163,7 @@ func (u *UI) Box(title string, lines []string, width int) {
 
 // SelectableList renders an interactive selectable list with box
 func (u *UI) SelectableList(title string, items []string, selected int, keys []rune) {
-	if !u.Fancy {
+	if !u.IsTUI() {
 		if title != "" {
 			fmt.Println(title + ":")
 		}
@@ -160,9 +178,9 @@ func (u *UI) SelectableList(title string, items []string, selected int, keys []r
 	}
 
 	// Calculate width based on actual item lengths
-	width := len(title) + 4
+	width := visibleLen(title) + 4
 	for _, item := range items {
-		itemWidth := len(item) + 8 // account for " [x] " prefix and padding
+		itemWidth := visibleLen(item) + 8 // account for " [x] " prefix and padding
 		if itemWidth > width {
 			width = itemWidth
 		}
@@ -211,7 +229,7 @@ func (u *UI) NavHintWithOpen(page, total int, showOpen bool) {
 
 // NavHintWithModes shows navigation hints with optional [o]pen and [v]iew options
 func (u *UI) NavHintWithModes(page, total int, showOpen bool, showView bool) {
-	if !u.Fancy {
+	if !u.IsTUI() {
 		fmt.Printf("(%d/%d) ", page, total)
 		if total > 1 {
 			fmt.Print("[n]ext [p]rev ")
@@ -245,7 +263,7 @@ func (u *UI) NavHintWithModes(page, total int, showOpen bool, showView bool) {
 
 // Success prints a success message
 func (u *UI) Success(text string) {
-	if u.Fancy {
+	if u.IsTUI() {
 		fmt.Printf("%s->%s %s\n", Cyan, Reset, text)
 	} else {
 		fmt.Println(text)
@@ -254,7 +272,7 @@ func (u *UI) Success(text string) {
 
 // Error prints an error message
 func (u *UI) Error(text string) {
-	if u.Fancy {
+	if u.IsTUI() {
 		fmt.Printf("%s!%s %s\n", Bold, Reset, text)
 	} else {
 		fmt.Println("Error:", text)
@@ -263,7 +281,7 @@ func (u *UI) Error(text string) {
 
 // Info prints an info message
 func (u *UI) Info(text string) {
-	if u.Fancy {
+	if u.IsTUI() {
 		fmt.Printf("%s->%s %s\n", Cyan, Reset, text)
 	} else {
 		fmt.Println(text)
@@ -272,7 +290,7 @@ func (u *UI) Info(text string) {
 
 // Empty prints an empty state message
 func (u *UI) Empty(text string) {
-	if u.Fancy {
+	if u.IsTUI() {
 		fmt.Printf("%s%s%s\n", Dim, text, Reset)
 	} else {
 		fmt.Println(text)
@@ -281,7 +299,7 @@ func (u *UI) Empty(text string) {
 
 // Title prints a styled title
 func (u *UI) Title(text string) {
-	if u.Fancy {
+	if u.IsTUI() {
 		fmt.Printf("%s%s%s\n", BoldCyan, text, Reset)
 	} else {
 		fmt.Println(text)
@@ -290,7 +308,7 @@ func (u *UI) Title(text string) {
 
 // KeyValue prints a key-value pair
 func (u *UI) KeyValue(key, value string) {
-	if u.Fancy {
+	if u.IsTUI() {
 		fmt.Printf("  %s%s:%s %s\n", Cyan, key, Reset, value)
 	} else {
 		fmt.Printf("%s: %s\n", key, value)
@@ -302,7 +320,7 @@ func (u *UI) Tags(tags []string) {
 	if len(tags) == 0 {
 		return
 	}
-	if u.Fancy {
+	if u.IsTUI() {
 		fmt.Printf("  %sTags:%s %s\n", Cyan, Reset, strings.Join(tags, ", "))
 	} else {
 		fmt.Printf("Tags: %s\n", strings.Join(tags, ", "))
@@ -311,7 +329,7 @@ func (u *UI) Tags(tags []string) {
 
 // ListItem prints a list item (non-interactive)
 func (u *UI) ListItem(key rune, text string, selected bool) {
-	if u.Fancy {
+	if u.IsTUI() {
 		if key != 0 {
 			fmt.Printf("  %s[%c]%s %s\n", Dim, key, Reset, text)
 		} else {
@@ -328,7 +346,7 @@ func (u *UI) ListItem(key rune, text string, selected bool) {
 
 // ListItemWithMeta prints a list item with metadata
 func (u *UI) ListItemWithMeta(key rune, text string, meta string) {
-	if u.Fancy {
+	if u.IsTUI() {
 		if key != 0 {
 			fmt.Printf("  %s[%c]%s %s %s%s%s\n", Dim, key, Reset, text, Dim, meta, Reset)
 		} else {
@@ -412,7 +430,7 @@ func (u *UI) ReadInputWithDefault(prompt, defaultVal string) string {
 
 // InfoBox displays key-value info in a box
 func (u *UI) InfoBox(title string, kvPairs [][2]string) {
-	if !u.Fancy {
+	if !u.IsTUI() {
 		if title != "" {
 			fmt.Println(title)
 		}

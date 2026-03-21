@@ -14,7 +14,39 @@ func LoadConfigAndUI() (data.Config, *UI, bool) {
 		fmt.Println("Error loading config:", err)
 		return data.Config{}, nil, false
 	}
-	return cfg, NewUI(cfg.FancyUI), true
+	return cfg, NewUI(cfg.Interface), true
+}
+
+// ActionDefaults holds boolean flags for pre-selected menu actions
+type ActionDefaults struct {
+	Open, Delete, Pin, Unpin, View, Rename bool
+}
+
+// resolvePreSelectedAction determines the pre-selected action from positional args and defaults.
+// It consumes the action keyword from args.Positional if present.
+func resolvePreSelectedAction(args *Args, defaults ActionDefaults) string {
+	first := args.First()
+	type actionCheck struct {
+		keyword string
+		flag    bool
+	}
+	checks := []actionCheck{
+		{"open", defaults.Open},
+		{"delete", defaults.Delete},
+		{"pin", defaults.Pin},
+		{"unpin", defaults.Unpin},
+		{"view", defaults.View},
+		{"rename", defaults.Rename},
+	}
+	for _, c := range checks {
+		if first == c.keyword || c.flag {
+			if first == c.keyword {
+				args.Positional = args.Positional[1:]
+			}
+			return c.keyword
+		}
+	}
+	return ""
 }
 
 // ResolveNoteName resolves "-" to the last opened note's title.

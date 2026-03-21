@@ -42,7 +42,7 @@ type MenuResult struct {
 // displayMenu shows a paginated menu with items and handles input
 // In pre-selected mode: user types item letter + Enter
 // In full menu mode: user types action+item combo + Enter (e.g., "oa" to open item a)
-func displayMenu(cfg MenuConfig, ui *UI, fancyUI bool) MenuResult {
+func displayMenu(cfg MenuConfig, ui *UI, mode string) MenuResult {
 	if len(cfg.Items) == 0 {
 		fmt.Println("No results found.")
 		return MenuResult{}
@@ -64,7 +64,7 @@ func displayMenu(cfg MenuConfig, ui *UI, fancyUI bool) MenuResult {
 	if cfg.PreSelectedAction != "" {
 		actions = "" // No actions line needed in pre-selected mode
 	} else {
-		actions = "[o]pen"
+		actions = "[o]pen (default)"
 		if !cfg.HideView {
 			actions += " [v]iew"
 		}
@@ -92,7 +92,7 @@ func displayMenu(cfg MenuConfig, ui *UI, fancyUI bool) MenuResult {
 		}
 
 		// Display
-		if fancyUI {
+		if mode == "tui" {
 			ui.Clear()
 			ui.SelectableList(cfg.Title, pageItems, -1, keys)
 			// Navigation + actions
@@ -104,6 +104,11 @@ func displayMenu(cfg MenuConfig, ui *UI, fancyUI bool) MenuResult {
 			if actions != "" {
 				fmt.Printf(" %s%s%s\n", Dim, actions, Reset)
 			}
+		} else if mode == "minimal" {
+			for i, item := range pageItems {
+				fmt.Printf("[%c] %s\n", keys[i], item)
+			}
+			fmt.Print(": ")
 		} else {
 			for i, item := range pageItems {
 				fmt.Printf("[%c] %s\n", keys[i], item)
@@ -128,7 +133,7 @@ func displayMenu(cfg MenuConfig, ui *UI, fancyUI bool) MenuResult {
 
 		// Handle navigation
 		if input == "q" {
-			if fancyUI {
+			if mode == "tui" {
 				ui.Clear()
 			}
 			return MenuResult{}
@@ -196,7 +201,7 @@ func displayMenu(cfg MenuConfig, ui *UI, fancyUI bool) MenuResult {
 		for i := 0; i < len(pageItems) && i < len(selectKeys); i++ {
 			sk := selectKeys[i]
 			if itemKey == sk || (sk >= 'a' && sk <= 'z' && itemKey == sk-32) {
-				if fancyUI {
+				if mode == "tui" {
 					ui.Clear()
 				}
 				return MenuResult{Note: cfg.Items[start+i], Action: action}
@@ -309,38 +314,9 @@ func looksLikeDate(s string) bool {
 	return (l == 9 || l == 11 || l == 13) && len(s) > 6 && s[6] == '.'
 }
 
-func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool, defaultView bool, defaultRename bool) {
+func RecentCommand(rawArgs []string, defaults ActionDefaults) {
 	args := ParseArgs(rawArgs)
-
-	// Determine pre-selected action from flags or keywords
-	var preSelected string
-	first := args.First()
-	if first == "open" || defaultOpen {
-		preSelected = "open"
-		if first == "open" {
-			args.Positional = args.Positional[1:]
-		}
-	} else if first == "delete" || defaultDelete {
-		preSelected = "delete"
-		if first == "delete" {
-			args.Positional = args.Positional[1:]
-		}
-	} else if first == "pin" || defaultPin {
-		preSelected = "pin"
-		if first == "pin" {
-			args.Positional = args.Positional[1:]
-		}
-	} else if first == "view" || defaultView {
-		preSelected = "view"
-		if first == "view" {
-			args.Positional = args.Positional[1:]
-		}
-	} else if first == "rename" || defaultRename {
-		preSelected = "rename"
-		if first == "rename" {
-			args.Positional = args.Positional[1:]
-		}
-	}
+	preSelected := resolvePreSelectedAction(&args, defaults)
 
 	cfg, ui, ok := LoadConfigAndUI()
 	if !ok {
@@ -376,7 +352,7 @@ func RecentCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 		PreSelectedAction: preSelected,
 		ShowPin:           true,
 		PageSize:          pageSize,
-	}, ui, cfg.FancyUI)
+	}, ui, cfg.Interface)
 
 	executeMenuAction(result, paths, ui)
 }
@@ -392,7 +368,7 @@ func searchResultsToMenu(results []core.SearchResult) ([]string, map[string]stri
 	return titles, paths
 }
 
-func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool, defaultView bool, defaultRename bool) {
+func SearchCommand(rawArgs []string, defaults ActionDefaults) {
 	args := ParseArgs(rawArgs)
 
 	cfg, ui, ok := LoadConfigAndUI()
@@ -416,7 +392,7 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 			ui.Empty("No matching trashed notes found.")
 			return
 		}
-		if cfg.FancyUI {
+		if cfg.IsTUI() {
 			ui.Box("Trash Search Results", results, 0)
 		} else {
 			for _, r := range results {
@@ -426,35 +402,7 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 		return
 	}
 
-	// Determine pre-selected action
-	var preSelected string
-	first := args.First()
-	if first == "open" || defaultOpen {
-		preSelected = "open"
-		if first == "open" {
-			args.Positional = args.Positional[1:]
-		}
-	} else if first == "delete" || defaultDelete {
-		preSelected = "delete"
-		if first == "delete" {
-			args.Positional = args.Positional[1:]
-		}
-	} else if first == "pin" || defaultPin {
-		preSelected = "pin"
-		if first == "pin" {
-			args.Positional = args.Positional[1:]
-		}
-	} else if first == "view" || defaultView {
-		preSelected = "view"
-		if first == "view" {
-			args.Positional = args.Positional[1:]
-		}
-	} else if first == "rename" || defaultRename {
-		preSelected = "rename"
-		if first == "rename" {
-			args.Positional = args.Positional[1:]
-		}
-	}
+	preSelected := resolvePreSelectedAction(&args, defaults)
 
 	pageSize := args.IntOr(cfg.PageSize(), "n", "limit")
 	tags := args.TagList("t", "tags")
@@ -537,7 +485,7 @@ func SearchCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 		PreSelectedAction: preSelected,
 		ShowPin:           true,
 		PageSize:          pageSize,
-	}, ui, cfg.FancyUI)
+	}, ui, cfg.Interface)
 
 	executeMenuAction(result, paths, ui)
 }
@@ -555,7 +503,7 @@ func GetCommand() {
 	var title string
 sourceLoop:
 	for {
-		if cfg.FancyUI {
+		if cfg.IsTUI() {
 			ui.Clear()
 		}
 		fmt.Println("Select source:")
@@ -651,7 +599,7 @@ sourceLoop:
 		ItemPaths: paths,
 		ShowPin:  true,
 		PageSize: pageSize,
-	}, ui, cfg.FancyUI)
+	}, ui, cfg.Interface)
 
 	executeMenuAction(result, paths, ui)
 }

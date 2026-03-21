@@ -84,7 +84,7 @@ func TrashCommand(rawArgs []string) {
 			ui.Empty("Trash is empty.")
 			return
 		}
-		if cfg.FancyUI {
+		if cfg.IsTUI() {
 			ui.Box("Trash", notes, 0)
 		} else {
 			fmt.Println("Trashed notes:")
@@ -118,7 +118,7 @@ func TrashCommand(rawArgs []string) {
 			ui.Empty("No matching trashed notes found.")
 			return
 		}
-		if cfg.FancyUI {
+		if cfg.IsTUI() {
 			ui.Box("Trash Search", results, 0)
 		} else {
 			for _, r := range results {

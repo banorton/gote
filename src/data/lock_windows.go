@@ -17,7 +17,7 @@ func LockFile(path string) (*FileLock, error) {
 
 // Unlock releases the lock file.
 func (l *FileLock) Unlock() error {
-	l.file.Close()
-	os.Remove(l.path)
+	_ = l.file.Close()
+	_ = os.Remove(l.path)
 	return nil
 }

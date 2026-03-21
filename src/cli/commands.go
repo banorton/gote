@@ -76,7 +76,7 @@ func NoteCommand(args []string) {
 	}
 
 	if err := core.CreateOrOpenNote(noteName); err != nil {
-		fmt.Println("Error:", err)
+		ui.Error(err.Error())
 	}
 }
 
@@ -172,9 +172,9 @@ func IndexCommand(rawArgs []string) {
 			ui.Info("Cancelled.")
 			return
 		}
-		os.Remove(data.IndexPath())
-		os.Remove(data.TagsPath())
-		os.Remove(data.FTSPath())
+		_ = os.Remove(data.IndexPath())
+		_ = os.Remove(data.TagsPath())
+		_ = os.Remove(data.FTSPath())
 		if err := data.IndexNotes(cfg.NoteDir); err != nil {
 			ui.Error(err.Error())
 		} else {
@@ -186,47 +186,14 @@ func IndexCommand(rawArgs []string) {
 	}
 }
 
-func TagCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultPin bool, defaultView bool, defaultRename bool) {
+func TagCommand(rawArgs []string, defaults ActionDefaults) {
 	args := ParseArgs(rawArgs)
+	preSelected := resolvePreSelectedAction(&args, defaults)
 	sub := args.First()
 
 	cfg, ui, ok := LoadConfigAndUI()
 	if !ok {
 		return
-	}
-
-	// Determine pre-selected action
-	var preSelected string
-	if sub == "open" || defaultOpen {
-		preSelected = "open"
-		if sub == "open" {
-			args.Positional = args.Positional[1:]
-			sub = args.First()
-		}
-	} else if sub == "delete" || defaultDelete {
-		preSelected = "delete"
-		if sub == "delete" {
-			args.Positional = args.Positional[1:]
-			sub = args.First()
-		}
-	} else if sub == "pin" || defaultPin {
-		preSelected = "pin"
-		if sub == "pin" {
-			args.Positional = args.Positional[1:]
-			sub = args.First()
-		}
-	} else if sub == "view" || defaultView {
-		preSelected = "view"
-		if sub == "view" {
-			args.Positional = args.Positional[1:]
-			sub = args.First()
-		}
-	} else if sub == "rename" || defaultRename {
-		preSelected = "rename"
-		if sub == "rename" {
-			args.Positional = args.Positional[1:]
-			sub = args.First()
-		}
 	}
 
 	// If first arg starts with ".", it's a tag filter
@@ -261,7 +228,7 @@ func TagCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultP
 			PreSelectedAction: preSelected,
 			ShowPin:           true,
 			PageSize:          pageSize,
-		}, ui, cfg.FancyUI)
+		}, ui, cfg.Interface)
 
 		executeMenuAction(result, paths, ui)
 		return
@@ -283,7 +250,7 @@ func TagCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultP
 		for tagName, tag := range tags {
 			lines = append(lines, fmt.Sprintf("%s (%d)", tagName, tag.Count))
 		}
-		if cfg.FancyUI {
+		if cfg.IsTUI() {
 			ui.Box("Tags", lines, 0)
 		} else {
 			for _, line := range lines {
@@ -321,7 +288,7 @@ func TagCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultP
 		for _, tag := range tags {
 			lines = append(lines, fmt.Sprintf("%s (%d)", tag.Tag, tag.Count))
 		}
-		if cfg.FancyUI {
+		if cfg.IsTUI() {
 			ui.Box(fmt.Sprintf("Top %d Tags", len(tags)), lines, 0)
 		} else {
 			fmt.Printf("Top %d tags:\n", len(tags))
@@ -347,7 +314,7 @@ func ConfigCommand(rawArgs []string) {
 
 	switch sub {
 	case "", "show":
-		if cfg.FancyUI {
+		if cfg.IsTUI() {
 			timestampVal := cfg.TimestampNotes
 			if timestampVal == "" {
 				timestampVal = "none"
@@ -355,7 +322,7 @@ func ConfigCommand(rawArgs []string) {
 			ui.InfoBox("Config", [][2]string{
 				{"Note directory", cfg.NoteDir},
 				{"Editor", cfg.Editor},
-				{"Fancy UI", fmt.Sprintf("%v", cfg.FancyUI)},
+				{"Interface", cfg.Interface},
 				{"Timestamp notes", timestampVal},
 				{"Default page size", fmt.Sprintf("%d", cfg.PageSize())},
 			})
@@ -384,9 +351,12 @@ Options:
   editor           Editor to open notes with
                    Default: vim
 
-  fancyUI          Enable TUI mode with boxes and single-keypress input
-                   Values: true, false
-                   Default: false
+  interface        UI mode
+                   Values: "default", "minimal", "tui"
+                   default  = full text menu with nav hints and actions
+                   minimal  = items + prompt only, no chrome
+                   tui      = box drawing, ANSI colors, screen clear
+                   Default: "default"
 
   timestampNotes   Auto-prefix new notes with timestamp
                    Values: "none", "date" (yymmdd), "datetime" (yymmdd-hhmmss)

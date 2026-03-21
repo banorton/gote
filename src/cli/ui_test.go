@@ -60,17 +60,31 @@ func TestVisibleLen(t *testing.T) {
 // --- UI constructor tests ---
 
 func TestNewUI(t *testing.T) {
-	t.Run("creates fancy UI", func(t *testing.T) {
-		ui := NewUI(true)
-		if !ui.Fancy {
-			t.Error("Expected Fancy to be true")
+	t.Run("creates tui UI", func(t *testing.T) {
+		ui := NewUI("tui")
+		if !ui.IsTUI() {
+			t.Error("Expected IsTUI() to be true")
 		}
 	})
 
-	t.Run("creates non-fancy UI", func(t *testing.T) {
-		ui := NewUI(false)
-		if ui.Fancy {
-			t.Error("Expected Fancy to be false")
+	t.Run("creates default UI", func(t *testing.T) {
+		ui := NewUI("default")
+		if !ui.IsDefault() {
+			t.Error("Expected IsDefault() to be true")
+		}
+	})
+
+	t.Run("creates minimal UI", func(t *testing.T) {
+		ui := NewUI("minimal")
+		if !ui.IsMinimal() {
+			t.Error("Expected IsMinimal() to be true")
+		}
+	})
+
+	t.Run("empty string defaults to default", func(t *testing.T) {
+		ui := NewUI("")
+		if !ui.IsDefault() {
+			t.Error("Expected IsDefault() to be true for empty string")
 		}
 	})
 }
@@ -79,7 +93,7 @@ func TestNewUI(t *testing.T) {
 
 func TestUISuccess(t *testing.T) {
 	t.Run("non-fancy mode", func(t *testing.T) {
-		ui := NewUI(false)
+		ui := NewUI("default")
 		output := captureUIOutput(func() {
 			ui.Success("operation completed")
 		})
@@ -89,7 +103,7 @@ func TestUISuccess(t *testing.T) {
 	})
 
 	t.Run("fancy mode has arrow prefix", func(t *testing.T) {
-		ui := NewUI(true)
+		ui := NewUI("tui")
 		output := captureUIOutput(func() {
 			ui.Success("operation completed")
 		})
@@ -101,7 +115,7 @@ func TestUISuccess(t *testing.T) {
 
 func TestUIError(t *testing.T) {
 	t.Run("non-fancy mode", func(t *testing.T) {
-		ui := NewUI(false)
+		ui := NewUI("default")
 		output := captureUIOutput(func() {
 			ui.Error("something failed")
 		})
@@ -115,7 +129,7 @@ func TestUIError(t *testing.T) {
 }
 
 func TestUIInfo(t *testing.T) {
-	ui := NewUI(false)
+	ui := NewUI("default")
 	output := captureUIOutput(func() {
 		ui.Info("info message")
 	})
@@ -125,7 +139,7 @@ func TestUIInfo(t *testing.T) {
 }
 
 func TestUIEmpty(t *testing.T) {
-	ui := NewUI(false)
+	ui := NewUI("default")
 	output := captureUIOutput(func() {
 		ui.Empty("nothing found")
 	})
@@ -135,7 +149,7 @@ func TestUIEmpty(t *testing.T) {
 }
 
 func TestUITitle(t *testing.T) {
-	ui := NewUI(false)
+	ui := NewUI("default")
 	output := captureUIOutput(func() {
 		ui.Title("My Title")
 	})
@@ -145,7 +159,7 @@ func TestUITitle(t *testing.T) {
 }
 
 func TestUIKeyValue(t *testing.T) {
-	ui := NewUI(false)
+	ui := NewUI("default")
 	output := captureUIOutput(func() {
 		ui.KeyValue("Name", "test-note")
 	})
@@ -156,7 +170,7 @@ func TestUIKeyValue(t *testing.T) {
 
 func TestUITags(t *testing.T) {
 	t.Run("with tags", func(t *testing.T) {
-		ui := NewUI(false)
+		ui := NewUI("default")
 		output := captureUIOutput(func() {
 			ui.Tags([]string{"work", "urgent"})
 		})
@@ -169,7 +183,7 @@ func TestUITags(t *testing.T) {
 	})
 
 	t.Run("empty tags", func(t *testing.T) {
-		ui := NewUI(false)
+		ui := NewUI("default")
 		output := captureUIOutput(func() {
 			ui.Tags([]string{})
 		})
@@ -181,7 +195,7 @@ func TestUITags(t *testing.T) {
 
 func TestUIListItem(t *testing.T) {
 	t.Run("with key", func(t *testing.T) {
-		ui := NewUI(false)
+		ui := NewUI("default")
 		output := captureUIOutput(func() {
 			ui.ListItem('a', "item text", false)
 		})
@@ -191,7 +205,7 @@ func TestUIListItem(t *testing.T) {
 	})
 
 	t.Run("without key", func(t *testing.T) {
-		ui := NewUI(false)
+		ui := NewUI("default")
 		output := captureUIOutput(func() {
 			ui.ListItem(0, "plain item", false)
 		})
@@ -202,7 +216,7 @@ func TestUIListItem(t *testing.T) {
 }
 
 func TestUIListItemWithMeta(t *testing.T) {
-	ui := NewUI(false)
+	ui := NewUI("default")
 	output := captureUIOutput(func() {
 		ui.ListItemWithMeta('a', "note-name", "(3 tags)")
 	})
@@ -221,7 +235,7 @@ func TestUIListItemWithMeta(t *testing.T) {
 
 func TestUIBox(t *testing.T) {
 	t.Run("non-fancy mode shows title and content", func(t *testing.T) {
-		ui := NewUI(false)
+		ui := NewUI("default")
 		output := captureUIOutput(func() {
 			ui.Box("Results", []string{"item1", "item2"}, 0)
 		})
@@ -234,7 +248,7 @@ func TestUIBox(t *testing.T) {
 	})
 
 	t.Run("fancy mode draws box characters", func(t *testing.T) {
-		ui := NewUI(true)
+		ui := NewUI("tui")
 		output := captureUIOutput(func() {
 			ui.Box("Results", []string{"item1", "item2"}, 0)
 		})
@@ -249,7 +263,7 @@ func TestUIBox(t *testing.T) {
 
 func TestUISelectableList(t *testing.T) {
 	t.Run("non-fancy mode", func(t *testing.T) {
-		ui := NewUI(false)
+		ui := NewUI("default")
 		output := captureUIOutput(func() {
 			ui.SelectableList("Select", []string{"opt1", "opt2"}, -1, []rune{'a', 's'})
 		})
@@ -264,7 +278,7 @@ func TestUISelectableList(t *testing.T) {
 
 func TestUINavHint(t *testing.T) {
 	t.Run("non-fancy single page", func(t *testing.T) {
-		ui := NewUI(false)
+		ui := NewUI("default")
 		output := captureUIOutput(func() {
 			ui.NavHint(1, 1)
 		})
@@ -281,7 +295,7 @@ func TestUINavHint(t *testing.T) {
 	})
 
 	t.Run("non-fancy multi page", func(t *testing.T) {
-		ui := NewUI(false)
+		ui := NewUI("default")
 		output := captureUIOutput(func() {
 			ui.NavHint(1, 3)
 		})
@@ -296,7 +310,7 @@ func TestUINavHint(t *testing.T) {
 
 func TestUIInfoBox(t *testing.T) {
 	t.Run("non-fancy mode", func(t *testing.T) {
-		ui := NewUI(false)
+		ui := NewUI("default")
 		output := captureUIOutput(func() {
 			ui.InfoBox("Note Info", [][2]string{
 				{"Name", "test-note"},

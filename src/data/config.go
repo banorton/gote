@@ -10,9 +10,19 @@ import (
 type Config struct {
 	NoteDir         string `json:"noteDir"`
 	Editor          string `json:"editor"`
-	FancyUI         bool   `json:"fancyUI"`
+	Interface       string `json:"interface"`       // "default", "minimal", "tui"
 	TimestampNotes  string `json:"timestampNotes"`  // "none", "date", "datetime"
 	DefaultPageSize int    `json:"defaultPageSize"` // default number of results to show
+}
+
+// IsTUI returns true if the interface mode is "tui"
+func (c Config) IsTUI() bool {
+	return c.Interface == "tui"
+}
+
+// IsMinimal returns true if the interface mode is "minimal"
+func (c Config) IsMinimal() bool {
+	return c.Interface == "minimal"
 }
 
 func DefaultConfig() Config {
@@ -59,12 +69,12 @@ func SaveConfig(cfg Config) error {
 func LoadConfig() (Config, error) {
 	var cfg Config
 
-	goteDir := filepath.Dir(configPath())
+	goteDir := GoteDir()
 	if err := os.MkdirAll(goteDir, 0755); err != nil {
 		return cfg, err
 	}
 
-	f, err := os.Open(configPath())
+	raw, err := os.ReadFile(configPath())
 	if os.IsNotExist(err) {
 		if err := SaveConfig(DefaultConfig()); err != nil {
 			return DefaultConfig(), err
@@ -74,11 +84,26 @@ func LoadConfig() (Config, error) {
 		return DefaultConfig(), err
 	}
 
-	defer f.Close()
-
-	if err := json.NewDecoder(f).Decode(&cfg); err != nil {
+	// Check for fancyUI migration
+	var rawMap map[string]interface{}
+	if err := json.Unmarshal(raw, &rawMap); err != nil {
 		_ = SaveConfig(DefaultConfig())
 		return DefaultConfig(), nil
+	}
+
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		_ = SaveConfig(DefaultConfig())
+		return DefaultConfig(), nil
+	}
+
+	// Migrate fancyUI -> interface
+	if fancyVal, exists := rawMap["fancyUI"]; exists {
+		if fancy, ok := fancyVal.(bool); ok && fancy {
+			cfg.Interface = "tui"
+		}
+		if err := SaveConfig(cfg); err != nil {
+			return cfg, err
+		}
 	}
 
 	return cfg, nil

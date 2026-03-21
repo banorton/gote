@@ -27,7 +27,7 @@ func PinCommand(rawArgs []string) {
 		return
 	case "":
 		// No args = show interactive pinned menu
-		PinnedCommand(nil, false, false, false, false, false)
+		PinnedCommand(nil, ActionDefaults{})
 		return
 	}
 
@@ -72,38 +72,9 @@ func UnpinCommand(rawArgs []string) {
 	ui.Success("Unpinned note: " + noteName)
 }
 
-func PinnedCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defaultUnpin bool, defaultView bool, defaultRename bool) {
+func PinnedCommand(rawArgs []string, defaults ActionDefaults) {
 	args := ParseArgs(rawArgs)
-
-	// Determine pre-selected action
-	var preSelected string
-	first := args.First()
-	if first == "open" || defaultOpen {
-		preSelected = "open"
-		if first == "open" {
-			args.Positional = args.Positional[1:]
-		}
-	} else if first == "delete" || defaultDelete {
-		preSelected = "delete"
-		if first == "delete" {
-			args.Positional = args.Positional[1:]
-		}
-	} else if first == "unpin" || defaultUnpin {
-		preSelected = "unpin"
-		if first == "unpin" {
-			args.Positional = args.Positional[1:]
-		}
-	} else if first == "view" || defaultView {
-		preSelected = "view"
-		if first == "view" {
-			args.Positional = args.Positional[1:]
-		}
-	} else if first == "rename" || defaultRename {
-		preSelected = "rename"
-		if first == "rename" {
-			args.Positional = args.Positional[1:]
-		}
-	}
+	preSelected := resolvePreSelectedAction(&args, defaults)
 
 	cfg, ui, ok := LoadConfigAndUI()
 	if !ok {
@@ -142,7 +113,7 @@ func PinnedCommand(rawArgs []string, defaultOpen bool, defaultDelete bool, defau
 		PreSelectedAction: preSelected,
 		ShowUnpin:         true,
 		PageSize:          pageSize,
-	}, ui, cfg.FancyUI)
+	}, ui, cfg.Interface)
 
 	executeMenuAction(result, paths, ui)
 }

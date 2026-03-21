@@ -145,9 +145,13 @@ func RenameNote(oldName, newName string) error {
 		index[newName] = meta
 
 		// Update FTS index: remove old, add new
-		_ = data.RemoveDocFTS(actualOldName)
+		if err := data.RemoveDocFTS(actualOldName); err != nil {
+			return fmt.Errorf("warning: FTS remove failed: %w", err)
+		}
 		if content, err := os.ReadFile(newPath); err == nil {
-			_ = data.IndexDocFTS(newName, newPath, string(content))
+			if err := data.IndexDocFTS(newName, newPath, string(content)); err != nil {
+				return fmt.Errorf("warning: FTS index failed: %w", err)
+			}
 		}
 
 		// Update pins inside the index lock to prevent inconsistency
@@ -203,7 +207,9 @@ func DuplicateNote(oldName, newName string) error {
 		index[newName] = newMeta
 
 		// Index in FTS
-		_ = data.IndexDocFTS(newName, newPath, string(content))
+		if err := data.IndexDocFTS(newName, newPath, string(content)); err != nil {
+			return fmt.Errorf("warning: FTS index failed: %w", err)
+		}
 
 		return nil
 	})

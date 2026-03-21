@@ -65,7 +65,7 @@ func templateMenu(ui *UI, cfg data.Config) {
 		ItemPaths: paths,
 		HideView:  true,
 		PageSize:  cfg.PageSize(),
-	}, ui, cfg.FancyUI)
+	}, ui, cfg.Interface)
 
 	executeTemplateAction(result, ui)
 }
@@ -140,7 +140,7 @@ func selectTemplate(cfg data.Config, ui *UI, pageSize int) string {
 		PreSelectedAction: "open",
 		HideView:          true,
 		PageSize:          pageSize,
-	}, ui, cfg.FancyUI)
+	}, ui, cfg.Interface)
 
 	return result.Note
 }

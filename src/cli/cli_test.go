@@ -146,7 +146,7 @@ func TestTagCommand(t *testing.T) {
 
 	t.Run("lists all tags", func(t *testing.T) {
 		output := captureOutput(func() {
-			TagCommand([]string{}, false, false, false, false, false)
+			TagCommand([]string{}, ActionDefaults{})
 		})
 
 		if !strings.Contains(output, "work") {
@@ -159,7 +159,7 @@ func TestTagCommand(t *testing.T) {
 
 	t.Run("popular respects limit", func(t *testing.T) {
 		output := captureOutput(func() {
-			TagCommand([]string{"popular", "-n", "2"}, false, false, false, false, false)
+			TagCommand([]string{"popular", "-n", "2"}, ActionDefaults{})
 		})
 
 		// Should show header + 2 tags
@@ -313,7 +313,7 @@ func TestSearchCommand(t *testing.T) {
 
 	t.Run("search with no results", func(t *testing.T) {
 		output := captureOutput(func() {
-			SearchCommand([]string{"nonexistent"}, false, false, false, false, false)
+			SearchCommand([]string{"nonexistent"}, ActionDefaults{})
 		})
 
 		if !strings.Contains(output, "No matching") {
