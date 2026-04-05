@@ -1,0 +1,127 @@
+package data
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+)
+
+// TemplatesDir returns the path to the templates directory
+func TemplatesDir() string {
+	return filepath.Join(GoteDir(), "templates")
+}
+
+// EnsureTemplatesDir creates the templates directory if it doesn't exist
+func EnsureTemplatesDir() error {
+	return os.MkdirAll(TemplatesDir(), 0755)
+}
+
+// templatePath returns the full path for a template file
+func templatePath(name string) string {
+	return filepath.Join(TemplatesDir(), name+".md")
+}
+
+// ListTemplateFiles returns the names of all templates (without .md extension)
+func ListTemplateFiles() ([]string, error) {
+	dir := TemplatesDir()
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return []string{}, nil
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("could not read templates directory: %w", err)
+	}
+
+	var templates []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if strings.HasSuffix(name, ".md") {
+			templates = append(templates, strings.TrimSuffix(name, ".md"))
+		}
+	}
+
+	sort.Strings(templates)
+	return templates, nil
+}
+
+// LoadTemplate reads the content of a template file
+func LoadTemplate(name string) (string, error) {
+	if err := ValidateNoteName(name); err != nil {
+		return "", fmt.Errorf("invalid template name: %w", err)
+	}
+	path := templatePath(name)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("template '%s' not found", name)
+		}
+		return "", fmt.Errorf("could not read template: %w", err)
+	}
+	return string(data), nil
+}
+
+// SaveTemplate writes content to a template file
+func SaveTemplate(name, content string) error {
+	if err := ValidateNoteName(name); err != nil {
+		return fmt.Errorf("invalid template name: %w", err)
+	}
+	if err := EnsureTemplatesDir(); err != nil {
+		return fmt.Errorf("could not create templates directory: %w", err)
+	}
+
+	path := templatePath(name)
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return fmt.Errorf("could not write template: %w", err)
+	}
+	return nil
+}
+
+// DeleteTemplate removes a template file
+func DeleteTemplate(name string) error {
+	if err := ValidateNoteName(name); err != nil {
+		return fmt.Errorf("invalid template name: %w", err)
+	}
+	path := templatePath(name)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return fmt.Errorf("template '%s' not found", name)
+	}
+	if err := os.Remove(path); err != nil {
+		return fmt.Errorf("could not delete template: %w", err)
+	}
+	return nil
+}
+
+// RenameTemplate renames a template file
+func RenameTemplate(oldName, newName string) error {
+	if err := ValidateNoteName(oldName); err != nil {
+		return fmt.Errorf("invalid template name: %w", err)
+	}
+	if err := ValidateNoteName(newName); err != nil {
+		return fmt.Errorf("invalid template name: %w", err)
+	}
+	oldPath := templatePath(oldName)
+	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
+		return fmt.Errorf("template '%s' not found", oldName)
+	}
+	newPath := templatePath(newName)
+	if _, err := os.Stat(newPath); err == nil {
+		return fmt.Errorf("template '%s' already exists", newName)
+	}
+	return os.Rename(oldPath, newPath)
+}
+
+// TemplateExists checks if a template exists
+func TemplateExists(name string) bool {
+	if ValidateNoteName(name) != nil {
+		return false
+	}
+	path := templatePath(name)
+	_, err := os.Stat(path)
+	return err == nil
+}

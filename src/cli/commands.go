@@ -1,0 +1,373 @@
+package cli
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"gote/src/core"
+	"gote/src/data"
+)
+
+func NoteCommand(args []string) {
+	parsedArgs := ParseArgs(args)
+	dateFlag := parsedArgs.Has("d", "date")
+	datetimeFlag := parsedArgs.Has("dt", "datetime")
+	noTimestampFlag := parsedArgs.Has("nt", "no-timestamp")
+	templateFlag := parsedArgs.Has("t", "template")
+	templateName := parsedArgs.String("t", "template")
+	noteName := parsedArgs.Joined()
+
+	if noteName == "" {
+		fmt.Println("Usage: gote <note name> [-d|--date] [-dt|--datetime] [-nt|--no-timestamp] [-t|--template <name>]")
+		return
+	}
+
+	cfg, ui, ok := LoadConfigAndUI()
+	if !ok {
+		return
+	}
+
+	// Check if note already exists - if so, just open it
+	index, err := data.LoadIndex()
+	if err != nil {
+		fmt.Println("Error loading index:", err)
+		return
+	}
+	if _, exists := index[noteName]; exists {
+		if err := core.CreateOrOpenNote(noteName); err != nil {
+			fmt.Println("Error:", err)
+		}
+		return
+	}
+
+	// Note doesn't exist - apply timestamp if enabled (unless bypassed)
+	if !noTimestampFlag {
+		mode := cfg.TimestampNotes
+		if dateFlag {
+			mode = "date"
+		} else if datetimeFlag {
+			mode = "datetime"
+		}
+
+		if mode == "date" {
+			noteName = time.Now().Format("060102") + " " + noteName
+		} else if mode == "datetime" {
+			noteName = time.Now().Format("060102-150405") + " " + noteName
+		}
+	}
+
+	// Handle template flag
+	if templateFlag {
+		if templateName == "" {
+			// Show template picker
+			templateName = selectTemplate(cfg, ui, cfg.PageSize())
+			if templateName == "" {
+				return // User cancelled
+			}
+		}
+		if err := core.CreateNoteFromTemplate(noteName, templateName); err != nil {
+			ui.Error(err.Error())
+		}
+		return
+	}
+
+	if err := core.CreateOrOpenNote(noteName); err != nil {
+		ui.Error(err.Error())
+	}
+}
+
+func LastCommand() {
+	_, ui, ok := LoadConfigAndUI()
+	if !ok {
+		return
+	}
+
+	notes, err := core.GetRecentNotes(1)
+	if err != nil {
+		ui.Error(err.Error())
+		return
+	}
+	if len(notes) == 0 {
+		ui.Empty("No notes found.")
+		return
+	}
+
+	core.OpenAndReindexNote(notes[0].FilePath, notes[0].Title)
+}
+
+func QuickCommand() {
+	NoteCommand([]string{"quick"})
+}
+
+func QuickSaveCommand(args []string) {
+	parsedArgs := ParseArgs(args)
+	noteName := parsedArgs.Joined()
+
+	_, ui, ok := LoadConfigAndUI()
+	if !ok {
+		return
+	}
+
+	if noteName == "" {
+		fmt.Println("Usage: gote quick save <note name>")
+		fmt.Println("       gote qs <note name>")
+		return
+	}
+
+	if err := core.PromoteQuickNote(noteName); err != nil {
+		ui.Error(err.Error())
+		return
+	}
+	ui.Success("Quick note saved as: " + noteName)
+}
+
+func IndexCommand(rawArgs []string) {
+	args := ParseArgs(rawArgs)
+	sub := args.First()
+
+	cfg, ui, ok := LoadConfigAndUI()
+	if !ok {
+		return
+	}
+
+	switch sub {
+	case "":
+		if err := data.IndexNotes(cfg.NoteDir); err != nil {
+			ui.Error(err.Error())
+		} else {
+			ui.Success("All notes indexed.")
+		}
+	case "edit":
+		if err := data.FormatIndexFile(); err != nil {
+			ui.Error("Error trying to format index file: " + err.Error())
+		}
+		if err := data.OpenFileInEditor(data.IndexPath(), cfg.Editor); err != nil {
+			ui.Error(err.Error())
+		}
+	case "format":
+		if err := data.FormatIndexFile(); err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		ui.Success("Index file formatted.")
+	case "fts":
+		index, err := data.LoadIndex()
+		if err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		if err := data.IndexAllFTS(cfg.NoteDir, index); err != nil {
+			ui.Error(err.Error())
+		} else {
+			ui.Success("FTS index rebuilt.")
+		}
+	case "clear":
+		fmt.Print("This will delete and rebuild the index. Continue? [y/N]: ")
+		input := ui.ReadMenuInput()
+		if input != "y" {
+			ui.Info("Cancelled.")
+			return
+		}
+		_ = os.Remove(data.IndexPath())
+		_ = os.Remove(data.TagsPath())
+		_ = os.Remove(data.FTSPath())
+		if err := data.IndexNotes(cfg.NoteDir); err != nil {
+			ui.Error(err.Error())
+		} else {
+			ui.Success("Index cleared and rebuilt.")
+		}
+	default:
+		fmt.Println("Unknown subcommand:", sub)
+		fmt.Println("Usage: gote index [edit|format|clear|fts]")
+	}
+}
+
+func TagCommand(rawArgs []string, defaults ActionDefaults) {
+	args := ParseArgs(rawArgs)
+	preSelected := resolvePreSelectedAction(&args, defaults)
+	sub := args.First()
+
+	cfg, ui, ok := LoadConfigAndUI()
+	if !ok {
+		return
+	}
+
+	// If first arg starts with ".", it's a tag filter
+	if strings.HasPrefix(sub, ".") {
+		var allTags []string
+		for _, arg := range args.Positional {
+			if strings.HasPrefix(arg, ".") {
+				allTags = append(allTags, ParseTagString(arg)...)
+			}
+		}
+		if len(allTags) == 0 {
+			ui.Empty("No valid tags specified.")
+			return
+		}
+
+		pageSize := args.IntOr(cfg.PageSize(), "n", "limit")
+		results, err := core.FilterNotesByTags(allTags, -1)
+		if err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		if len(results) == 0 {
+			ui.Empty("No notes found with all specified tags.")
+			return
+		}
+
+		titles, paths := searchResultsToMenu(results)
+		result := displayMenu(MenuConfig{
+			Title:             "Tagged Notes",
+			Items:             titles,
+			ItemPaths:         paths,
+			PreSelectedAction: preSelected,
+			ShowPin:           true,
+			PageSize:          pageSize,
+		}, ui, cfg.Interface)
+
+		executeMenuAction(result, paths, ui)
+		return
+	}
+
+	// Handle subcommands
+	switch sub {
+	case "":
+		tags, err := data.LoadTags()
+		if err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		if len(tags) == 0 {
+			ui.Empty("No tags found.")
+			return
+		}
+		var lines []string
+		for tagName, tag := range tags {
+			lines = append(lines, fmt.Sprintf("%s (%d)", tagName, tag.Count))
+		}
+		if cfg.IsTUI() {
+			ui.Box("Tags", lines, 0)
+		} else {
+			for _, line := range lines {
+				fmt.Println(line)
+			}
+		}
+	case "edit":
+		if err := data.OpenFileInEditor(data.TagsPath(), cfg.Editor); err != nil {
+			ui.Error(err.Error())
+		}
+	case "format":
+		if err := data.FormatTagsFile(); err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		ui.Success("Tags file formatted.")
+	case "popular":
+		n := args.IntOr(cfg.PageSize(), "n", "limit")
+		// Also support bare number: "gote tag popular 5"
+		if n == cfg.PageSize() && len(args.Rest()) > 0 {
+			if v, err := strconv.Atoi(args.Rest()[0]); err == nil && v > 0 {
+				n = v
+			}
+		}
+		tags, err := core.GetPopularTags(n)
+		if err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		if len(tags) == 0 {
+			ui.Empty("No tags found.")
+			return
+		}
+		var lines []string
+		for _, tag := range tags {
+			lines = append(lines, fmt.Sprintf("%s (%d)", tag.Tag, tag.Count))
+		}
+		if cfg.IsTUI() {
+			ui.Box(fmt.Sprintf("Top %d Tags", len(tags)), lines, 0)
+		} else {
+			fmt.Printf("Top %d tags:\n", len(tags))
+			for _, line := range lines {
+				fmt.Println(line)
+			}
+		}
+	default:
+		fmt.Println("Unknown subcommand:", sub)
+		fmt.Println("Usage: gote tag [.tag1.tag2 | edit | format | popular]")
+	}
+}
+
+
+func ConfigCommand(rawArgs []string) {
+	args := ParseArgs(rawArgs)
+	sub := args.First()
+
+	cfg, ui, ok := LoadConfigAndUI()
+	if !ok {
+		return
+	}
+
+	switch sub {
+	case "", "show":
+		if cfg.IsTUI() {
+			timestampVal := cfg.TimestampNotes
+			if timestampVal == "" {
+				timestampVal = "none"
+			}
+			ui.InfoBox("Config", [][2]string{
+				{"Note directory", cfg.NoteDir},
+				{"Editor", cfg.Editor},
+				{"Interface", cfg.Interface},
+				{"Timestamp notes", timestampVal},
+				{"Default page size", fmt.Sprintf("%d", cfg.PageSize())},
+			})
+		} else {
+			fmt.Println("Config settings:")
+			data.PrettyPrintJSON(cfg)
+		}
+	case "edit":
+		configPath := filepath.Join(data.GoteDir(), "config.json")
+		if err := data.OpenFileInEditor(configPath, "vim"); err != nil {
+			ui.Error(err.Error())
+		}
+	case "format":
+		if err := data.FormatConfigFile(); err != nil {
+			ui.Error(err.Error())
+			return
+		}
+		ui.Success("Config file formatted.")
+	case "help":
+		fmt.Println(`Config file: ~/.gote/config.json
+
+Options:
+  noteDir          Directory where notes are stored
+                   Default: ~/gotes
+
+  editor           Editor to open notes with
+                   Default: vim
+
+  interface        UI mode
+                   Values: "default", "minimal", "tui"
+                   default  = full text menu with nav hints and actions
+                   minimal  = items + prompt only, no chrome
+                   tui      = box drawing, ANSI colors, screen clear
+                   Default: "default"
+
+  timestampNotes   Auto-prefix new notes with timestamp
+                   Values: "none", "date" (yymmdd), "datetime" (yymmdd-hhmmss)
+                   Default: none (no prefix)
+                   Can be overridden with -d or -dt flags
+
+  defaultPageSize  Number of results to show by default
+                   Default: 10
+                   Can be overridden with -n flag`)
+	default:
+		fmt.Println("Unknown subcommand:", sub)
+		fmt.Println("Usage: gote config [show|edit|format|help]")
+	}
+}
