@@ -302,7 +302,6 @@ func TagCommand(rawArgs []string, defaults ActionDefaults) {
 	}
 }
 
-
 func ConfigCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)
 	sub := args.First()

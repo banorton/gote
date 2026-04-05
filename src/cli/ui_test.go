@@ -43,7 +43,7 @@ func TestVisibleLen(t *testing.T) {
 		{"no closing code", "\033[36munclosed", 8},
 		// Note: visibleLen counts bytes, not runes. Multi-byte chars count as multiple.
 		// This is fine for box alignment since we use ASCII for items.
-		{"unicode characters", "héllo wörld", 13}, // é=2 bytes, ö=2 bytes
+		{"unicode characters", "héllo wörld", 13},        // é=2 bytes, ö=2 bytes
 		{"ANSI with unicode", "\033[36mhéllo\033[0m", 6}, // é=2 bytes
 	}
 
