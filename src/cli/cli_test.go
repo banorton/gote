@@ -72,6 +72,96 @@ func captureOutput(f func()) string {
 	return buf.String()
 }
 
+// withStdin replaces os.Stdin with the given input and captures stdout during f().
+// stdout is drained concurrently to prevent pipe-buffer deadlocks.
+func withStdin(input string, f func()) string {
+	oldStdin := os.Stdin
+	sr, sw, _ := os.Pipe()
+	os.Stdin = sr
+	go func() {
+		sw.WriteString(input)
+		sw.Close()
+	}()
+
+	oldStdout := os.Stdout
+	or, ow, _ := os.Pipe()
+	os.Stdout = ow
+
+	var buf bytes.Buffer
+	done := make(chan struct{})
+	go func() {
+		io.Copy(&buf, or)
+		close(done)
+	}()
+
+	f()
+
+	ow.Close()
+	os.Stdout = oldStdout
+	os.Stdin = oldStdin
+	<-done
+
+	return buf.String()
+}
+
+// --- displayMenu pagination spacing tests ---
+
+func TestDisplayMenuPaginationSpacing(t *testing.T) {
+	items := []string{"note-1", "note-2", "note-3", "note-4"}
+	cfg := MenuConfig{Items: items, PageSize: 2}
+
+	t.Run("default mode: blank line before second page", func(t *testing.T) {
+		ui := NewUI("default")
+		output := withStdin("n\nq\n", func() {
+			displayMenu(cfg, ui, "default")
+		})
+		// After the first ": " prompt, the next page should begin with a blank line
+		promptIdx := strings.Index(output, ": ")
+		if promptIdx == -1 {
+			t.Fatal("no prompt found in output")
+		}
+		afterPrompt := output[promptIdx+2:]
+		if !strings.HasPrefix(afterPrompt, "\n") {
+			t.Errorf("expected blank line between pages in default mode, got: %q", afterPrompt[:min(60, len(afterPrompt))])
+		}
+	})
+
+	t.Run("default mode: no leading blank line on first render", func(t *testing.T) {
+		ui := NewUI("default")
+		output := withStdin("q\n", func() {
+			displayMenu(cfg, ui, "default")
+		})
+		if strings.HasPrefix(output, "\n") {
+			t.Errorf("first render should not have a leading blank line, got: %q", output[:min(60, len(output))])
+		}
+	})
+
+	t.Run("minimal mode: blank line before second page", func(t *testing.T) {
+		ui := NewUI("minimal")
+		output := withStdin("n\nq\n", func() {
+			displayMenu(cfg, ui, "minimal")
+		})
+		promptIdx := strings.Index(output, ": ")
+		if promptIdx == -1 {
+			t.Fatal("no prompt found in output")
+		}
+		afterPrompt := output[promptIdx+2:]
+		if !strings.HasPrefix(afterPrompt, "\n") {
+			t.Errorf("expected blank line between pages in minimal mode, got: %q", afterPrompt[:min(60, len(afterPrompt))])
+		}
+	})
+
+	t.Run("minimal mode: no leading blank line on first render", func(t *testing.T) {
+		ui := NewUI("minimal")
+		output := withStdin("q\n", func() {
+			displayMenu(cfg, ui, "minimal")
+		})
+		if strings.HasPrefix(output, "\n") {
+			t.Errorf("first render should not have a leading blank line, got: %q", output[:min(60, len(output))])
+		}
+	})
+}
+
 // --- HelpCommand tests ---
 
 func TestHelpCommand(t *testing.T) {
@@ -91,7 +181,6 @@ func TestHelpCommand(t *testing.T) {
 		}
 	})
 }
-
 
 // --- Subcommand routing tests ---
 

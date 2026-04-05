@@ -49,7 +49,8 @@ func visibleLen(s string) int {
 
 // UI holds the UI state
 type UI struct {
-	Mode string // "default", "minimal", "tui"
+	Mode   string // "default", "minimal", "tui"
+	reader *bufio.Reader
 }
 
 // NewUI creates a UI instance
@@ -363,8 +364,10 @@ func (u *UI) ListItemWithMeta(key rune, text string, meta string) {
 
 // ReadMenuInput reads a line of input (requires Enter). Returns trimmed lowercase string.
 func (u *UI) ReadMenuInput() string {
-	reader := bufio.NewReader(os.Stdin)
-	input, err := reader.ReadString('\n')
+	if u.reader == nil {
+		u.reader = bufio.NewReader(os.Stdin)
+	}
+	input, err := u.reader.ReadString('\n')
 	if err != nil {
 		return ""
 	}

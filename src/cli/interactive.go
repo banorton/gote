@@ -15,8 +15,8 @@ import (
 // Order: homerow → top row → bottom row (lowercase only, case-insensitive matching)
 var selectKeys = []rune{
 	'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', // homerow (10)
-	'w', 'e', 'r', 't', 'y', 'u', 'i', 'o',           // top row (8, avoiding q, p)
-	'z', 'x', 'c', 'v', 'b', 'm',                     // bottom row (6, avoiding n)
+	'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', // top row (8, avoiding q, p)
+	'z', 'x', 'c', 'v', 'b', 'm', // bottom row (6, avoiding n)
 }
 
 const maxSelectablePageSize = 24 // len(selectKeys)
@@ -78,6 +78,7 @@ func displayMenu(cfg MenuConfig, ui *UI, mode string) MenuResult {
 		actions += " [i]nfo"
 	}
 
+	firstRender := true
 	for {
 		start := page * pageSize
 		end := min(start+pageSize, len(cfg.Items))
@@ -105,11 +106,17 @@ func displayMenu(cfg MenuConfig, ui *UI, mode string) MenuResult {
 				fmt.Printf(" %s%s%s\n", Dim, actions, Reset)
 			}
 		} else if mode == "minimal" {
+			if !firstRender {
+				fmt.Println()
+			}
 			for i, item := range pageItems {
 				fmt.Printf("[%c] %s\n", keys[i], item)
 			}
 			fmt.Print(": ")
 		} else {
+			if !firstRender {
+				fmt.Println()
+			}
 			for i, item := range pageItems {
 				fmt.Printf("[%c] %s\n", keys[i], item)
 			}
@@ -124,6 +131,7 @@ func displayMenu(cfg MenuConfig, ui *UI, mode string) MenuResult {
 			}
 			fmt.Print(": ")
 		}
+		firstRender = false
 
 		// Read input
 		input := ui.ReadMenuInput()
@@ -594,11 +602,11 @@ sourceLoop:
 	// Step 2: Display notes with full menu
 	titles, paths := searchResultsToMenu(results)
 	result := displayMenu(MenuConfig{
-		Title:    title,
-		Items:    titles,
+		Title:     title,
+		Items:     titles,
 		ItemPaths: paths,
-		ShowPin:  true,
-		PageSize: pageSize,
+		ShowPin:   true,
+		PageSize:  pageSize,
 	}, ui, cfg.Interface)
 
 	executeMenuAction(result, paths, ui)
