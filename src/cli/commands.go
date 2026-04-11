@@ -167,7 +167,7 @@ func IndexCommand(rawArgs []string) {
 		}
 	case "clear":
 		fmt.Print("This will delete and rebuild the index. Continue? [y/N]: ")
-		input := ui.ReadMenuInput()
+		input, _ := ui.ReadMenuInput()
 		if input != "y" {
 			ui.Info("Cancelled.")
 			return
@@ -301,7 +301,6 @@ func TagCommand(rawArgs []string, defaults ActionDefaults) {
 		fmt.Println("Usage: gote tag [.tag1.tag2 | edit | format | popular]")
 	}
 }
-
 
 func ConfigCommand(rawArgs []string) {
 	args := ParseArgs(rawArgs)

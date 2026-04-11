@@ -109,12 +109,12 @@ func wrapInHTMLTemplate(title, content string) string {
     <title>%s</title>
     <style>
         :root {
-            --bg: #1a1a2e;
-            --fg: #eaeaea;
-            --accent: #64ffda;
-            --muted: #888;
-            --code-bg: #0f0f1a;
-            --border: #333;
+            --bg: #2b2b2b;
+            --fg: #ffffff;
+            --accent: #ffffff;
+            --muted: #aaa;
+            --code-bg: #1e1e1e;
+            --border: #444;
         }
 
         @media (prefers-color-scheme: light) {

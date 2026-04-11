@@ -7,7 +7,7 @@ import (
 	"gote/src/cli"
 )
 
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 func main() {
 	args := os.Args
@@ -135,6 +135,12 @@ func main() {
 		cli.InfoCommand(rest)
 	case "view", "v":
 		cli.ViewCommand(rest)
+
+	// Export / Import
+	case "export", "exp":
+		cli.ExportCommand(rest)
+	case "import", "imp":
+		cli.ImportCommand(rest)
 
 	// Help
 	case "help", "h", "man":

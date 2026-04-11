@@ -79,4 +79,3 @@ func AtomicWriteJSON(path string, data interface{}) error {
 
 	return os.Rename(tmpPath, path)
 }
-

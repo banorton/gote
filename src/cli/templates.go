@@ -82,7 +82,7 @@ func executeTemplateAction(result MenuResult, ui *UI) {
 		}
 	case "delete":
 		fmt.Printf("Delete template \"%s\"? [y/n]: ", result.Note)
-		confirm := ui.ReadMenuInput()
+		confirm, _ := ui.ReadMenuInput()
 		if confirm != "y" {
 			ui.Info("Cancelled")
 			return

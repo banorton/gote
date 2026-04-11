@@ -134,7 +134,10 @@ func displayMenu(cfg MenuConfig, ui *UI, mode string) MenuResult {
 		firstRender = false
 
 		// Read input
-		input := ui.ReadMenuInput()
+		input, ok := ui.ReadMenuInput()
+		if !ok {
+			return MenuResult{}
+		}
 		if input == "" {
 			continue
 		}
@@ -237,7 +240,7 @@ func executeMenuAction(result MenuResult, paths map[string]string, ui *UI) {
 	case "delete":
 		// Confirm deletion
 		fmt.Printf("Delete \"%s\"? [y/n]: ", result.Note)
-		confirm := ui.ReadMenuInput()
+		confirm, _ := ui.ReadMenuInput()
 		if confirm != "y" {
 			ui.Info("Cancelled")
 			return
@@ -522,7 +525,10 @@ sourceLoop:
 		fmt.Println("[q] Quit")
 		fmt.Print(": ")
 
-		input := ui.ReadMenuInput()
+		input, ok := ui.ReadMenuInput()
+		if !ok {
+			return
+		}
 		switch input {
 		case "q":
 			return

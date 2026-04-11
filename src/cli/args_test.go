@@ -30,11 +30,11 @@ func TestParseArgs_BoolFlags(t *testing.T) {
 
 func TestParseArgs_ValueFlags(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    []string
-		flag     string
-		wantStr  string
-		wantInt  int
+		name    string
+		input   []string
+		flag    string
+		wantStr string
+		wantInt int
 	}{
 		{"short with value", []string{"-n", "5"}, "n", "5", 5},
 		{"long with value", []string{"--limit", "10"}, "limit", "10", 10},
@@ -57,11 +57,11 @@ func TestParseArgs_ValueFlags(t *testing.T) {
 
 func TestParseArgs_IntOr(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   []string
-		def     int
-		flags   []string
-		want    int
+		name  string
+		input []string
+		def   int
+		flags []string
+		want  int
 	}{
 		{"has value", []string{"-n", "5"}, 10, []string{"n"}, 5},
 		{"missing uses default", []string{"foo"}, 10, []string{"n"}, 10},

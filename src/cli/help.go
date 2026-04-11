@@ -58,6 +58,8 @@ Other:
   gote info | i <note>            Note metadata
   gote view | v <note>            Preview in browser
   gote rename | mv <note> -n <new>  Rename note
+  gote export [file]              Export all notes + data to .tar.gz
+  gote import <file>              Import from exported .tar.gz
   gote help | h                   Show this help
   gote -v                         Show version`)
 }
