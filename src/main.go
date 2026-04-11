@@ -136,6 +136,12 @@ func main() {
 	case "view", "v":
 		cli.ViewCommand(rest)
 
+	// Export / Import
+	case "export", "exp":
+		cli.ExportCommand(rest)
+	case "import", "imp":
+		cli.ImportCommand(rest)
+
 	// Help
 	case "help", "h", "man":
 		cli.HelpCommand(rest)
