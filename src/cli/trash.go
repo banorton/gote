@@ -30,7 +30,7 @@ func DeleteCommand(rawArgs []string) {
 
 	if noteName == "-" {
 		fmt.Printf("Delete \"%s\"? [y/n]: ", resolved)
-		if ui.ReadMenuInput() != "y" {
+		if input, _ := ui.ReadMenuInput(); input != "y" {
 			return
 		}
 	}

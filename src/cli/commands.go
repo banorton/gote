@@ -167,7 +167,7 @@ func IndexCommand(rawArgs []string) {
 		}
 	case "clear":
 		fmt.Print("This will delete and rebuild the index. Continue? [y/N]: ")
-		input := ui.ReadMenuInput()
+		input, _ := ui.ReadMenuInput()
 		if input != "y" {
 			ui.Info("Cancelled.")
 			return

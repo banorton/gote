@@ -363,15 +363,16 @@ func (u *UI) ListItemWithMeta(key rune, text string, meta string) {
 }
 
 // ReadMenuInput reads a line of input (requires Enter). Returns trimmed lowercase string.
-func (u *UI) ReadMenuInput() string {
+// Returns "", false on EOF/error (caller should exit the menu loop).
+func (u *UI) ReadMenuInput() (string, bool) {
 	if u.reader == nil {
 		u.reader = bufio.NewReader(os.Stdin)
 	}
 	input, err := u.reader.ReadString('\n')
 	if err != nil {
-		return ""
+		return "", false
 	}
-	return strings.ToLower(strings.TrimSpace(input))
+	return strings.ToLower(strings.TrimSpace(input)), true
 }
 
 // ReadInputWithDefault prompts for input with an editable default value.

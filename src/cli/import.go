@@ -29,7 +29,7 @@ func ImportCommand(rawArgs []string) {
 	index, _ := data.LoadIndex()
 	if len(index) > 0 {
 		fmt.Printf("Destination already has %d notes. Overwrite? [y/n]: ", len(index))
-		input := ui.ReadMenuInput()
+		input, _ := ui.ReadMenuInput()
 		if input != "y" {
 			ui.Info("Import cancelled.")
 			return
