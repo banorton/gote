@@ -15,6 +15,11 @@ func LockFile(path string) (*FileLock, error) {
 	return &FileLock{path: lockPath, file: f}, nil
 }
 
+// TryLockFile on Windows is a no-op (same as LockFile).
+func TryLockFile(path string) (*FileLock, error) {
+	return LockFile(path)
+}
+
 // Unlock releases the lock file.
 func (l *FileLock) Unlock() error {
 	_ = l.file.Close()

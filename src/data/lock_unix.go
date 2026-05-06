@@ -21,6 +21,21 @@ func LockFile(path string) (*FileLock, error) {
 	return &FileLock{path: lockPath, file: f}, nil
 }
 
+// TryLockFile attempts to acquire an exclusive lock without blocking.
+// Returns an error immediately if the lock is already held.
+func TryLockFile(path string) (*FileLock, error) {
+	lockPath := path + ".lock"
+	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		return nil, err
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		f.Close()
+		return nil, err
+	}
+	return &FileLock{path: lockPath, file: f}, nil
+}
+
 // Unlock releases the lock and removes the lock file.
 func (l *FileLock) Unlock() error {
 	// Remove lock file before releasing the flock so other waiters

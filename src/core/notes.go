@@ -22,12 +22,16 @@ func CreateOrOpenNote(noteName string) error {
 		return fmt.Errorf("error loading config: %w", err)
 	}
 
-	return data.WithIndexLock(func(index map[string]data.NoteMeta) error {
-		actualName, noteMeta, exists := data.LookupNote(index, noteName)
-		if !exists {
+	// Phase 1: resolve/create the note file under the index lock.
+	var notePath string
+	var actualName string
+	if err := data.WithIndexLock(func(index map[string]data.NoteMeta) error {
+		var noteMeta data.NoteMeta
+		actualName, noteMeta, _ = data.LookupNote(index, noteName)
+		if actualName == "" {
 			actualName = noteName
 		}
-		notePath := noteMeta.FilePath
+		notePath = noteMeta.FilePath
 
 		noteDir := cfg.NoteDir
 		if err := os.MkdirAll(noteDir, 0755); err != nil {
@@ -44,11 +48,24 @@ func CreateOrOpenNote(noteName string) error {
 				f.Close()
 			}
 		}
+		return nil
+	}); err != nil {
+		return err
+	}
 
-		if err := data.OpenFileInEditor(notePath, cfg.Editor); err != nil {
-			return fmt.Errorf("error opening note in editor: %w", err)
-		}
+	// Phase 2: acquire per-note lock (non-blocking) then open editor.
+	lock, err := data.TryLockFile(notePath)
+	if err != nil {
+		return fmt.Errorf("note \"%s\" is already open in another gote instance", actualName)
+	}
+	defer lock.Unlock()
 
+	if err := data.OpenFileInEditor(notePath, cfg.Editor); err != nil {
+		return fmt.Errorf("error opening note in editor: %w", err)
+	}
+
+	// Phase 3: update index metadata after edit.
+	return data.WithIndexLock(func(index map[string]data.NoteMeta) error {
 		info, err := os.Stat(notePath)
 		if err != nil {
 			return fmt.Errorf("error stating note after edit: %w", err)
@@ -76,24 +93,27 @@ func UpdateLastVisited(title string) error {
 	})
 }
 
-// OpenAndReindexNote opens a note in the editor and reindexes it afterward
-// This should be used when opening existing notes to ensure tags/metadata stay in sync
+// OpenAndReindexNote opens a note in the editor and reindexes it afterward.
 func OpenAndReindexNote(filePath, title string) error {
 	cfg, err := data.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("error loading config: %w", err)
 	}
 
+	lock, err := data.TryLockFile(filePath)
+	if err != nil {
+		return fmt.Errorf("note \"%s\" is already open in another gote instance", title)
+	}
+	defer lock.Unlock()
+
 	if err := data.OpenFileInEditor(filePath, cfg.Editor); err != nil {
 		return fmt.Errorf("error opening note: %w", err)
 	}
 
-	// Reindex the note to pick up any changes (tags, content, etc.)
 	if err := data.IndexNote(filePath); err != nil {
 		return fmt.Errorf("error reindexing note: %w", err)
 	}
 
-	// Update last visited timestamp
 	return UpdateLastVisited(title)
 }
 
