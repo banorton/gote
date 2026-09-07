@@ -6,6 +6,87 @@
 
 A CLI note-taking tool written in Go. Notes are plain Markdown files with tagging, pinning, search, and more.
 
+Everything gote knows lives in two places: your notes, which are ordinary `.md` files in a
+directory you pick, and `~/.gote`, which holds the index and nothing you would miss. Delete
+gote tomorrow and you still have a folder of Markdown.
+
+## Why another one
+
+There are a lot of note CLIs. What is specific to this one:
+
+- **Tags are the first line of the file**, period-delimited (`.project.urgent.work`). No
+  YAML frontmatter, no database — a note stays readable and greppable in any editor.
+- **Search is built in, not shelled out.** BM25 ranking with Snowball stemming, compiled
+  into the binary. No ripgrep, fzf or external index required.
+- **One static binary, no runtime.** Nothing to install alongside it.
+- **Two-letter commands compose a lister with an action.** `ro` is recent + open, `sv` is
+  search + view, `tp` is tag-filter + pin.
+
+It is a single-user tool for people who already live in a terminal. There is no sync, no
+mobile app, no web UI, and no plugin system.
+
+## What it looks like
+
+```console
+$ gote r
+[a] gopl
+[s] standup
+[d] index_format
+[f] search_design
+[g] sourdough
+
+(1/1)────────────────────────
+[q]uit
+[o]pen (default) [v]iew [d]elete [r]ename [c]opy [p]in [i]nfo
+: a
+
+$ gote s bm25
+[a] search_design
+[s] standup
+
+(1/1)────────────────────────
+[q]uit
+[o]pen (default) [v]iew [d]elete [r]ename [c]opy [p]in [i]nfo
+: v
+
+$ gote t
+design (2)
+meeting (1)
+personal (1)
+reading (1)
+recipe (1)
+work (3)
+```
+
+Selection keys are the home row — `a s d f g` — so picking the third result never
+means reaching for a number key or an arrow.
+
+A recorded walkthrough can be regenerated with `vhs scripts/demo.tape`.
+
+## Install
+
+Download a binary from [releases](https://github.com/banorton/gote/releases):
+
+```bash
+# macOS (Apple Silicon); swap for -mac-amd64, -linux-amd64, -linux-arm64, -win.exe
+curl -L -o gote https://github.com/banorton/gote/releases/latest/download/gote-mac-arm64
+chmod +x gote
+mv gote /usr/local/bin/
+```
+
+With Go installed:
+
+```bash
+go install github.com/banorton/gote@latest
+```
+
+From source:
+
+```bash
+git clone https://github.com/banorton/gote && cd gote
+go build -o gote . && mv gote /usr/local/bin/
+```
+
 ## Commands
 
 | Command | Shortcut | Description |
@@ -108,13 +189,6 @@ First line of note, period-separated:
 | Templates | `~/.gote/templates/*.md` |
 | Trash | `~/.gote/trash/` |
 | Config | `~/.gote/config.json` |
-
-## Install
-
-```bash
-go build -o gote ./src
-mv gote /usr/local/bin/
-```
 
 ## License
 
