@@ -7,7 +7,7 @@ import (
 	"github.com/banorton/gote/src/cli"
 )
 
-const Version = "0.3.0"
+const Version = "0.3.1"
 
 func main() {
 	args := os.Args
