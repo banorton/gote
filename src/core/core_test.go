@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"gote/src/data"
+	"github.com/banorton/gote/src/data"
 )
 
 // testEnv sets up a test environment and returns a cleanup function
@@ -331,6 +331,29 @@ func TestGetRecentNotes(t *testing.T) {
 		}
 		if len(notes) != 3 {
 			t.Errorf("Expected 3 notes, got %d", len(notes))
+		}
+	})
+
+	t.Run("note edited outside gote ranks by its file mtime", func(t *testing.T) {
+		index, _ := data.LoadIndex()
+		for _, title := range []string{"note1", "note2", "note3"} {
+			m := index[title]
+			m.LastVisited = "260101.000000"
+			m.Modified = "260101.000000"
+			index[title] = m
+		}
+		// note2 was written by another editor, so only Modified moved.
+		m2 := index["note2"]
+		m2.Modified = "260601.120000"
+		index["note2"] = m2
+		data.SaveIndex(index)
+
+		notes, err := GetRecentNotes(-1)
+		if err != nil {
+			t.Fatalf("GetRecentNotes failed: %v", err)
+		}
+		if notes[0].Title != "note2" {
+			t.Errorf("externally edited note should rank first, got %s", notes[0].Title)
 		}
 	})
 

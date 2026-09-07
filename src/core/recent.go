@@ -3,8 +3,19 @@ package core
 import (
 	"sort"
 
-	"gote/src/data"
+	"github.com/banorton/gote/src/data"
 )
+
+// lastTouched is the more recent of opening the note through gote and writing
+// the file. Using LastVisited alone hides notes edited outside gote -- in vim
+// directly, in another editor, or by a sync -- since those never update it.
+// Both timestamps use the same sortable YYMMDD.HHMMSS layout.
+func lastTouched(n data.NoteMeta) string {
+	if n.Modified > n.LastVisited {
+		return n.Modified
+	}
+	return n.LastVisited
+}
 
 func GetRecentNotes(limit int) ([]data.NoteMeta, error) {
 	index, err := data.LoadIndex()
@@ -16,17 +27,8 @@ func GetRecentNotes(limit int) ([]data.NoteMeta, error) {
 		notes = append(notes, n)
 	}
 
-	// Sort by LastVisited (with Modified as fallback for notes never opened)
 	sort.Slice(notes, func(i, j int) bool {
-		vi := notes[i].LastVisited
-		vj := notes[j].LastVisited
-		if vi == "" {
-			vi = notes[i].Modified
-		}
-		if vj == "" {
-			vj = notes[j].Modified
-		}
-		return vi > vj
+		return lastTouched(notes[i]) > lastTouched(notes[j])
 	})
 
 	if limit > 0 && limit < len(notes) {
