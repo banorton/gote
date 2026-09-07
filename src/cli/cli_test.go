@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"gote/src/data"
+	"github.com/banorton/gote/src/data"
 )
 
 // testEnv sets up a test environment and returns a cleanup function

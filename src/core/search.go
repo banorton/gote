@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"gote/src/data"
+	"github.com/banorton/gote/src/data"
 )
 
 // sortResultsByCreated sorts search results by creation date (newest first)

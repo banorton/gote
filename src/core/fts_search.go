@@ -4,7 +4,7 @@ import (
 	"math"
 	"sort"
 
-	"gote/src/data"
+	"github.com/banorton/gote/src/data"
 )
 
 const (

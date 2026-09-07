@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"gote/src/data"
+	"github.com/banorton/gote/src/data"
 )
 
 func GetPopularTags(limit int) ([]data.TagMeta, error) {

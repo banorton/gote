@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"gote/src/core"
+	"github.com/banorton/gote/src/core"
 )
 
 func RenameCommand(rawArgs []string) {

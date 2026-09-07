@@ -12,7 +12,7 @@ import (
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/renderer/html"
 
-	"gote/src/data"
+	"github.com/banorton/gote/src/data"
 )
 
 // ViewCommand opens a markdown preview of a note in the browser

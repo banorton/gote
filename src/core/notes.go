@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"gote/src/data"
+	"github.com/banorton/gote/src/data"
 )
 
 const timeFmt = "060102.150405"

@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"gote/src/core"
-	"gote/src/data"
+	"github.com/banorton/gote/src/core"
+	"github.com/banorton/gote/src/data"
 )
 
 // selectKeys are the keys used for selecting items in paginated lists

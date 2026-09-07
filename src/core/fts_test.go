@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"gote/src/data"
+	"github.com/banorton/gote/src/data"
 )
 
 func TestSearchNotesFullText(t *testing.T) {

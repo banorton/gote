@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gote/src/data"
+	"github.com/banorton/gote/src/data"
 )
 
 // DateRange represents a date range for searching

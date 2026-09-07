@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"gote/src/data"
+	"github.com/banorton/gote/src/data"
 )
 
 // ListTemplates returns the names of all available templates

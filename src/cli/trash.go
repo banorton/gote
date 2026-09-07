@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"gote/src/core"
-	"gote/src/data"
+	"github.com/banorton/gote/src/core"
+	"github.com/banorton/gote/src/data"
 )
 
 func DeleteCommand(rawArgs []string) {

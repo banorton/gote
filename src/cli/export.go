@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"gote/src/data"
+	"github.com/banorton/gote/src/data"
 )
 
 func ExportCommand(rawArgs []string) {

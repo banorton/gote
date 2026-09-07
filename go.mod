@@ -1,4 +1,4 @@
-module gote
+module github.com/banorton/gote
 
 go 1.24.4
 

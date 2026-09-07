@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"gote/src/core"
-	"gote/src/data"
+	"github.com/banorton/gote/src/core"
+	"github.com/banorton/gote/src/data"
 )
 
 // TemplateCommand handles template subcommands

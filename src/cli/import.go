@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gote/src/data"
+	"github.com/banorton/gote/src/data"
 )
 
 func ImportCommand(rawArgs []string) {

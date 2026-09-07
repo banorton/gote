@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"gote/src/cli"
+	"github.com/banorton/gote/src/cli"
 )
 
 const Version = "0.3.0"

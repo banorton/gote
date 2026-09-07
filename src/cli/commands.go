@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"gote/src/core"
-	"gote/src/data"
+	"github.com/banorton/gote/src/core"
+	"github.com/banorton/gote/src/data"
 )
 
 func NoteCommand(args []string) {

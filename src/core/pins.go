@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"gote/src/data"
+	"github.com/banorton/gote/src/data"
 )
 
 func PinNote(noteName string) error {

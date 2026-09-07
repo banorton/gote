@@ -3,8 +3,8 @@ package cli
 import (
 	"fmt"
 
-	"gote/src/core"
-	"gote/src/data"
+	"github.com/banorton/gote/src/core"
+	"github.com/banorton/gote/src/data"
 )
 
 // LoadConfigAndUI loads the config and creates a UI instance.

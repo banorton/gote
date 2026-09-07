@@ -3,7 +3,7 @@ package core
 import (
 	"fmt"
 
-	"gote/src/data"
+	"github.com/banorton/gote/src/data"
 )
 
 func DeleteNote(noteName string) error {
