@@ -19,7 +19,7 @@ import (
 
 // Invoke runs another command by name. The merge step assigns cli.Invoke;
 // until then commands the fuzzy finder triggers report "not available".
-var Invoke func(c *cli.Ctx, name string, args []string) error
+var Invoke = cli.Invoke
 
 const usage = "gote search [-n <limit>] [-s|--semantic] [<query>...]"
 
