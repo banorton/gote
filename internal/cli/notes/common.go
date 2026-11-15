@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"golang.org/x/term"
+
 	"github.com/banorton/gote/internal/cli"
 	"github.com/banorton/gote/internal/ops"
 	opsnotes "github.com/banorton/gote/internal/ops/notes"
@@ -153,6 +155,15 @@ func editNote(c *cli.Ctx, id, path string) error {
 	}
 	return call(c, "notes.visit", opsnotes.IDReq{ID: id}, nil)
 }
+
+var isTTY = func(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	return ok && term.IsTerminal(int(f.Fd()))
+}
+
+// headless reports whether the editor must not be launched: --json or a
+// non-terminal stdout (agents, pipes).
+func headless(c *cli.Ctx) bool { return c.JSON || !isTTY(c.Out) }
 
 func prompt(c *cli.Ctx, msg, def string) (string, error) {
 	if def != "" {

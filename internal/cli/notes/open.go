@@ -1,6 +1,7 @@
 package notes
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
 
@@ -49,6 +50,13 @@ type openResult struct {
 }
 
 func finishOpen(c *cli.Ctx, r openResult) error {
+	if headless(c) {
+		if c.JSON {
+			return c.PrintJSON(r)
+		}
+		_, err := fmt.Fprintln(c.Out, r.Path)
+		return err
+	}
 	if err := editNote(c, r.ID, r.Path); err != nil {
 		return err
 	}
@@ -115,13 +123,14 @@ func quickCmd(c *cli.Ctx, args []string) error {
 	if err := call(c, "quick.open", nil, &r); err != nil {
 		return err
 	}
-	if err := runEditor(c, r.Path); err != nil {
+	if headless(c) {
+		if c.JSON {
+			return c.PrintJSON(r)
+		}
+		_, err := fmt.Fprintln(c.Out, r.Path)
 		return err
 	}
-	if c.JSON {
-		return c.PrintJSON(r)
-	}
-	return nil
+	return runEditor(c, r.Path)
 }
 
 func quickSave(c *cli.Ctx, args []string) error {

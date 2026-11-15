@@ -41,7 +41,7 @@ Instructions for an agent helping a user turn `SKILL.md` in this directory into 
 
 - Every claim about gote belongs to the core section. Do not restate or contradict it elsewhere; if the user wants something gote cannot do, say so and record a workaround in the relevant block.
 - Examples in CUSTOMIZE blocks are illustrations. Replace them with the user's real values or remove them.
-- Do not run commands that open an editor or menu (`open`, `new`, `today`, `view`, menu aliases) while exploring.
+- Do not run commands that open a menu or browser (`view`, menu aliases) while exploring. `new`, `open` and `today` create notes, so do not run them during the build either.
 - Do not edit, create or rename notes in the user's vault during the build.
 
 ## Updating an existing skill

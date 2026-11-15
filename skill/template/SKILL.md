@@ -45,7 +45,7 @@ Filename and title conventions. Example:
 
 <!-- CUSTOMIZE: daily
 How the daily note works. Example:
-  Daily note is daily/<yymmdd>_daily.md (the default gote path; `gote today` would open it
+  Daily note is daily/<yymmdd>_daily.md (the default gote path; `gote today --json` creates it
   in an editor, so create or edit the file directly). Sections: Plan, Log, Tasks.
   When asked "what did I do yesterday", read yesterday's daily note and the open tasks in it.
   Carry unfinished `- [ ]` items forward by copying, never by deleting the original.
@@ -96,7 +96,8 @@ Single-binary CLI over a directory of Markdown notes and `.excalidraw` drawings 
 
 - Always pass `--json` and parse it. Exit codes: 0 ok, 1 error, 2 usage. With `--json`, errors are `{"error":{"code","msg"}}` on stderr; `code` is `not_found`, `invalid`, `conflict` or `internal`.
 - Every result carries `id`, the vault-relative path (`projects/gote.md`). Absolute `path` appears in `search`, `info`, `new`, `open`, `today`.
-- Never run commands that open an editor, a menu, a pager or a browser, even with `--json` (`open`, `new`, `quick`, `today`, `template open`, `config-edit`, `view`, menu and two-letter menu aliases, `diagram` without `read`/`check`). To create a note, write the file yourself (stub below); gote indexes it on the next call.
+- Never run commands that open a menu, a pager or a browser (`template open`, `config-edit`, `view`, menu and two-letter menu aliases, `diagram` without `read`/`check`). `new`, `open`, `quick` and `today` are safe with `--json` (or when stdout is not a terminal): they create the note if needed but do not launch the editor or record a visit.
+- Create notes with `gote new <name> --json` (daily note: `gote today --json`), not by writing files by hand: gote applies the stub, template and prefix. Then edit the returned `path` with normal file tools.
 - Resolving `<note>`: an id (`projects/gote.md`), a filename stem (`gote`), an alias, or a path suffix, case-insensitive. Ambiguous names resolve to the shortest path. `-` is the last opened note. An unknown ref is `not_found`.
 
 ### Commands
@@ -135,11 +136,11 @@ Menu commands print `id<TAB>title` lines without a terminal and are interactive 
 | `serve` | | run the server in the foreground (never; auto-spawned) |
 | `help` | `h` `man` | `help --json` lists every command with usage |
 | `version` | | print the version |
-| `open` | | open or create a note in the editor (avoid): `-t <template>`, `-d`/`-dt`/`-nt` name prefix |
-| `new` | | create a note and open it (avoid); fails if it exists |
-| `quick` | `q` | quick note `.quick.md` in the editor (avoid); `quick save <name>` |
+| `open` | | open or create a note; with `--json` returns `{id,path,created}` and skips the editor: `-t <template>`, `-d`/`-dt`/`-nt` name prefix |
+| `new` | | create a note, `--json` returns `{id,path,created}` without opening the editor; fails with `conflict` if it exists |
+| `quick` | `q` | quick note `.quick.md`; `--json` returns `{path}` without the editor; `quick save <name>` |
 | `quick-save` | `qs` | save the quick note as a note |
-| `today` | | opens `daily/<yymmdd>_daily.md` in the editor (avoid); `today -1` yesterday |
+| `today` | | daily note `daily/<yymmdd>_daily.md`; `--json` creates it if missing, returns `{id,path,created}`, no editor; `today -1` yesterday |
 | `recent` `get` | `r` `g` | menus of recent / all notes (avoid) |
 | `view` | `v` | rendered note in the browser (avoid); `-T` renders in the terminal |
 | `ro` `rd` `rp` `rv` `rr` `so` `sd` `sp` `sv` `sr` `to` `td` `tp` `tr` `tv` `po` `pd` `pr` `pu` `pv` | | lister+action menu shortcuts (recent, search, tag, pinned; open, delete, pin, view, rename, unpin). Interactive; avoid |
@@ -185,7 +186,7 @@ semantic: false                # exclude from embedding
 | `related`, `parent` | `[[...]]` values must be quoted YAML strings |
 | `semantic: false` | note is never embedded |
 
-A new note stub is `created`, `tags: []`, `aliases: []`; write that block when creating a file by hand. There is no `modified` field: use `modified:` (file mtime). Other keys are preserved and searchable as `field:value`. A template's frontmatter wins for keys it sets.
+A new note stub is `created`, `tags: []`, `aliases: []` (`gote new` writes it). There is no `modified` field: use `modified:` (file mtime). Other keys are preserved and searchable as `field:value`. A template's frontmatter wins for keys it sets.
 
 ### Links
 
