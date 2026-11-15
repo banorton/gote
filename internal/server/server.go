@@ -30,6 +30,8 @@ type Options struct {
 	// Open builds the op environment once the lock is held; the returned func releases it.
 	Open     func() (*ops.Env, func(), error)
 	Debounce time.Duration
+
+	beforeReconcile func() // test hook: runs under the op mutex before the initial reconcile
 }
 
 type Server struct {
@@ -83,17 +85,6 @@ func (s *Server) Run(ctx context.Context) error {
 	s.env = env
 	raiseFDLimit(s.log)
 
-	if _, err := env.Index.Reconcile(ctx); err != nil {
-		return fmt.Errorf("initial reconcile: %w", err)
-	}
-	defer s.startSemantic(ctx)()
-
-	stopWeb, err := s.startWeb(ctx)
-	if err != nil {
-		return err
-	}
-	defer stopWeb()
-
 	ln, err := net.Listen("unix", s.o.SocketPath)
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", s.o.SocketPath, err)
@@ -106,8 +97,23 @@ func (s *Server) Run(ctx context.Context) error {
 
 	s.started = time.Now()
 	srv := &http.Server{Handler: s.handler(), ErrorLog: s.log}
+	defer srv.Close()
+	s.mu.Lock() // held until the initial reconcile is done
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- srv.Serve(ln) }()
+
+	// The socket answers before the (possibly slow) initial reconcile so a
+	// spawning client sees a live server; ops queue on s.mu until it finishes.
+	if err := s.initialReconcile(ctx); err != nil {
+		return err
+	}
+	defer s.startSemantic(ctx)()
+
+	stopWeb, err := s.startWeb(ctx)
+	if err != nil {
+		return err
+	}
+	defer stopWeb()
 
 	w, err := s.startWatch()
 	if err != nil {
@@ -140,6 +146,18 @@ func (s *Server) Run(ctx context.Context) error {
 	err = srv.Shutdown(sctx)
 	s.log.Printf("server stopped")
 	return err
+}
+
+// initialReconcile releases s.mu, which Run took before serving.
+func (s *Server) initialReconcile(ctx context.Context) error {
+	defer s.mu.Unlock()
+	if s.o.beforeReconcile != nil {
+		s.o.beforeReconcile()
+	}
+	if _, err := s.env.Index.Reconcile(ctx); err != nil {
+		return fmt.Errorf("initial reconcile: %w", err)
+	}
+	return nil
 }
 
 func acquireLock(path string) (*os.File, error) {

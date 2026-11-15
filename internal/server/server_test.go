@@ -356,3 +356,62 @@ func TestConnectSpawnThatNeverListens(t *testing.T) {
 		t.Fatal("expected timeout error")
 	}
 }
+
+func TestListensDuringInitialReconcile(t *testing.T) {
+	d := newDirs(t)
+	os.WriteFile(filepath.Join(d.notes, "a.md"), []byte("[[b]]"), 0o644)
+	os.WriteFile(filepath.Join(d.notes, "b.md"), []byte("x"), 0o644)
+	o := d.opts("v1")
+	entered, release := make(chan struct{}), make(chan struct{})
+	o.beforeReconcile = func() { close(entered); <-release }
+	s := New(o)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- s.Run(ctx) }()
+	t.Cleanup(func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Error("server did not stop")
+		}
+	})
+	select {
+	case <-entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("initial reconcile never started")
+	}
+
+	if _, err := client.Probe(o.SocketPath); err != nil {
+		t.Fatalf("version probe during initial reconcile: %v", err)
+	}
+	select {
+	case <-s.Ready():
+		t.Fatal("ready closed before initial reconcile finished")
+	default:
+	}
+
+	res := make(chan error, 1)
+	go func() {
+		res <- client.Remote(o.SocketPath).Call(context.Background(), "index.status", nil, nil)
+	}()
+	select {
+	case err := <-res:
+		t.Fatalf("op returned during initial reconcile: %v", err)
+	case <-time.After(150 * time.Millisecond):
+	}
+	close(release)
+	select {
+	case err := <-res:
+		if err != nil {
+			t.Fatalf("op after initial reconcile: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("op never completed")
+	}
+	select {
+	case <-s.Ready():
+	case <-time.After(5 * time.Second):
+		t.Fatal("never ready")
+	}
+}
