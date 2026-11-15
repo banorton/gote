@@ -135,7 +135,7 @@ func init() {
 
 	ops.Handle("graph.broken", func(ctx context.Context, env *ops.Env, _ ops.Empty) ([]Broken, error) {
 		rows, err := env.Store.DB.QueryContext(ctx,
-			"SELECT src, dst_raw, line FROM links WHERE dst_id IS NULL ORDER BY src, line, rowid")
+			"SELECT src, dst_raw, line FROM links WHERE dst_id IS NULL AND attach=0 ORDER BY src, line, rowid")
 		if err != nil {
 			return nil, internal("graph.broken", err)
 		}

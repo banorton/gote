@@ -11,14 +11,14 @@ import (
 
 // CacheVersion invalidates all cache tables when the schema or indexing
 // semantics change.
-const CacheVersion = 2
+const CacheVersion = 3
 
 type Store struct {
 	DB   *sql.DB
 	Path string
 }
 
-var cacheTables = []string{"chunks", "notes_fts", "tasks", "headings", "links", "tags", "aliases", "notes"}
+var cacheTables = []string{"attachments", "chunks", "notes_fts", "tasks", "headings", "links", "tags", "aliases", "notes"}
 
 const cacheSchema = `
 CREATE TABLE notes(id TEXT PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL, stem TEXT NOT NULL,
@@ -27,7 +27,8 @@ CREATE TABLE notes(id TEXT PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL,
 CREATE TABLE aliases(note_id TEXT REFERENCES notes(id) ON DELETE CASCADE, alias_lc TEXT, alias TEXT);
 CREATE TABLE tags(note_id TEXT REFERENCES notes(id) ON DELETE CASCADE, tag TEXT);
 CREATE TABLE links(src TEXT REFERENCES notes(id) ON DELETE CASCADE, dst_raw TEXT, dst_id TEXT,
-  fragment TEXT, alias TEXT, kind TEXT, line INTEGER);
+  fragment TEXT, alias TEXT, kind TEXT, line INTEGER, attach INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE attachments(path TEXT PRIMARY KEY, path_lc TEXT NOT NULL);
 CREATE TABLE headings(note_id TEXT REFERENCES notes(id) ON DELETE CASCADE, level INTEGER, text TEXT, line INTEGER);
 CREATE TABLE tasks(note_id TEXT REFERENCES notes(id) ON DELETE CASCADE, line INTEGER, text TEXT, done INTEGER);
 CREATE VIRTUAL TABLE notes_fts USING fts5(note_id UNINDEXED, title, aliases, tags, body, tokenize='porter unicode61');
@@ -51,7 +52,7 @@ var stateMigrations = []string{
 
 func Open(path string) (*Store, error) {
 	q := url.Values{}
-	for _, p := range []string{"journal_mode(WAL)", "busy_timeout(5000)", "foreign_keys(ON)", "synchronous(NORMAL)"} {
+	for _, p := range []string{"journal_mode(WAL)", "busy_timeout(30000)", "foreign_keys(ON)", "synchronous(NORMAL)"} {
 		q.Add("_pragma", p)
 	}
 	db, err := sql.Open("sqlite", "file:"+path+"?"+q.Encode())

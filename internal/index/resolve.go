@@ -12,6 +12,7 @@ type resolver struct {
 	byStem  map[string][]string
 	byAlias map[string][]string
 	byLC    map[string]string
+	attach  map[string][]string // lowercase basename -> lowercase paths
 }
 
 func knownExt(s string) bool {
@@ -27,7 +28,7 @@ func trimKnownExt(s string) string {
 }
 
 func newResolver(ctx context.Context, tx *sql.Tx) (*resolver, error) {
-	r := &resolver{byStem: map[string][]string{}, byAlias: map[string][]string{}, byLC: map[string]string{}}
+	r := &resolver{byStem: map[string][]string{}, byAlias: map[string][]string{}, byLC: map[string]string{}, attach: map[string][]string{}}
 	rs, err := tx.QueryContext(ctx, "SELECT id, stem FROM notes")
 	if err != nil {
 		return nil, err
@@ -40,6 +41,22 @@ func newResolver(ctx context.Context, tx *sql.Tx) (*resolver, error) {
 		}
 		r.byStem[stem] = append(r.byStem[stem], id)
 		r.byLC[strings.ToLower(id)] = id
+	}
+	if err := rs.Err(); err != nil {
+		return nil, err
+	}
+	rs.Close()
+	rs, err = tx.QueryContext(ctx, "SELECT path_lc FROM attachments")
+	if err != nil {
+		return nil, err
+	}
+	for rs.Next() {
+		var p string
+		if err := rs.Scan(&p); err != nil {
+			rs.Close()
+			return nil, err
+		}
+		r.attach[path.Base(p)] = append(r.attach[path.Base(p)], p)
 	}
 	if err := rs.Err(); err != nil {
 		return nil, err
@@ -110,23 +127,51 @@ func (r *resolver) resolve(src, raw, kind string) string {
 	return pick(cands)
 }
 
+// isAttachment reports whether an unresolved link names an existing non-note
+// file: a target with a non-note extension matched by basename, or by path
+// suffix when it contains "/". md links try a src-relative path first.
+func (r *resolver) isAttachment(src, raw, kind string) bool {
+	t := strings.ToLower(strings.TrimSpace(raw))
+	if path.Ext(t) == "" || knownExt(t) {
+		return false
+	}
+	cands := r.attach[path.Base(t)]
+	if kind == "md" {
+		rel := path.Join(path.Dir(strings.ToLower(src)), t)
+		for _, p := range cands {
+			if p == rel {
+				return true
+			}
+		}
+	}
+	t = strings.TrimPrefix(t, "./")
+	for _, p := range cands {
+		if p == t || strings.HasSuffix(p, "/"+t) {
+			return true
+		}
+	}
+	return false
+}
+
 type linkRow struct {
 	rowid         int64
 	src, raw, knd string
 	dst           sql.NullString
+	attach        bool
 }
 
 func applyResolution(ctx context.Context, tx *sql.Tx, rows []linkRow, r *resolver) error {
 	for _, l := range rows {
 		got := r.resolve(l.src, l.raw, l.knd)
-		if (got == "" && !l.dst.Valid) || (l.dst.Valid && l.dst.String == got) {
+		att := got == "" && r.isAttachment(l.src, l.raw, l.knd)
+		if ((got == "" && !l.dst.Valid) || (l.dst.Valid && l.dst.String == got)) && att == l.attach {
 			continue
 		}
 		var v any
 		if got != "" {
 			v = got
 		}
-		if _, err := tx.ExecContext(ctx, "UPDATE links SET dst_id=? WHERE rowid=?", v, l.rowid); err != nil {
+		if _, err := tx.ExecContext(ctx, "UPDATE links SET dst_id=?, attach=? WHERE rowid=?", v, att, l.rowid); err != nil {
 			return err
 		}
 	}
@@ -142,7 +187,7 @@ func loadLinks(ctx context.Context, tx *sql.Tx, q string, args ...any) ([]linkRo
 	var out []linkRow
 	for rs.Next() {
 		var l linkRow
-		if err := rs.Scan(&l.rowid, &l.src, &l.raw, &l.knd, &l.dst); err != nil {
+		if err := rs.Scan(&l.rowid, &l.src, &l.raw, &l.knd, &l.dst, &l.attach); err != nil {
 			return nil, err
 		}
 		out = append(out, l)
@@ -150,7 +195,7 @@ func loadLinks(ctx context.Context, tx *sql.Tx, q string, args ...any) ([]linkRo
 	return out, rs.Err()
 }
 
-const linkSelect = "SELECT rowid, src, dst_raw, kind, dst_id FROM links"
+const linkSelect = "SELECT rowid, src, dst_raw, kind, dst_id, attach FROM links"
 
 func resolveAll(ctx context.Context, tx *sql.Tx) error {
 	r, err := newResolver(ctx, tx)

@@ -126,9 +126,9 @@ func hidden(id string) bool {
 	return false
 }
 
-func (ix *Indexer) walk(ctx context.Context) (map[string]fileInfo, error) {
-	files := map[string]fileInfo{}
-	err := filepath.WalkDir(ix.root, func(p string, d fs.DirEntry, err error) error {
+func (ix *Indexer) walk(ctx context.Context) (files map[string]fileInfo, attachments []string, err error) {
+	files = map[string]fileInfo{}
+	err = filepath.WalkDir(ix.root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -153,6 +153,7 @@ func (ix *Indexer) walk(ctx context.Context) (map[string]fileInfo, error) {
 		}
 		id := filepath.ToSlash(rel)
 		if _, ok := parserFor(id); !ok {
+			attachments = append(attachments, id)
 			return nil
 		}
 		info, err := d.Info()
@@ -163,9 +164,9 @@ func (ix *Indexer) walk(ctx context.Context) (map[string]fileInfo, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("walk %s: %w", ix.root, err)
+		return nil, nil, fmt.Errorf("walk %s: %w", ix.root, err)
 	}
-	return files, nil
+	return files, attachments, nil
 }
 
 // Reconcile brings the cache in line with the files on disk in one transaction.
@@ -181,7 +182,7 @@ func (ix *Indexer) Reconcile(ctx context.Context) (Stats, error) {
 
 func (ix *Indexer) reconcile(ctx context.Context) (Stats, error) {
 	start := time.Now()
-	files, err := ix.walk(ctx)
+	files, attachments, err := ix.walk(ctx)
 	if err != nil {
 		return Stats{}, err
 	}
@@ -210,6 +211,11 @@ func (ix *Indexer) reconcile(ctx context.Context) (Stats, error) {
 	}
 	rs.Close()
 
+	structural, err := syncAttachments(ctx, tx, attachments)
+	if err != nil {
+		return Stats{}, err
+	}
+
 	st := Stats{Scanned: len(files)}
 	ids := make([]string, 0, len(files))
 	for id := range files {
@@ -217,7 +223,6 @@ func (ix *Indexer) reconcile(ctx context.Context) (Stats, error) {
 	}
 	sort.Strings(ids)
 
-	structural := false
 	var changed []string
 	for _, id := range ids {
 		if err := ctx.Err(); err != nil {
@@ -265,6 +270,47 @@ func (ix *Indexer) reconcile(ctx context.Context) (Stats, error) {
 	st.Elapsed = time.Since(start)
 	ix.last = st
 	return st, nil
+}
+
+// syncAttachments replaces the attachment table when the set of non-note files
+// changed, reporting whether it did so links get re-resolved.
+func syncAttachments(ctx context.Context, tx *sql.Tx, paths []string) (bool, error) {
+	have := map[string]bool{}
+	rs, err := tx.QueryContext(ctx, "SELECT path FROM attachments")
+	if err != nil {
+		return false, err
+	}
+	for rs.Next() {
+		var p string
+		if err := rs.Scan(&p); err != nil {
+			rs.Close()
+			return false, err
+		}
+		have[p] = true
+	}
+	if err := rs.Err(); err != nil {
+		return false, err
+	}
+	rs.Close()
+	same := len(have) == len(paths)
+	for _, p := range paths {
+		if !have[p] {
+			same = false
+			break
+		}
+	}
+	if same {
+		return false, nil
+	}
+	if _, err := tx.ExecContext(ctx, "DELETE FROM attachments"); err != nil {
+		return false, err
+	}
+	for _, p := range paths {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO attachments VALUES(?,?)", p, strings.ToLower(p)); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
 }
 
 func deleteNote(ctx context.Context, tx *sql.Tx, id string) error {

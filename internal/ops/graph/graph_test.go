@@ -198,3 +198,59 @@ func TestNeighborsDepthBounds(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 }
+
+func TestBrokenIgnoresExistingAttachments(t *testing.T) {
+	dir := t.TempDir()
+	files := map[string]string{
+		"n.md":               "# N\n\n![[img.png]]\n[[doc.pdf]]\n![[gone.png]]\n[[sub/Pic.JPG]]\n![[nope/x.png]]\n[x](assets/img.png)\n[[missing]]\n",
+		"assets/img.png":     "png",
+		"deep/dir/doc.pdf":   "pdf",
+		"deep/sub/pic.jpg":   "jpg",
+		".hidden/nope/x.png": "x",
+	}
+	for name, body := range files {
+		p := filepath.Join(dir, name)
+		os.MkdirAll(filepath.Dir(p), 0o755)
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	st, err := store.Open(filepath.Join(t.TempDir(), "gote.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	ix := index.New(st, dir)
+	if _, err := ix.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	c := client.Local(&ops.Env{Store: st, Index: ix, Now: time.Now})
+
+	var got []Broken
+	if err := call(t, c, "graph.broken", nil, &got); err != nil {
+		t.Fatal(err)
+	}
+	want := []Broken{{Src: "n.md", Raw: "gone.png", Line: 5}, {Src: "n.md", Raw: "nope/x.png", Line: 7}, {Src: "n.md", Raw: "missing", Line: 9}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %+v want %+v", got, want)
+	}
+	var stat ops.StatusResp
+	if err := call(t, c, "index.status", nil, &stat); err != nil {
+		t.Fatal(err)
+	}
+	if stat.Unresolved != 3 {
+		t.Fatalf("unresolved %d want 3", stat.Unresolved)
+	}
+
+	if err := os.Remove(filepath.Join(dir, "assets/img.png")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ix.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got = nil
+	call(t, c, "graph.broken", nil, &got)
+	if len(got) != 4 || got[0].Raw != "img.png" {
+		t.Fatalf("after removing attachment: %+v", got)
+	}
+}

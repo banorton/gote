@@ -23,7 +23,7 @@ func TestPragmas(t *testing.T) {
 	var fk, busy int
 	s.DB.QueryRow("PRAGMA foreign_keys").Scan(&fk)
 	s.DB.QueryRow("PRAGMA busy_timeout").Scan(&busy)
-	if mode != "wal" || fk != 1 || busy != 5000 {
+	if mode != "wal" || fk != 1 || busy != 30000 {
 		t.Fatal(mode, fk, busy)
 	}
 }
@@ -33,7 +33,7 @@ func TestSchemaAndCascade(t *testing.T) {
 	for _, q := range []string{
 		"INSERT INTO notes VALUES('a.md','note','A','a',NULL,1,1,'h','{}',1,NULL)",
 		"INSERT INTO tags VALUES('a.md','x')",
-		"INSERT INTO links VALUES('a.md','b',NULL,'',  '','wiki',1)",
+		"INSERT INTO links(src, dst_raw, dst_id, fragment, alias, kind, line) VALUES('a.md','b',NULL,'',  '','wiki',1)",
 		"INSERT INTO notes_fts VALUES('a.md','A','','x','body text')",
 		"DELETE FROM notes WHERE id='a.md'",
 	} {

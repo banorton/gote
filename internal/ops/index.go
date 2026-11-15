@@ -47,7 +47,7 @@ func init() {
 		r := StatusResp{DB: env.Store.Path, Last: statsResp(env.Index.LastStats())}
 		err := env.Store.DB.QueryRowContext(ctx, `SELECT
 			(SELECT count(*) FROM notes), (SELECT count(*) FROM links),
-			(SELECT count(*) FROM links WHERE dst_id IS NULL)`).Scan(&r.Notes, &r.Links, &r.Unresolved)
+			(SELECT count(*) FROM links WHERE dst_id IS NULL AND attach=0)`).Scan(&r.Notes, &r.Links, &r.Unresolved)
 		if err != nil {
 			return StatusResp{}, Errorf(CodeInternal, "status: %v", err)
 		}
