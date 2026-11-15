@@ -16,8 +16,7 @@ import (
 // notYetRegistered lists commands the README documents before they are
 // registered in this branch. Remove an entry once its phase is merged.
 var notYetRegistered = map[string]bool{
-	"view":  true,
-	"embed": true,
+	"view": true,
 }
 
 type helpEntry struct {
