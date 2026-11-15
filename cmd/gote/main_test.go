@@ -24,7 +24,7 @@ func buildBinary(t *testing.T) string {
 func run(t *testing.T, bin, cfg, state string, args ...string) (string, string, int) {
 	t.Helper()
 	cmd := exec.Command(bin, args...)
-	cmd.Env = append(os.Environ(), "XDG_CONFIG_HOME="+cfg, "XDG_STATE_HOME="+state)
+	cmd.Env = append(os.Environ(), "XDG_CONFIG_HOME="+cfg, "XDG_STATE_HOME="+state, "EDITOR=true")
 	var so, se strings.Builder
 	cmd.Stdout, cmd.Stderr = &so, &se
 	err := cmd.Run()
@@ -50,7 +50,7 @@ func TestBinaryE2E(t *testing.T) {
 	}
 
 	os.MkdirAll(filepath.Join(cfg, "gote"), 0o755)
-	os.WriteFile(filepath.Join(cfg, "gote", "config.yaml"), []byte("notes_dir: "+notes+"\n"), 0o644)
+	os.WriteFile(filepath.Join(cfg, "gote", "config.yaml"), []byte("notes_dir: "+notes+"\nserver: false\n"), 0o644)
 	os.WriteFile(filepath.Join(notes, "a.md"), []byte("[[b]] [[missing]]"), 0o644)
 	os.WriteFile(filepath.Join(notes, "b.md"), []byte("# b"), 0o644)
 	os.MkdirAll(filepath.Join(notes, ".trash"), 0o755)
@@ -68,8 +68,8 @@ func TestBinaryE2E(t *testing.T) {
 		t.Fatalf("reindex: %d %q %q", code, stdout, stderr)
 	}
 
-	if _, _, code = run(t, bin, cfg, state, "nonsense"); code != 2 {
-		t.Fatalf("unknown command exit %d", code)
+	if _, _, code = run(t, bin, cfg, state, "--bogus-flag"); code != 2 {
+		t.Fatalf("usage error exit %d", code)
 	}
 	if stdout, _, code = run(t, bin, cfg, state, "--version"); code != 0 || !strings.HasPrefix(stdout, "gote ") {
 		t.Fatalf("version: %d %q", code, stdout)

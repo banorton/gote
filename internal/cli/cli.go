@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"time"
 
@@ -179,17 +180,11 @@ func (r *registry) dispatch(c *Ctx, rest []string) error {
 		if err != nil {
 			return err
 		}
-		dbPath, err := paths.DBPath()
+		closeClient, err := c.connect(cfg)
 		if err != nil {
 			return err
 		}
-		st, err := store.Open(dbPath)
-		if err != nil {
-			return err
-		}
-		defer st.Close()
-		env := &ops.Env{Cfg: cfg, Store: st, Index: index.New(st, cfg.NotesDir), Now: time.Now}
-		c.Cfg, c.Client = cfg, client.Local(env)
+		defer closeClient()
 		if !cmd.SkipReconcile {
 			if err := c.Client.Call(context.Background(), "index.reconcile", nil, nil); err != nil {
 				return err
@@ -197,6 +192,42 @@ func (r *registry) dispatch(c *Ctx, rest []string) error {
 		}
 	}
 	return cmd.Run(c, args)
+}
+
+// spawnServer builds the function that launches a detached server; tests replace it.
+var spawnServer = client.SpawnServer
+
+// connect sets c.Cfg and c.Client: a server client when enabled and reachable,
+// otherwise an in-process one.
+func (c *Ctx) connect(cfg *config.Config) (func(), error) {
+	c.Cfg = cfg
+	if !c.NoServer && cfg.Server {
+		sock, err := paths.SocketPath()
+		if err != nil {
+			return nil, err
+		}
+		state, _ := paths.StateDir()
+		cl, err := client.Connect(client.ConnectOpts{
+			Socket: sock, Version: Version,
+			Spawn: spawnServer(filepath.Join(state, "server.log")),
+		})
+		if err == nil {
+			c.Client = cl
+			return func() {}, nil
+		}
+		fmt.Fprintf(c.Err, "gote: server unavailable (%v); running in-process\n", err)
+	}
+	dbPath, err := paths.DBPath()
+	if err != nil {
+		return nil, err
+	}
+	st, err := store.Open(dbPath)
+	if err != nil {
+		return nil, err
+	}
+	env := &ops.Env{Cfg: cfg, Store: st, Index: index.New(st, cfg.NotesDir), Now: time.Now}
+	c.Client = client.Local(env)
+	return func() { st.Close() }, nil
 }
 
 func (r *registry) sorted() []*Command {
