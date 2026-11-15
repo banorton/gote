@@ -10,3 +10,11 @@ export async function loadDrawing(id) {
 export function apiPath(id) {
   return "/api/drawing/" + id.split("/").map(encodeURIComponent).join("/");
 }
+
+// Props that keep Excalidraw from reaching public services (share link, AI, embeds).
+// The CSP is the enforcement; this removes the UI that would only hit it.
+export const localOnlyProps = {
+  aiEnabled: false,
+  validateEmbeddable: () => false,
+  UIOptions: { canvasActions: { export: { saveFileToDisk: true } } },
+};

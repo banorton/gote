@@ -1,10 +1,10 @@
+// Must evaluate before @excalidraw/excalidraw, which reads the path at import time.
+import "./assetpath.js";
 import "@excalidraw/excalidraw/index.css";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Excalidraw, serializeAsJSON } from "@excalidraw/excalidraw";
-import { apiPath, dark, loadDrawing } from "./common.js";
-
-window.EXCALIDRAW_ASSET_PATH = "/assets/";
+import { Excalidraw, MainMenu, serializeAsJSON } from "@excalidraw/excalidraw";
+import { apiPath, dark, loadDrawing, localOnlyProps } from "./common.js";
 
 const AUTOSAVE_MS = 2000;
 
@@ -105,7 +105,20 @@ function Editor({ id }) {
   if (!initial) return null;
   return (
     <div style={{ height: "100vh" }}>
-      <Excalidraw initialData={initial} onChange={onChange} theme={dark() ? "dark" : "light"} />
+      <Excalidraw {...localOnlyProps} initialData={initial} onChange={onChange} theme={dark() ? "dark" : "light"}>
+        <MainMenu>
+          <MainMenu.DefaultItems.LoadScene />
+          <MainMenu.DefaultItems.Export />
+          <MainMenu.DefaultItems.SaveAsImage />
+          <MainMenu.DefaultItems.CommandPalette />
+          <MainMenu.DefaultItems.SearchMenu />
+          <MainMenu.DefaultItems.Help />
+          <MainMenu.DefaultItems.ClearCanvas />
+          <MainMenu.Separator />
+          <MainMenu.DefaultItems.ToggleTheme />
+          <MainMenu.DefaultItems.ChangeCanvasBackground />
+        </MainMenu>
+      </Excalidraw>
       <div
         id="gote-status"
         className={"gote-pill " + status}

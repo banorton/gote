@@ -1,10 +1,10 @@
+// Must evaluate before @excalidraw/excalidraw, which reads the path at import time.
+import "./assetpath.js";
 import "@excalidraw/excalidraw/index.css";
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Excalidraw } from "@excalidraw/excalidraw";
-import { dark, loadDrawing } from "./common.js";
-
-window.EXCALIDRAW_ASSET_PATH = "/assets/";
+import { dark, loadDrawing, localOnlyProps } from "./common.js";
 
 function Viewer({ id }) {
   const [initial, setInitial] = useState(null);
@@ -23,7 +23,7 @@ function Viewer({ id }) {
   }, [id]);
   if (error) return <pre className="gote-error">{error}</pre>;
   if (!initial) return null;
-  return <Excalidraw initialData={initial} viewModeEnabled zenModeEnabled theme={dark() ? "dark" : "light"} />;
+  return <Excalidraw {...localOnlyProps} initialData={initial} viewModeEnabled zenModeEnabled theme={dark() ? "dark" : "light"} />;
 }
 
 document.querySelectorAll(".gote-drawing").forEach((el) => {
