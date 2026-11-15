@@ -156,6 +156,9 @@ func filterSQL(f query.Filter) (string, []any) {
 	case query.KindTag:
 		clause = "EXISTS (SELECT 1 FROM tags t WHERE t.note_id = n.id AND lower(t.tag) = lower(?))"
 		args = []any{f.Value}
+	case query.KindNoteKind:
+		clause = "n.kind = ?"
+		args = []any{f.Value}
 	case query.KindCreated:
 		lo, hi := f.Range.CreatedBounds()
 		var parts []string
@@ -406,7 +409,7 @@ func runFuzzy(ctx context.Context, env *ops.Env, req FuzzyReq) (FuzzyResp, error
 		}
 	}
 	if len(q.Filters) > 0 {
-		return FuzzyResp{}, ops.Errorf(ops.CodeInvalid, "filters (tag:, created:, field:value) need full-text search: use -t")
+		return FuzzyResp{}, ops.Errorf(ops.CodeInvalid, "filters (tag:, kind:, created:, field:value) need full-text search: use -t")
 	}
 	corpus, err := loadCorpus(ctx, env)
 	if err != nil {

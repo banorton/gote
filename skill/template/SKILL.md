@@ -96,7 +96,7 @@ Single-binary CLI over a directory of Markdown notes and `.excalidraw` drawings 
 
 - Always pass `--json` and parse it. Exit codes: 0 ok, 1 error, 2 usage. With `--json`, errors are `{"error":{"code","msg"}}` on stderr; `code` is `not_found`, `invalid`, `conflict` or `internal`.
 - Every result carries `id`, the vault-relative path (`projects/gote.md`). Absolute `path` appears in `search`, `info`, `new`, `open`, `today`.
-- Never run commands that open a menu, a pager or a browser (`template open`, `config-edit`, `view`, menu and two-letter menu aliases, `diagram` without `read`/`check`). `new`, `open`, `quick` and `today` are safe with `--json` (or when stdout is not a terminal): they create the note if needed but do not launch the editor or record a visit.
+- Never run commands that open a menu, a pager or a browser (`template open`, `config-edit`, `view`, menu and two-letter menu aliases, `diagram` without `read`/`check`/`list --json`). `new`, `open`, `quick` and `today` are safe with `--json` (or when stdout is not a terminal): they create the note if needed but do not launch the editor or record a visit.
 - Create notes with `gote new <name> --json` (daily note: `gote today --json`), not by writing files by hand: gote applies the stub, template and prefix. Then edit the returned `path` with normal file tools.
 - Resolving `<note>`: an id (`projects/gote.md`), a filename stem (`gote`), an alias, or a path suffix, case-insensitive. Ambiguous names resolve to the shortest path. `-` is the last opened note. An unknown ref is `not_found`.
 
@@ -123,7 +123,7 @@ Menu commands print `id<TAB>title` lines without a terminal and are interactive 
 | `pin` | | pin a note |
 | `unpin` | `u` `up` | unpin a note |
 | `pinned` | `p` | menu of pins; with a note name, pins it |
-| `diagram` | | `diagram read <ref>` summary, `diagram check <ref>` validate; bare/`open` start the browser editor (user only) |
+| `diagram` | | `diagram list [-n N] [--json]` drawings newest first (menu on a terminal: use `--json`), `diagram read <ref>` summary, `diagram check <ref>` validate; bare/`open` start the browser editor (user only) |
 | `template` | `tmpl` | `template list`; `open`, `rename`, `delete` act on `~/.config/gote/templates/` |
 | `status` | | index counts (`notes`, `links`, `unresolved`) |
 | `reindex` | `idx` | drop and rebuild the index; use after bulk edits outside gote or stale results |
@@ -147,7 +147,7 @@ Menu commands print `id<TAB>title` lines without a terminal and are interactive 
 
 ### Search
 
-`gote search --json [-n N] <words>`: fuzzy (fzf scoring) over titles, paths and aliases, best first. Never reads bodies; filter tokens (`tag:`, `created:`, `-word`, quotes) are an `invalid` error pointing at `-t`. Result: `{results:[{id,title,kind,path,score}]}`.
+`gote search --json [-n N] <words>`: fuzzy (fzf scoring) over titles, paths and aliases, best first. Never reads bodies; filter tokens (`tag:`, `kind:`, `created:`, `-word`, quotes) are an `invalid` error pointing at `-t`. Result: `{results:[{id,title,kind,path,score}]}`.
 
 `gote search -t --json [-n N] <query>`: full-text over title, aliases, tags, body; terms ANDed. Result adds `snippet` and `line`. `-s` is semantic (needs a `semantic:` config block, else `invalid`); `-t` with `-s` is a usage error. Put flags before query tokens that start with `-`, or use `--`. `tasks <query>` and `tag add --query` take the same syntax.
 
@@ -157,6 +157,7 @@ Menu commands print `id<TAB>title` lines without a terminal and are interactive 
 | `"two words"` | phrase |
 | `tag:x` | has tag `x` |
 | `field:value` | frontmatter field equals value; lists match any element |
+| `kind:note` / `kind:diagram` | only notes / only drawings (anything else is `invalid`) |
 | `created:<d>` | frontmatter `created` in the period |
 | `modified:<d>` | file mtime in the period |
 | `-token` | negates any token, e.g. `-tag:draft` |

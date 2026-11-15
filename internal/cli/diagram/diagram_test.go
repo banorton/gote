@@ -53,6 +53,11 @@ func run(t *testing.T, args ...string) (string, error) {
 	copyFixture(t, dir, "a.excalidraw", "valid.excalidraw")
 	os.WriteFile(filepath.Join(dir, "n.md"), []byte("x"), 0o644)
 	os.WriteFile(filepath.Join(dir, "broken.excalidraw"), []byte(`{"type":"excalidraw","elements":[{"id":"t1","type":"text","text":"lost","containerId":"zzz"}]}`), 0o644)
+	os.Chtimes(filepath.Join(dir, "a.excalidraw"), time.Date(2026, 1, 1, 12, 0, 0, 0, time.Local), time.Date(2026, 1, 1, 12, 0, 0, 0, time.Local))
+	os.Chtimes(filepath.Join(dir, "broken.excalidraw"), time.Date(2026, 2, 3, 4, 5, 6, 0, time.Local), time.Date(2026, 2, 3, 4, 5, 6, 0, time.Local))
+	if _, err := env.Index.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
 	var out bytes.Buffer
 	c := &cli.Ctx{Client: client.Local(env), Cfg: env.Cfg, Out: &out, Err: &out}
 	if len(args) > 0 && args[len(args)-1] == "--json" {
@@ -211,5 +216,100 @@ func TestOpenRejectsNonDrawingAndMissingRef(t *testing.T) {
 	}
 	if len(*opened) != 0 {
 		t.Fatal("opened a browser on failure")
+	}
+}
+
+func noFilesCreated(t *testing.T) {
+	t.Helper()
+	if files, _ := filepath.Glob(filepath.Join(lastDir, "diagrams", "*")); len(files) != 0 {
+		t.Fatalf("created files: %v", files)
+	}
+}
+
+func TestHelpFlagsPrintUsageAndCreateNothing(t *testing.T) {
+	opened := editorSetup(t)
+	for _, flag := range []string{"--help", "-h"} {
+		out, err := run(t, flag)
+		if err != nil {
+			t.Fatalf("%s: %v", flag, err)
+		}
+		for _, want := range []string{"[name]", "open <ref>", "list", "read <ref>", "check <ref>"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("%s: usage missing %q: %q", flag, want, out)
+			}
+		}
+		noFilesCreated(t)
+	}
+	if len(*opened) != 0 {
+		t.Fatal("opened editor")
+	}
+}
+
+func TestUnknownFlagIsUsageErrorAndCreatesNothing(t *testing.T) {
+	opened := editorSetup(t)
+	for _, args := range [][]string{{"--bogus"}, {"-x"}, {"-xyz", "name"}, {"name", "--help2"}} {
+		_, err := run(t, args...)
+		var ue *cli.UsageError
+		if !errors.As(err, &ue) {
+			t.Errorf("%v: want usage error, got %v", args, err)
+		}
+		noFilesCreated(t)
+	}
+	if len(*opened) != 0 {
+		t.Fatal("opened editor")
+	}
+}
+
+func TestListNonTTYLines(t *testing.T) {
+	out, err := run(t, "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 2 || !strings.HasSuffix(lines[0], "  (broken.excalidraw)") || !strings.HasSuffix(lines[1], "  (a.excalidraw)") {
+		t.Fatalf("%q", out)
+	}
+}
+
+func TestListLimit(t *testing.T) {
+	out, err := run(t, "list", "-n", "1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(out, "\n") != 1 || !strings.Contains(out, "(broken.excalidraw)") {
+		t.Fatalf("%q", out)
+	}
+}
+
+func TestListJSON(t *testing.T) {
+	out, err := run(t, "list", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rs []struct{ ID, Title, Path, Modified string }
+	if err := json.Unmarshal([]byte(out), &rs); err != nil {
+		t.Fatal(err)
+	}
+	if len(rs) != 2 || rs[0].ID != "broken.excalidraw" || rs[0].Modified != "260203040506" || rs[1].ID != "a.excalidraw" {
+		t.Fatalf("%+v", rs)
+	}
+	if rs[0].Path != filepath.Join(lastDir, "broken.excalidraw") || rs[0].Title == "" {
+		t.Fatalf("%+v", rs[0])
+	}
+}
+
+func TestListEmptyJSONIsArray(t *testing.T) {
+	out, err := run(t, "list", "-n", "0", "--json")
+	if err != nil || strings.TrimSpace(out) == "null" {
+		t.Fatalf("%q %v", out, err)
+	}
+}
+
+func TestListRejectsBadArgs(t *testing.T) {
+	for _, args := range [][]string{{"list", "extra"}, {"list", "-z"}, {"list", "-n", "-1"}} {
+		_, err := run(t, args...)
+		if err == nil {
+			t.Errorf("%v: want error", args)
+		}
 	}
 }

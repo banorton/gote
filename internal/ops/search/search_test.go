@@ -11,6 +11,7 @@ import (
 
 	"github.com/banorton/gote/internal/client"
 	"github.com/banorton/gote/internal/config"
+	_ "github.com/banorton/gote/internal/excal"
 	"github.com/banorton/gote/internal/index"
 	"github.com/banorton/gote/internal/ops"
 	"github.com/banorton/gote/internal/store"
@@ -525,5 +526,65 @@ func TestSearchStringIncludesPathAndAliases(t *testing.T) {
 	}
 	if got = SearchString(CorpusItem{ID: "a.md", Title: "A", Path: "a.md", Aliases: []string{}}); got != "A  a.md" {
 		t.Fatalf("%q", got)
+	}
+}
+
+var kindFiles = map[string]string{
+	"a.md":              "kubernetes note\n",
+	"b.md":              "other note\n",
+	"d1.excalidraw":     `{"type":"excalidraw","elements":[{"id":"t1","type":"text","text":"kubernetes sketch"}]}`,
+	"sub/d2.excalidraw": `{"type":"excalidraw","elements":[{"id":"t1","type":"text","text":"other sketch"}]}`,
+}
+
+func kindVault(t *testing.T) *vault {
+	return newVault(t, kindFiles, map[string]time.Time{
+		"d1.excalidraw":     time.Date(2026, 5, 1, 0, 0, 0, 0, time.Local),
+		"sub/d2.excalidraw": time.Date(2026, 6, 1, 0, 0, 0, 0, time.Local),
+		"a.md":              time.Date(2026, 3, 1, 0, 0, 0, 0, time.Local),
+		"b.md":              time.Date(2026, 4, 1, 0, 0, 0, 0, time.Local),
+	})
+}
+
+func TestKindFilter(t *testing.T) {
+	v := kindVault(t)
+	if got := ids(v.query(t, "kind:diagram")); strings.Join(got, ",") != "sub/d2.excalidraw,d1.excalidraw" {
+		t.Fatalf("filter-only diagram: %v", got)
+	}
+	if got := ids(v.query(t, "kind:note")); strings.Join(got, ",") != "b.md,a.md" {
+		t.Fatalf("filter-only note: %v", got)
+	}
+	if got := ids(v.query(t, "kind:DIAGRAM")); len(got) != 2 {
+		t.Fatalf("case: %v", got)
+	}
+	if got := ids(v.query(t, "-kind:diagram")); strings.Join(got, ",") != "b.md,a.md" {
+		t.Fatalf("negated: %v", got)
+	}
+	if got := ids(v.query(t, "kubernetes kind:diagram")); strings.Join(got, ",") != "d1.excalidraw" {
+		t.Fatalf("with term: %v", got)
+	}
+	if got := ids(v.query(t, "kubernetes -kind:diagram")); strings.Join(got, ",") != "a.md" {
+		t.Fatalf("term negated kind: %v", got)
+	}
+	if got := ids(v.query(t, "kind:diagram modified:2606")); strings.Join(got, ",") != "sub/d2.excalidraw" {
+		t.Fatalf("combined: %v", got)
+	}
+}
+
+func TestKindUnknownValueInvalid(t *testing.T) {
+	v := kindVault(t)
+	var resp QueryResp
+	err := v.c.Call(context.Background(), "search.query", QueryReq{Q: "kind:image"}, &resp)
+	if errCode(err) != ops.CodeInvalid || !strings.Contains(err.Error(), "diagram") || !strings.Contains(err.Error(), "note") {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestFuzzyRejectsKindFilterWithHint(t *testing.T) {
+	v := kindVault(t)
+	for _, q := range []string{"kube kind:diagram", "kube -kind:note"} {
+		_, err := v.fuzzy(t, q, 0)
+		if errCode(err) != ops.CodeInvalid || !strings.Contains(err.Error(), "-t") {
+			t.Fatalf("%q: %v", q, err)
+		}
 	}
 }

@@ -2,6 +2,7 @@ package diagram
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -192,5 +193,49 @@ func TestVaultIndexingFTSAndEmbedResolution(t *testing.T) {
 	db.QueryRow("SELECT dst_id FROM links WHERE src='diagrams/261114203015_diagram_x.excalidraw' AND dst_raw='server notes'").Scan(&sn)
 	if dd == nil || *dd != "design doc.md" || sn != nil {
 		t.Fatalf("diagram outbound links: %v %v", dd, sn)
+	}
+}
+
+func TestListNewestFirstDrawingsOnly(t *testing.T) {
+	dir, env, c := setup(t)
+	write := func(rel string, mt time.Time) {
+		p := filepath.Join(dir, rel)
+		os.MkdirAll(filepath.Dir(p), 0o755)
+		if err := os.WriteFile(p, excal.NewScene(), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		os.Chtimes(p, mt, mt)
+	}
+	write("old.excalidraw", time.Date(2026, 1, 1, 0, 0, 0, 0, time.Local))
+	write("diagrams/new.excalidraw", time.Date(2026, 3, 4, 5, 6, 7, 0, time.Local))
+	os.WriteFile(filepath.Join(dir, "n.md"), []byte("x"), 0o644)
+	if _, err := env.Index.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	var rs []ListItem
+	if err := c.Call(context.Background(), "diagram.list", ListReq{}, &rs); err != nil {
+		t.Fatal(err)
+	}
+	if len(rs) != 2 || rs[0].ID != "diagrams/new.excalidraw" || rs[1].ID != "old.excalidraw" {
+		t.Fatalf("%+v", rs)
+	}
+	if rs[0].Modified != "260304050607" || rs[0].Path != filepath.Join(dir, "diagrams", "new.excalidraw") || rs[0].Title == "" {
+		t.Fatalf("%+v", rs[0])
+	}
+	if err := c.Call(context.Background(), "diagram.list", ListReq{Limit: 1}, &rs); err != nil || len(rs) != 1 {
+		t.Fatalf("%v %+v", err, rs)
+	}
+	err := c.Call(context.Background(), "diagram.list", ListReq{Limit: -1}, &rs)
+	var oe *ops.Error
+	if !errors.As(err, &oe) || oe.Code != ops.CodeInvalid {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestListEmptyIsNonNil(t *testing.T) {
+	_, _, c := setup(t)
+	var rs []ListItem
+	if err := c.Call(context.Background(), "diagram.list", ListReq{}, &rs); err != nil || rs == nil || len(rs) != 0 {
+		t.Fatalf("%v %#v", err, rs)
 	}
 }

@@ -40,6 +40,8 @@ CMDS=(
   "graph gote -d 2"
   "orphans --json"
   "broken --json"
+  "search -t --json kind:diagram architecture"
+  "diagram list --json"
   "diagram read --json 261101120000_diagram_architecture"
   "diagram check 261101120000_diagram_architecture"
   "diagram check 261101130000_diagram_broken"
