@@ -87,6 +87,12 @@ func (s *Server) Run(ctx context.Context) error {
 		return fmt.Errorf("initial reconcile: %w", err)
 	}
 
+	stopWeb, err := s.startWeb(ctx)
+	if err != nil {
+		return err
+	}
+	defer stopWeb()
+
 	ln, err := net.Listen("unix", s.o.SocketPath)
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", s.o.SocketPath, err)

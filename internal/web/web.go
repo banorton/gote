@@ -29,6 +29,7 @@ const cookieName = "gote_t"
 type settings struct {
 	lock      sync.Locker
 	stateFile bool
+	stateDir  string
 	poll      time.Duration
 }
 
@@ -41,6 +42,9 @@ func WithLock(l sync.Locker) Option { return func(c *settings) { c.lock = l } }
 // NoStateFile skips web.json; serverless commands use it so they never
 // overwrite the file of a running server.
 func NoStateFile() Option { return func(c *settings) { c.stateFile = false } }
+
+// WithStateDir writes web.json there instead of the default state dir.
+func WithStateDir(dir string) Option { return func(c *settings) { c.stateDir = dir } }
 
 // PollInterval sets how often an SSE stream stats the files it watches.
 func PollInterval(d time.Duration) Option { return func(c *settings) { c.poll = d } }
@@ -88,10 +92,12 @@ func Start(ctx context.Context, env *ops.Env, opts ...Option) (*Server, error) {
 		wake:  make(chan struct{}),
 	}
 	if cfg.stateFile {
-		dir, err := paths.StateDir()
-		if err != nil {
-			ln.Close()
-			return nil, err
+		dir := cfg.stateDir
+		if dir == "" {
+			if dir, err = paths.StateDir(); err != nil {
+				ln.Close()
+				return nil, err
+			}
 		}
 		s.state = filepath.Join(dir, "web.json")
 		if err := s.writeState(); err != nil {
