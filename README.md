@@ -71,7 +71,7 @@ A note's id is its path relative to the notes directory. Its title is the frontm
 | `backlinks` | | notes linking to a note |
 | `graph` | | link neighborhood as a tree: `graph <note> [-d N]` (depth 1-5) |
 | `orphans` | | notes with no links in or out |
-| `broken` | | unresolved links |
+| `broken` | | links to missing notes or files (links to attachments that exist are fine) |
 | `diagram` | | Excalidraw drawings: `diagram [name]` creates and opens the editor, `diagram open <ref>`, `diagram read <ref>`, `diagram check <ref>` |
 | `view` | `v` | open a rendered note in the browser; `view --terminal <note>` (`-T`) renders in the terminal |
 | `embed` | | compute embeddings for semantic search; `embed status` |
