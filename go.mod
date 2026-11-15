@@ -13,7 +13,7 @@ require (
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charlievieth/fastwalk v1.0.14 // indirect
-	github.com/charmbracelet/bubbletea v1.3.10 // indirect
+	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/colorprofile v0.2.3-0.20250311203215-f60798e515dc // indirect
 	github.com/charmbracelet/lipgloss v1.1.0 // indirect
 	github.com/charmbracelet/x/ansi v0.10.1 // indirect
@@ -24,7 +24,7 @@ require (
 	github.com/gdamore/encoding v1.0.1 // indirect
 	github.com/gdamore/tcell/v2 v2.9.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/junegunn/fzf v0.75.0 // indirect
+	github.com/junegunn/fzf v0.75.0
 	github.com/junegunn/go-shellwords v0.0.0-20250127100254-2aa3b3277741 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
@@ -38,7 +38,7 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	golang.org/x/sys v0.49.0 // indirect
-	golang.org/x/term v0.34.0 // indirect
+	golang.org/x/term v0.34.0
 	golang.org/x/text v0.28.0 // indirect
 	modernc.org/libc v1.80.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
