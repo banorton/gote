@@ -10,6 +10,7 @@ import (
 	"github.com/banorton/gote/internal/config"
 	"github.com/banorton/gote/internal/ops"
 	"github.com/banorton/gote/internal/parse/frontmatter"
+	"github.com/goccy/go-yaml"
 )
 
 type ResolveReq struct {
@@ -74,9 +75,26 @@ func templatePath(name string) (string, error) {
 	return filepath.Join(TemplatesDir(), strings.TrimSuffix(name, ".md")+".md"), nil
 }
 
-// withCreated returns src with created set, adding a frontmatter block if needed.
+// withCreated returns src with created set and empty tags/aliases stubbed when
+// absent, adding a frontmatter block if needed.
 func withCreated(src []byte, ts string) ([]byte, error) {
-	out, err := frontmatter.Update(src, func(m *frontmatter.Map) { m.Set("created", frontmatter.Quoted(ts)) })
+	present := map[string]bool{}
+	if fm, _, ok, _ := frontmatter.Split(src); ok {
+		var keys map[string]any
+		if yaml.Unmarshal(fm, &keys) == nil {
+			for k := range keys {
+				present[k] = true
+			}
+		}
+	}
+	out, err := frontmatter.Update(src, func(m *frontmatter.Map) {
+		m.Set("created", frontmatter.Quoted(ts))
+		for _, k := range []string{"tags", "aliases"} {
+			if !present[k] {
+				m.Set(k, []string{})
+			}
+		}
+	})
 	if err != nil {
 		return nil, ops.Errorf(ops.CodeInvalid, "set created: %v", err)
 	}

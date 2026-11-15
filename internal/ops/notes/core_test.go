@@ -14,7 +14,7 @@ func TestCreatePrefixesSubdirAndConflict(t *testing.T) {
 	if r.ID != "plain.md" || !r.Created || r.Path != filepath.Join(h.dir, "plain.md") {
 		t.Fatalf("%+v", r)
 	}
-	if got := h.read("plain.md"); got != "---\ncreated: \"260305140709\"\n---\n" {
+	if got := h.read("plain.md"); got != "---\ncreated: \"260305140709\"\ntags: []\naliases: []\n---\n" {
 		t.Fatalf("content %q", got)
 	}
 	h.must("notes.create", CreateReq{Name: "d", Prefix: "date"}, &r)
@@ -39,7 +39,7 @@ func TestCreateTemplateMerge(t *testing.T) {
 	var r CreateResp
 	h.must("notes.create", CreateReq{Name: "standup", Template: "meet"}, &r)
 	got := h.read("standup.md")
-	if got != "---\ntags: [meeting]\ncreated: \"260305140709\"\nextra: 1\n---\n# Agenda\n- x\n" {
+	if got != "---\ntags: [meeting]\ncreated: \"260305140709\"\nextra: 1\naliases: []\n---\n# Agenda\n- x\n" {
 		t.Fatalf("%q", got)
 	}
 	h.wantCode("notes.create", CreateReq{Name: "z", Template: "missing"}, "not_found")
@@ -110,7 +110,7 @@ func TestDuplicate(t *testing.T) {
 	h.reconcile()
 	var r CreateResp
 	h.must("notes.duplicate", DupReq{ID: "a.md", New: "b"}, &r)
-	if r.ID != "b.md" || h.read("b.md") != "---\ncreated: \"260305140709\"\n---\nbody\n" {
+	if r.ID != "b.md" || h.read("b.md") != "---\ncreated: \"260305140709\"\ntags: []\naliases: []\n---\nbody\n" {
 		t.Fatalf("%+v %q", r, h.read("b.md"))
 	}
 	h.wantCode("notes.duplicate", DupReq{ID: "a.md", New: "b"}, "conflict")

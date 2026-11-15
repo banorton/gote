@@ -17,7 +17,7 @@ func TestQuickOpenAndSave(t *testing.T) {
 	h.write(".quick.md", "remember this\n")
 	var r CreateResp
 	h.must("quick.save", QuickSaveReq{Name: "saved"}, &r)
-	if r.ID != "saved.md" || h.read("saved.md") != "---\ncreated: \"260305140709\"\n---\nremember this\n" {
+	if r.ID != "saved.md" || h.read("saved.md") != "---\ncreated: \"260305140709\"\ntags: []\naliases: []\n---\nremember this\n" {
 		t.Fatalf("%+v %q", r, h.read("saved.md"))
 	}
 	if h.read(".quick.md") != "" {
@@ -34,7 +34,7 @@ func TestDailyOpen(t *testing.T) {
 	h := newHarness(t)
 	var r CreateResp
 	h.must("daily.open", DailyReq{}, &r)
-	if r.ID != "daily/260305_daily.md" || !r.Created || h.read(r.ID) != "---\ncreated: \"260305140709\"\n---\n" {
+	if r.ID != "daily/260305_daily.md" || !r.Created || h.read(r.ID) != "---\ncreated: \"260305140709\"\ntags: []\naliases: []\n---\n" {
 		t.Fatalf("%+v %q", r, h.read(r.ID))
 	}
 	h.must("daily.open", DailyReq{}, &r)
@@ -43,11 +43,11 @@ func TestDailyOpen(t *testing.T) {
 	}
 	h.template("daily", "---\ntags: [daily]\n---\n## Log\n")
 	h.must("daily.open", DailyReq{Offset: -1}, &r)
-	if r.ID != "daily/260304_daily.md" || h.read(r.ID) != "---\ntags: [daily]\ncreated: \"260305140709\"\n---\n## Log\n" {
+	if r.ID != "daily/260304_daily.md" || h.read(r.ID) != "---\ntags: [daily]\ncreated: \"260305140709\"\naliases: []\n---\n## Log\n" {
 		t.Fatalf("%+v %q", r, h.read(r.ID))
 	}
 	h.must("daily.open", DailyReq{Offset: -1}, &r)
-	if r.Created || h.read(r.ID) != "---\ntags: [daily]\ncreated: \"260305140709\"\n---\n## Log\n" {
+	if r.Created || h.read(r.ID) != "---\ntags: [daily]\ncreated: \"260305140709\"\naliases: []\n---\n## Log\n" {
 		t.Fatal("template applied twice")
 	}
 }

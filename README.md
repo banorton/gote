@@ -124,13 +124,13 @@ tags: [project, go]       # edited by `gote tag`
 aliases: [gote-cli]       # extra names for search and link resolution
 created: "261114203015"   # written by `new`
 title: Display title
-related: [[other note]]   # typed graph edges
-parent: [[index]]
+related: ["[[other note]]"]   # typed graph edges (quote [[...]] values)
+parent: "[[index]]"
 semantic: false           # exclude from embedding
 ---
 ```
 
-Other keys are kept as written and searchable as `field:value`. There are no inline `#tags`.
+New notes start with `created`, `tags: []` and `aliases: []`; a template's own frontmatter wins for the keys it sets. Other keys are kept as written and searchable as `field:value`. There are no inline `#tags`.
 
 ### Links
 
