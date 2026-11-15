@@ -59,12 +59,9 @@ func (s *Server) Run(ctx context.Context) error {
 	if len(s.o.SocketPath) > 100 {
 		return fmt.Errorf("socket path %s is too long for a unix socket (%d bytes, limit ~104): shorten XDG_STATE_HOME", s.o.SocketPath, len(s.o.SocketPath))
 	}
-	lock, err := acquireLock(s.o.LockPath)
+	lock, err := s.lockOrExisting()
 	if err != nil {
-		if !errors.Is(err, syscall.EWOULDBLOCK) {
-			return err
-		}
-		return s.waitForExisting()
+		return err
 	}
 	defer lock.Close()
 
@@ -150,15 +147,24 @@ func acquireLock(path string) (*os.File, error) {
 	return f, nil
 }
 
-// waitForExisting covers the window where the lock holder has not bound its socket yet.
-func (s *Server) waitForExisting() error {
+// lockOrExisting returns ErrAlreadyRunning if a live server holds the lock. A
+// holder that is still shutting down (socket gone, lock not yet released) is
+// waited out so a version-mismatch respawn can take over.
+func (s *Server) lockOrExisting() (*os.File, error) {
 	deadline := time.Now().Add(3 * time.Second)
 	for {
-		if _, err := client.Probe(s.o.SocketPath); err == nil {
-			return ErrAlreadyRunning
+		f, err := acquireLock(s.o.LockPath)
+		if err == nil {
+			return f, nil
+		}
+		if !errors.Is(err, syscall.EWOULDBLOCK) {
+			return nil, err
+		}
+		if _, perr := client.Probe(s.o.SocketPath); perr == nil {
+			return nil, ErrAlreadyRunning
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("lock %s is held but no server answers on %s", s.o.LockPath, s.o.SocketPath)
+			return nil, fmt.Errorf("lock %s is held but no server answers on %s", s.o.LockPath, s.o.SocketPath)
 		}
 		time.Sleep(20 * time.Millisecond)
 	}

@@ -290,3 +290,69 @@ func TestWatcherIndexesNewFilesAndDirs(t *testing.T) {
 	os.Remove(filepath.Join(d.notes, "a.md"))
 	waitFor(1, "removed file")
 }
+
+func TestConnectMismatchShutsDownAndRespawns(t *testing.T) {
+	d := newDirs(t)
+	old := start(t, d.opts("old"))
+	var spawned int
+	var fresh *running
+	c, err := client.Connect(client.ConnectOpts{
+		Socket: d.opts("").SocketPath, Version: "new",
+		Spawn: func() error {
+			spawned++
+			s := New(d.opts("new"))
+			ctx, cancel := context.WithCancel(context.Background())
+			fresh = &running{s, cancel, make(chan error, 1)}
+			go func() { fresh.done <- s.Run(ctx) }()
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { fresh.stop(t) })
+	if spawned != 1 {
+		t.Fatalf("spawned %d", spawned)
+	}
+	select {
+	case <-old.done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("old server still running")
+	}
+	info, err := client.Probe(d.opts("").SocketPath)
+	if err != nil || info.Version != "new" {
+		t.Fatalf("%v %+v", err, info)
+	}
+	if err := c.Call(context.Background(), "index.status", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestConnectMatchingVersionDoesNotSpawn(t *testing.T) {
+	d := newDirs(t)
+	o := d.opts("v1")
+	start(t, o)
+	_, err := client.Connect(client.ConnectOpts{Socket: o.SocketPath, Version: "v1",
+		Spawn: func() error { return errors.New("must not spawn") }})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestConnectSpawnFailureIsError(t *testing.T) {
+	d := newDirs(t)
+	_, err := client.Connect(client.ConnectOpts{Socket: d.opts("").SocketPath, Version: "v1",
+		Spawn: func() error { return errors.New("no fork") }})
+	if err == nil || err.Error() != "no fork" {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestConnectSpawnThatNeverListens(t *testing.T) {
+	d := newDirs(t)
+	_, err := client.Connect(client.ConnectOpts{Socket: d.opts("").SocketPath, Version: "v1",
+		Spawn: func() error { return nil }, StartWait: 100 * time.Millisecond})
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+}
