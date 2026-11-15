@@ -1,7 +1,7 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X github.com/banorton/gote/internal/cli.Version=$(VERSION)
 
-.PHONY: build test cross web web-check
+.PHONY: build test cross web web-check e2e
 
 web:
 	cd web && npm ci && node build.mjs
@@ -15,6 +15,13 @@ build:
 
 test:
 	CGO_ENABLED=0 go test ./...
+
+e2e: web-deps
+	CGO_ENABLED=0 go build -o gote ./cmd/gote
+	cd web && npx playwright install chromium && npx playwright test -c e2e/playwright.config.mjs
+
+web-deps:
+	cd web && npm ci
 
 cross:
 	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags '$(LDFLAGS)' -o builds/gote-darwin-amd64 ./cmd/gote

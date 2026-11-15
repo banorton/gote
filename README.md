@@ -155,6 +155,10 @@ The web view makes no public network calls: pages are served from `127.0.0.1` on
 
 `gote view <note>` renders a note in the browser with live reload. The web server listens on localhost only and every request needs a per-start token.
 
+## Testing
+
+`go test ./...` covers the Go code. `make e2e` runs the browser end-to-end suite (Playwright, Chromium) against a throwaway vault and server in `web/e2e/`; it builds `./gote`, installs the Playwright Chromium browser if missing, and needs Node and network access on first run only.
+
 ## Agent skill
 
 `skill/gote/SKILL.md` teaches an agent to drive gote through `--json`: search, tasks, graph, safe edits and the drawing workflow. Install it for Claude Code:
