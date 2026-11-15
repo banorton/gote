@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"path"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/goccy/go-yaml"
@@ -109,11 +110,19 @@ func stringList(v any) []string {
 
 func walkBody(n *note.Note, body []byte, lineOffset int) {
 	doc := md.Parser().Parse(text.NewReader(body))
+	// newline offsets, binary-searched: counting from the start per lookup is
+	// quadratic on large notes.
+	var nls []int
+	for i, c := range body {
+		if c == '\n' {
+			nls = append(nls, i)
+		}
+	}
 	lineAt := func(off int) int {
 		if off > len(body) {
 			off = len(body)
 		}
-		return lineOffset + 1 + bytes.Count(body[:off], []byte("\n"))
+		return lineOffset + 1 + sort.SearchInts(nls, off)
 	}
 	ast.Walk(doc, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
