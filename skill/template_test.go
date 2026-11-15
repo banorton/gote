@@ -70,7 +70,7 @@ func TestTemplateCommandTableCoversRegistry(t *testing.T) {
 		if len(cols) < 4 {
 			continue
 		}
-		if m := span.FindStringSubmatch(cols[1]); m != nil {
+		for _, m := range span.FindAllStringSubmatch(cols[1], -1) {
 			cmds[strings.Fields(m[1])[0]] = true
 		}
 		for _, m := range span.FindAllStringSubmatch(cols[2], -1) {

@@ -161,3 +161,7 @@ cp -R skill/gote ~/.claude/skills/
 ```
 
 The examples in the skill are generated from a fixture vault by `skill/capture.sh <gote-binary>`; `go test ./skill` fails when they go stale.
+
+### Custom agent skill
+
+`skill/gote` is a reference skill and works as-is. To build a personalized one (your layout, tags, naming, daily-note workflow, integrations), copy `skill/template/SKILL.md` and have your agent follow `skill/template/BUILD.md`: it interviews you, fills the `CUSTOMIZE` blocks from your vault, and keeps the gote core section current. `go test ./skill` checks the template's command table against `gote help --json`.
