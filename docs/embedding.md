@@ -65,9 +65,12 @@ Keys are never logged and are redacted from error messages.
 ## Commands
 
 - `gote embed` brings embeddings up to date. It resumes where an interrupted
-  run stopped, because each batch is committed on its own.
-- `gote embed --yes` is required when the model or dimensions changed and the
-  new model has no vectors yet. The refusal prints the chunk count, token
+  run stopped, because each batch is committed on its own. On a vault that has
+  never been embedded it refuses and prints the chunk count and estimate;
+  rerun as `gote embed --yes` to start the first full embed.
+- `gote embed --yes` is required for the first full embed, and again when the
+  model or dimensions changed and the new model has no vectors yet. The
+  refusal prints the chunk count, token
   estimate, and cost (when `price_per_mtok` is set). Tokens are estimated as
   characters / 4.
 - `gote embed status` shows chunks, embedded, and pending counts.
@@ -75,7 +78,8 @@ Keys are never logged and are redacted from error messages.
   the cosine similarity, `line` the chunk's starting line.
 
 While `gote serve` runs, it re-embeds changed notes about two seconds after the
-last change. Failures, including the model-change refusal, are written to
+last change, but only in a vault that is already embedded. It never starts the
+first full embed or a model-change re-embed. Those refusals are written to
 `server.log`; run `gote embed --yes` to proceed.
 
 ## Command adapter protocol

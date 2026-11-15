@@ -403,5 +403,5 @@ projects/gote.md :11
 
 - `gote delete <note>`, `gote recover <name>`, `gote trash`, `gote duplicate <note> <new>`, `gote pin|unpin <note>`.
 - `gote status` shows index counts; `gote reindex` rebuilds the index (use after bulk edits outside the vault, or if results look stale).
-- `gote embed` computes embeddings for semantic search; `gote embed status` shows progress.
+- `gote embed` computes embeddings for semantic search; `gote embed status` shows progress. The first full embed (and a model change) is refused without `--yes`, which spends API budget; ask before passing it. Once a vault is embedded, the server keeps it current in the background.
 - `gote help --json` lists every command with its usage.

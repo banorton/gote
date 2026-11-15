@@ -141,7 +141,7 @@ The first command spawns a background server on a Unix socket in the state direc
 
 ## Semantic search
 
-Optional. Configure an embedding provider (OpenAI-compatible endpoint, or any command) in the `semantic:` config block, run `gote embed`, then `gote search -s <query>`. The server keeps embeddings current in the background. Setup, key handling and the command adapter protocol: [docs/embedding.md](docs/embedding.md).
+Optional. Configure an embedding provider (OpenAI-compatible endpoint, or any command) in the `semantic:` config block, run `gote embed --yes` (the first full embed needs confirmation), then `gote search -s <query>`. After that the server keeps embeddings current in the background. Setup, key handling and the command adapter protocol: [docs/embedding.md](docs/embedding.md).
 
 ## Drawings
 
