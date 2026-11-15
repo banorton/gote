@@ -86,6 +86,7 @@ func (s *Server) Run(ctx context.Context) error {
 	if _, err := env.Index.Reconcile(ctx); err != nil {
 		return fmt.Errorf("initial reconcile: %w", err)
 	}
+	defer s.startSemantic(ctx)()
 
 	ln, err := net.Listen("unix", s.o.SocketPath)
 	if err != nil {
