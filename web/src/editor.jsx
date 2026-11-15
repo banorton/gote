@@ -110,7 +110,6 @@ function Editor({ id }) {
           <MainMenu.DefaultItems.LoadScene />
           <MainMenu.DefaultItems.Export />
           <MainMenu.DefaultItems.SaveAsImage />
-          <MainMenu.DefaultItems.CommandPalette />
           <MainMenu.DefaultItems.SearchMenu />
           <MainMenu.DefaultItems.Help />
           <MainMenu.DefaultItems.ClearCanvas />

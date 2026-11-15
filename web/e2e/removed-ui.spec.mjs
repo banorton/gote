@@ -31,40 +31,14 @@ test.describe("removed UI", () => {
     expect(text).not.toMatch(/link|share|excalidraw\+/i);
   });
 
-  test("command palette has no AI / wireframe / text-to-diagram / collab entries", async ({ page }) => {
+  test("command palette is not offered: no menu item, shortcut opens nothing", async ({ page }) => {
     await open(page);
-    const palette = page.locator(".command-palette-dialog");
-    const input = palette.locator("input");
-    const probe = async (open) => {
-      await open();
-      try {
-        await expect(input).toBeVisible({ timeout: 1_500 });
-        return true;
-      } catch {
-        return false;
-      }
-    };
-    // The editor does not currently mount Excalidraw's <CommandPalette/>, so both entry points are
-    // no-ops. If it is ever mounted, its contents must stay clean, so check them whenever it opens.
-    const viaMenu = await probe(async () => {
-      await page.getByTestId("main-menu-trigger").click();
-      await page.getByTestId("command-palette-button").click();
-    });
-    if (viaMenu) {
-      await page.keyboard.press("Escape");
-    }
-    const viaKey = await probe(() => page.keyboard.press("ControlOrMeta+/"));
-    if (!viaMenu && !viaKey) return;
-    if (!viaKey) await probe(async () => {
-      await page.getByTestId("main-menu-trigger").click();
-      await page.getByTestId("command-palette-button").click();
-    });
-    expect(await palette.innerText()).not.toMatch(BANNED);
-    for (const q of ["AI", "wireframe", "diagram", "live", "collab", "excalidraw+", "share", "link", "mermaid"]) {
-      await input.fill(q);
-      const text = await palette.innerText();
-      expect(text, `palette query "${q}"`).not.toMatch(/wireframe to code|text to diagram|live collaboration|excalidraw\+|shareable|export to link|\bAI\b/i);
-    }
+    await page.getByTestId("main-menu-trigger").click();
+    await expect(page.locator(".main-menu .dropdown-menu-container, .dropdown-menu").first()).toBeVisible();
+    await expect(page.getByTestId("command-palette-button")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("ControlOrMeta+/");
+    await expect(page.locator(".command-palette-dialog")).toHaveCount(0);
   });
 
   test("toolbar and library sidebar: no AI tools, no Browse libraries", async ({ page }) => {
