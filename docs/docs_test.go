@@ -13,12 +13,6 @@ import (
 	"github.com/banorton/gote/internal/config"
 )
 
-// notYetRegistered lists commands the README documents before they are
-// registered in this branch. Remove an entry once its phase is merged.
-var notYetRegistered = map[string]bool{
-	"view": true,
-}
-
 type helpEntry struct {
 	Name    string   `json:"name"`
 	Aliases []string `json:"aliases"`
@@ -98,20 +92,12 @@ func TestREADMETableCommandsExist(t *testing.T) {
 		}
 		rows++
 		name := strings.Fields(m[1])[0]
-		if registered[name] {
-			continue
-		}
-		if !notYetRegistered[name] {
+		if !registered[name] {
 			t.Errorf("README table documents `%s`, which is not a registered command", name)
 		}
 	}
 	if rows < 20 {
 		t.Fatalf("command table not found: %d rows", rows)
-	}
-	for name := range notYetRegistered {
-		if !strings.Contains(readme, "`"+name) {
-			t.Errorf("allowlisted command %q is not in the README", name)
-		}
 	}
 }
 
