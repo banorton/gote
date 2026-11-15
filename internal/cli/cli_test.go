@@ -138,7 +138,7 @@ func writeConfig(t *testing.T, notes string) {
 	t.Helper()
 	p := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "gote", "config.yaml")
 	os.MkdirAll(filepath.Dir(p), 0o755)
-	os.WriteFile(p, []byte("notes_dir: "+notes+"\n"), 0o644)
+	os.WriteFile(p, []byte("notes_dir: "+notes+"\nserver: false\n"), 0o644)
 }
 
 func TestMissingConfigExit1NamesPath(t *testing.T) {

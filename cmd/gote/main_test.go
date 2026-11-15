@@ -50,7 +50,7 @@ func TestBinaryE2E(t *testing.T) {
 	}
 
 	os.MkdirAll(filepath.Join(cfg, "gote"), 0o755)
-	os.WriteFile(filepath.Join(cfg, "gote", "config.yaml"), []byte("notes_dir: "+notes+"\n"), 0o644)
+	os.WriteFile(filepath.Join(cfg, "gote", "config.yaml"), []byte("notes_dir: "+notes+"\nserver: false\n"), 0o644)
 	os.WriteFile(filepath.Join(notes, "a.md"), []byte("[[b]] [[missing]]"), 0o644)
 	os.WriteFile(filepath.Join(notes, "b.md"), []byte("# b"), 0o644)
 	os.MkdirAll(filepath.Join(notes, ".trash"), 0o755)
