@@ -90,3 +90,78 @@ func TestUnknownKey(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 }
+
+func semCfg(t *testing.T, block string) (*Config, error) {
+	t.Helper()
+	setup(t, "notes_dir: NOTES\nsemantic:\n"+block)
+	return Load()
+}
+
+func TestSemanticDisabledWhenAbsentOrEmpty(t *testing.T) {
+	setup(t, "notes_dir: NOTES\n")
+	c, _ := Load()
+	if c.Semantic.Enabled() {
+		t.Fatal("absent should be disabled")
+	}
+	c, err := semCfg(t, "  {}\n")
+	if err != nil || c.Semantic.Enabled() {
+		t.Fatalf("%v %+v", err, c.Semantic)
+	}
+}
+
+func TestSemanticDefaults(t *testing.T) {
+	c, err := semCfg(t, "  provider: openai\n  api_key_env: K\n")
+	if err != nil || !c.Semantic.Enabled() {
+		t.Fatalf("%v", err)
+	}
+	s := c.Semantic
+	if s.BaseURL != "https://api.openai.com/v1" || s.Model != "text-embedding-3-small" || s.BatchSize != 64 {
+		t.Fatalf("%+v", s)
+	}
+}
+
+func TestSemanticValidationNamesKey(t *testing.T) {
+	cases := map[string]struct{ block, key string }{
+		"badprovider": {"  provider: foo\n", "semantic.provider"},
+		"noprovider":  {"  model: x\n", "semantic.provider"},
+		"nokey":       {"  provider: openai\n", "semantic.api_key"},
+		"twokeys":     {"  provider: openai\n  api_key: a\n  api_key_env: B\n", "semantic.api_key"},
+		"cmdnocmd":    {"  provider: command\n  model: m\n", "semantic.embed_cmd"},
+		"cmdnomodel":  {"  provider: command\n  embed_cmd: x\n", "semantic.model"},
+		"cmdwithkey":  {"  provider: command\n  model: m\n  embed_cmd: x\n  api_key: a\n", "semantic.api_key"},
+		"openaicmd":   {"  provider: openai\n  api_key: a\n  embed_cmd: x\n", "semantic.embed_cmd"},
+		"badbatch":    {"  provider: openai\n  api_key: a\n  batch_size: -1\n", "semantic.batch_size"},
+		"baddims":     {"  provider: openai\n  api_key: a\n  dimensions: -1\n", "semantic.dimensions"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := semCfg(t, c.block)
+			if err == nil || !strings.Contains(err.Error(), c.key) {
+				t.Fatalf("want %s in %v", c.key, err)
+			}
+		})
+	}
+}
+
+func TestSemanticCommandProvider(t *testing.T) {
+	c, err := semCfg(t, "  provider: command\n  model: m\n  embed_cmd: ~/bin/x\n  exclude_tags: [private]\n  price_per_mtok: 0.02\n")
+	if err != nil || c.Semantic.EmbedCmd != "~/bin/x" || c.Semantic.ExcludeTags[0] != "private" || c.Semantic.PricePerMTok != 0.02 {
+		t.Fatalf("%v %+v", err, c.Semantic)
+	}
+}
+
+func TestKeyFileWarning(t *testing.T) {
+	cfg, _ := setup(t, "notes_dir: NOTES\nsemantic:\n  provider: openai\n  api_key: sk-secret\n")
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := c.KeyFileWarning()
+	if !strings.Contains(w, cfg) || strings.Contains(w, "sk-secret") {
+		t.Fatalf("%q", w)
+	}
+	os.Chmod(cfg, 0o600)
+	if w := c.KeyFileWarning(); w != "" {
+		t.Fatalf("%q", w)
+	}
+}
