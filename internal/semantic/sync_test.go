@@ -128,7 +128,7 @@ var fixture = map[string]string{
 
 func TestSyncFirstThenNoop(t *testing.T) {
 	v := newVault(t, fixture)
-	s := v.sync(t, false)
+	s := v.sync(t, true)
 	if s.Chunks != 4 || s.Embedded != 4 || s.Pending != 0 || s.Tokens == 0 {
 		t.Fatalf("%+v", s)
 	}
@@ -146,7 +146,7 @@ func TestSyncFirstThenNoop(t *testing.T) {
 
 func TestSyncVectorsNormalized(t *testing.T) {
 	v := newVault(t, map[string]string{"a.md": "apple\n"})
-	v.sync(t, false)
+	v.sync(t, true)
 	var blob []byte
 	var dim int
 	if err := v.env.Store.DB.QueryRow("SELECT vec, dim FROM embeddings").Scan(&blob, &dim); err != nil {
@@ -167,7 +167,7 @@ func TestSyncVectorsNormalized(t *testing.T) {
 
 func TestSyncEditOneSectionEmbedsOne(t *testing.T) {
 	v := newVault(t, fixture)
-	v.sync(t, false)
+	v.sync(t, true)
 	v.write(t, "a.md", "# Fruit\napple apple\n# More\nbanana banana\n")
 	v.reindex(t)
 	s := v.sync(t, false)
@@ -181,7 +181,7 @@ func TestSyncEditOneSectionEmbedsOne(t *testing.T) {
 
 func TestSyncDeleteNotePrunes(t *testing.T) {
 	v := newVault(t, fixture)
-	v.sync(t, false)
+	v.sync(t, true)
 	os.Remove(filepath.Join(v.dir, "b.md"))
 	v.reindex(t)
 	s := v.sync(t, false)
@@ -195,7 +195,7 @@ func TestSyncDeleteNotePrunes(t *testing.T) {
 
 func TestSyncModelChangeNeedsConfirm(t *testing.T) {
 	v := newVault(t, fixture)
-	v.sync(t, false)
+	v.sync(t, true)
 	v.f.model = "fake-2"
 	_, err := Sync(context.Background(), v.env, false)
 	var oe *ops.Error
@@ -220,7 +220,7 @@ func TestSyncModelChangeNeedsConfirm(t *testing.T) {
 func TestSyncInterruptedKeepsBatches(t *testing.T) {
 	v := newVault(t, fixture)
 	v.f.failAfter = 1
-	_, err := Sync(context.Background(), v.env, false)
+	_, err := Sync(context.Background(), v.env, true)
 	if err == nil || !strings.Contains(err.Error(), "fake embedder down") {
 		t.Fatalf("%v", err)
 	}
@@ -236,7 +236,7 @@ func TestSyncInterruptedKeepsBatches(t *testing.T) {
 
 func TestSyncDuplicateTextEmbeddedOnce(t *testing.T) {
 	v := newVault(t, map[string]string{"x.md": "---\ntitle: Same\n---\napple\n", "y.md": "---\ntitle: Same\n---\napple\n"})
-	s := v.sync(t, false)
+	s := v.sync(t, true)
 	if s.Chunks != 2 || s.Embedded != 1 {
 		t.Fatalf("%+v", s)
 	}
@@ -257,7 +257,7 @@ func TestStatus(t *testing.T) {
 	if err != nil || !st.Configured || st.Provider != "command" || st.Model != "fake-1" || st.Chunks != 4 || st.Embedded != 0 || st.Pending != 4 {
 		t.Fatalf("%v %+v", err, st)
 	}
-	v.sync(t, false)
+	v.sync(t, true)
 	st, _ = Status(context.Background(), v.env)
 	if st.Embedded != 4 || st.Pending != 0 {
 		t.Fatalf("%+v", st)
@@ -271,7 +271,7 @@ func TestStatus(t *testing.T) {
 
 func TestSearchNearestNote(t *testing.T) {
 	v := newVault(t, fixture)
-	v.sync(t, false)
+	v.sync(t, true)
 	rs, err := Search(context.Background(), v.env, "cherry", 10)
 	if err != nil || len(rs) == 0 || rs[0].ID != "b.md" {
 		t.Fatalf("%v %+v", err, rs)
@@ -312,7 +312,7 @@ func TestSearchErrors(t *testing.T) {
 
 func TestSearchCacheInvalidatedBySync(t *testing.T) {
 	v := newVault(t, map[string]string{"a.md": "apple\n"})
-	v.sync(t, false)
+	v.sync(t, true)
 	if rs, _ := Search(context.Background(), v.env, "apple", 5); len(rs) != 1 {
 		t.Fatalf("%+v", rs)
 	}
@@ -327,7 +327,7 @@ func TestSearchCacheInvalidatedBySync(t *testing.T) {
 
 func TestBackgroundEmbedsNewFile(t *testing.T) {
 	v := newVault(t, map[string]string{"a.md": "apple\n"})
-	v.sync(t, false)
+	v.sync(t, true)
 	before := v.f.embedded()
 	var logs []string
 	var mu sync.Mutex
@@ -365,7 +365,7 @@ func TestBackgroundNoopWhenUnconfigured(t *testing.T) {
 
 func TestBackgroundLogsModelChangeRefusal(t *testing.T) {
 	v := newVault(t, map[string]string{"a.md": "apple\n"})
-	v.sync(t, false)
+	v.sync(t, true)
 	v.f.model = "fake-2"
 	old := Debounce
 	Debounce = 20 * time.Millisecond

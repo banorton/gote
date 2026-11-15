@@ -58,7 +58,14 @@ var enabled = config.Semantic{Provider: "command", Model: "m1", EmbedCmd: "x", B
 
 func TestEmbedAndStatus(t *testing.T) {
 	c, out, _ := testCtx(t, enabled, "m1")
-	if err := run(c, nil); err != nil {
+	var oe *ops.Error
+	if err := run(c, nil); !errors.As(err, &oe) || !strings.Contains(oe.Msg, "first embed: 2 chunks") || !strings.Contains(oe.Msg, "rerun with --yes") {
+		t.Fatalf("want first-embed refusal, got %v", err)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("output on refusal: %q", out.String())
+	}
+	if err := run(c, []string{"--yes"}); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "embedded 2 of 2 chunks") {
@@ -78,7 +85,7 @@ func TestEmbedAndStatus(t *testing.T) {
 func TestEmbedJSON(t *testing.T) {
 	c, out, _ := testCtx(t, enabled, "m1")
 	c.JSON = true
-	if err := run(c, nil); err != nil {
+	if err := run(c, []string{"--yes"}); err != nil {
 		t.Fatal(err)
 	}
 	var m map[string]any
@@ -96,7 +103,11 @@ func TestEmbedJSON(t *testing.T) {
 
 func TestEmbedYesFlag(t *testing.T) {
 	c, _, _ := testCtx(t, enabled, "m1")
-	if err := run(c, nil); err != nil {
+	var first *ops.Error
+	if err := run(c, nil); !errors.As(err, &first) || !strings.Contains(first.Msg, "first embed") {
+		t.Fatalf("%v", err)
+	}
+	if err := run(c, []string{"--yes"}); err != nil {
 		t.Fatal(err)
 	}
 	semantic.NewEmbedder = func(config.Semantic) (embed.Embedder, error) { return fakeEmb{"m2"}, nil }
@@ -145,7 +156,7 @@ func TestEmbedWarnsAboutOpenKeyFile(t *testing.T) {
 	keyConfig(t, 0o644)
 	sem := config.Semantic{Provider: "openai", Model: "m1", APIKey: "sk-secret", BatchSize: 8}
 	c, _, errb := testCtx(t, sem, "m1")
-	if err := run(c, nil); err != nil {
+	if err := run(c, []string{"--yes"}); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(errb.String(), "chmod 600") || strings.Contains(errb.String(), "sk-secret") {

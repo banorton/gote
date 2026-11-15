@@ -74,7 +74,11 @@ func TestSyncStatusAndSemanticQuery(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 	var sy SyncResp
-	if err := c.Call(ctx, "semantic.sync", SyncReq{}, &sy); err != nil || sy.Embedded != 2 || sy.Chunks != 2 || sy.Pending != 0 {
+	err = c.Call(ctx, "semantic.sync", SyncReq{}, &sy)
+	if err == nil || !strings.Contains(err.Error(), "first embed: 2 chunks") {
+		t.Fatalf("want first-embed refusal: %v", err)
+	}
+	if err := c.Call(ctx, "semantic.sync", SyncReq{Confirm: true}, &sy); err != nil || sy.Embedded != 2 || sy.Chunks != 2 || sy.Pending != 0 {
 		t.Fatalf("%v %+v", err, sy)
 	}
 	if err := c.Call(ctx, "search.query", opsearch.QueryReq{Q: "pear", Semantic: true}, &q); err != nil || len(q.Results) == 0 || q.Results[0].ID != "b.md" {
