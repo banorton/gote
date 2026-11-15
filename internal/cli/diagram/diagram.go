@@ -2,17 +2,18 @@ package diagram
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/banorton/gote/internal/cli"
+	"github.com/banorton/gote/internal/cli/view"
 	"github.com/banorton/gote/internal/excal"
+	"github.com/banorton/gote/internal/note"
 	"github.com/banorton/gote/internal/ops"
 	_ "github.com/banorton/gote/internal/ops/diagram"
 )
 
-const usage = "gote diagram read <ref> | gote diagram check <ref> | gote diagram [name]"
+const usage = "gote diagram [name] | gote diagram open <ref> | gote diagram read <ref> | gote diagram check <ref>"
 
 var command = cli.Command{
 	Name:    "diagram",
@@ -30,9 +31,25 @@ func dispatch(c *cli.Ctx, args []string) error {
 			return withRef(c, args[1:], "read", read)
 		case "check":
 			return withRef(c, args[1:], "check", check)
+		case "open":
+			return withRef(c, args[1:], "open", edit)
 		}
 	}
-	return errors.New("diagram editor not available yet")
+	return create(c, strings.Join(args, " "))
+}
+
+func create(c *cli.Ctx, name string) error {
+	var r struct {
+		ID string `json:"id"`
+	}
+	if err := c.Client.Call(context.Background(), "diagram.create", map[string]string{"name": name}, &r); err != nil {
+		return err
+	}
+	return view.Launch(c, r.ID, view.Route(r.ID, note.KindDiagram))
+}
+
+func edit(c *cli.Ctx, id string) error {
+	return view.Launch(c, id, view.Route(id, note.KindDiagram))
 }
 
 func withRef(c *cli.Ctx, args []string, sub string, fn func(*cli.Ctx, string) error) error {
@@ -66,31 +83,7 @@ func read(c *cli.Ctx, id string) error {
 	if c.JSON {
 		return c.PrintJSON(r)
 	}
-	fmt.Fprintf(c.Out, "%s\n", r.Path)
-	s := r.Summary
-	section := func(name string, n int) { fmt.Fprintf(c.Out, "\n%s (%d)\n", name, n) }
-	section("shapes", len(s.Shapes))
-	for _, sh := range s.Shapes {
-		fmt.Fprintf(c.Out, "  %s %s %q\n", sh.ID, sh.Type, sh.Label)
-	}
-	section("texts", len(s.Texts))
-	for _, t := range s.Texts {
-		fmt.Fprintf(c.Out, "  %s %q\n", t.ID, t.Text)
-	}
-	section("edges", len(s.Edges))
-	for _, e := range s.Edges {
-		end := func(p *string) string {
-			if p == nil {
-				return "(unbound)"
-			}
-			return *p
-		}
-		line := fmt.Sprintf("  %s -> %s", end(e.From), end(e.To))
-		if e.Label != "" {
-			line += fmt.Sprintf(" %q", e.Label)
-		}
-		fmt.Fprintln(c.Out, strings.TrimRight(line, " "))
-	}
+	view.WriteSummary(c.Out, r.Path, r.Summary)
 	return nil
 }
 

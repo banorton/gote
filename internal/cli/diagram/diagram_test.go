@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/banorton/gote/internal/cli"
+	"github.com/banorton/gote/internal/cli/view"
 	"github.com/banorton/gote/internal/client"
 	"github.com/banorton/gote/internal/config"
 	"github.com/banorton/gote/internal/index"
@@ -37,9 +38,12 @@ func init() {
 	})
 }
 
+var lastDir string
+
 func run(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	dir := t.TempDir()
+	lastDir = dir
 	st, err := store.Open(filepath.Join(t.TempDir(), "gote.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -139,10 +143,73 @@ func TestUsage(t *testing.T) {
 	}
 }
 
-func TestBareIsNotAvailable(t *testing.T) {
-	for _, args := range [][]string{{}, {"my sketch"}} {
-		if _, err := run(t, args...); err == nil || err.Error() != "diagram editor not available yet" {
-			t.Errorf("%v: %v", args, err)
-		}
+func editorSetup(t *testing.T) *[]string {
+	t.Helper()
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	var opened []string
+	ctx, cancel := context.WithCancel(context.Background())
+	origOpen, origWait := view.Opener, view.WaitContext
+	t.Cleanup(func() { view.Opener, view.WaitContext = origOpen, origWait; cancel() })
+	view.Opener = func(url string) error { opened = append(opened, url); cancel(); return nil }
+	view.WaitContext = func() (context.Context, context.CancelFunc) { return ctx, cancel }
+	return &opened
+}
+
+func TestBareCreatesDrawingAndOpensEditor(t *testing.T) {
+	opened := editorSetup(t)
+	out, err := run(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(*opened) != 1 || !strings.Contains((*opened)[0], "/d/diagrams/") || !strings.Contains((*opened)[0], "_diagram.excalidraw?t=") {
+		t.Fatalf("opened %v", *opened)
+	}
+	files, _ := filepath.Glob(filepath.Join(lastDir, "diagrams", "*_diagram.excalidraw"))
+	if len(files) != 1 {
+		t.Fatalf("created %v", files)
+	}
+	if !strings.Contains(out, (*opened)[0]) {
+		t.Fatalf("URL not printed: %q", out)
+	}
+}
+
+func TestNamedCreatesDrawingWithName(t *testing.T) {
+	opened := editorSetup(t)
+	if _, err := run(t, "my", "sketch"); err != nil {
+		t.Fatal(err)
+	}
+	if len(*opened) != 1 || !strings.Contains((*opened)[0], "_diagram_my_sketch.excalidraw?t=") {
+		t.Fatalf("opened %v", *opened)
+	}
+	files, _ := filepath.Glob(filepath.Join(lastDir, "diagrams", "*_diagram_my_sketch.excalidraw"))
+	if len(files) != 1 {
+		t.Fatalf("created %v", files)
+	}
+}
+
+func TestOpenExistingDrawing(t *testing.T) {
+	opened := editorSetup(t)
+	if _, err := run(t, "open", "a.excalidraw"); err != nil {
+		t.Fatal(err)
+	}
+	if len(*opened) != 1 || !strings.Contains((*opened)[0], "/d/a.excalidraw?t=") {
+		t.Fatalf("opened %v", *opened)
+	}
+	if files, _ := filepath.Glob(filepath.Join(lastDir, "diagrams", "*")); len(files) != 0 {
+		t.Fatalf("open must not create: %v", files)
+	}
+}
+
+func TestOpenRejectsNonDrawingAndMissingRef(t *testing.T) {
+	opened := editorSetup(t)
+	if _, err := run(t, "open", "n.md"); err == nil || !strings.Contains(err.Error(), "not a drawing") {
+		t.Fatalf("%v", err)
+	}
+	var ue *cli.UsageError
+	if _, err := run(t, "open"); !errors.As(err, &ue) {
+		t.Fatalf("want usage error, got %v", err)
+	}
+	if len(*opened) != 0 {
+		t.Fatal("opened a browser on failure")
 	}
 }
