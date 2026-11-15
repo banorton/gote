@@ -96,7 +96,7 @@ Single-binary CLI over a directory of Markdown notes and `.excalidraw` drawings 
 
 - Always pass `--json` and parse it. Exit codes: 0 ok, 1 error, 2 usage. With `--json`, errors are `{"error":{"code","msg"}}` on stderr; `code` is `not_found`, `invalid`, `conflict` or `internal`.
 - Every result carries `id`, the vault-relative path (`projects/gote.md`). Absolute `path` appears in `search`, `info`, `new`, `open`, `today`.
-- Never run commands that open a menu, a pager or a browser (`template open`, `config-edit`, `view`, menu and two-letter menu aliases, `diagram` without `read`/`check`). `new`, `open`, `quick` and `today` are safe with `--json` (or when stdout is not a terminal): they create the note if needed but do not launch the editor or record a visit.
+- Never run commands that open a menu, a pager or a browser (`template open`, `config-edit`, `view`, menu and two-letter menu aliases, `diagram` without `read`/`check`/`list --json`). `new`, `open`, `quick` and `today` are safe with `--json` (or when stdout is not a terminal): they create the note if needed but do not launch the editor or record a visit.
 - Create notes with `gote new <name> --json` (daily note: `gote today --json`), not by writing files by hand: gote applies the stub, template and prefix. Then edit the returned `path` with normal file tools.
 - Resolving `<note>`: an id (`projects/gote.md`), a filename stem (`gote`), an alias, or a path suffix, case-insensitive. Ambiguous names resolve to the shortest path. `-` is the last opened note. An unknown ref is `not_found`.
 
