@@ -31,7 +31,8 @@ gote                      # open the quick note
 gote my idea              # open "my idea.md", creating it if missing
 gote new my idea          # always create (fails if it exists)
 gote -                    # reopen the last note
-gote search kubernetes    # ranked full-text search
+gote search kube          # fuzzy match on titles, paths, aliases
+gote search -t kubernetes # full-text search (body, tags, filters)
 gote search               # fuzzy finder (ctrl-t: search note contents)
 gote tasks                # open "- [ ]" tasks across all notes
 gote graph my-idea -d 2   # link neighborhood as a tree
@@ -63,7 +64,7 @@ A note's id is its path relative to the notes directory. Its title is the frontm
 | `duplicate` | `dup`, `cp` | copy a note |
 | `info` | `i` | note details: tags, aliases, link counts, size |
 | `template` | `tmpl` | `list`, `open <name>`, `rename <name> <new>`, `delete <name>` |
-| `search` | `s` | search notes; no args opens the fuzzy finder. `-n <limit>`, `-s` for semantic |
+| `search` | `s` | fuzzy search of titles, paths and aliases; no args opens the fuzzy finder. `-t` full-text, `-s` semantic, `-n <limit>` |
 | `tasks` | | list open tasks; `--all` includes done; a query restricts to matching notes |
 | `links` | | outgoing links of a note |
 | `backlinks` | | notes linking to a note |
@@ -91,7 +92,7 @@ A lister letter plus an action letter opens that menu with the action preselecte
 | Lister | `o` open | `d` delete | `p` pin | `v` view | `r` rename | `u` unpin |
 |---|---|---|---|---|---|---|
 | recent | `ro` | `rd` | `rp` | `rv` | `rr` | |
-| search (rest of args = query) | `so` | `sd` | `sp` | `sv` | `sr` | |
+| search (rest of args = fuzzy words) | `so` | `sd` | `sp` | `sv` | `sr` | |
 | tag (rest of args = tags) | `to` | `td` | `tp` | `tv` | `tr` | |
 | pinned | `po` | `pd` | | `pv` | `pr` | `pu` |
 
@@ -99,7 +100,9 @@ In a menu, items are labeled with the home row (`a s d f g h j k l ;`); `n`/`p` 
 
 ### Search
 
-`gote search <query>` ANDs its terms.
+`gote search <words>` fuzzy-matches (fzf scoring) the same text the finder sees: title, path, aliases. Best match first; on a terminal the results open in the home-row menu below, otherwise they print as `title  (id)`, or `{results:[{id,title,kind,path,score}]}` with `--json`. It never reads note bodies. Filters and negation are not fuzzy: `gote search tag:x` fails with a hint to use `-t`.
+
+`gote search -t <query>` is full-text (FTS5 over title, aliases, tags, body) and ANDs its terms. `-s <query>` is semantic. `-t` and `-s` together is a usage error. `gote tasks <query>` and `gote tag add --query` take the full-text syntax too.
 
 | Token | Meaning |
 |---|---|

@@ -11,7 +11,7 @@ gote indexes a directory of Markdown notes and `.excalidraw` drawings (the vault
 
 - Always pass `--json` when you parse the output. Exit codes: 0 ok, 1 error, 2 usage. On error with `--json`, stderr is `{"error":{"code","msg"}}`; codes are `not_found`, `invalid`, `conflict`, `internal`.
 - Put `--no-server` first when you want a one-shot in-process run (no background server). Otherwise the first call auto-spawns a server that keeps the index fresh.
-- Never run commands that open an editor, a menu, or a pager unless asked: `open`, `new`, `quick`, `today`, `template open`, `config edit`, `view`, bare `search`, `recent`, `get`, `pinned`, `tag <t>` and the two-letter menu aliases (`ro`, `sv`, ...). Use `search`, `tag`, `tasks`, `info`, `links`, `backlinks`, `graph`, `orphans`, `broken`, `diagram read|check` instead.
+- Never run commands that open an editor, a menu, or a pager unless asked: `open`, `new`, `quick`, `today`, `template open`, `config edit`, `view`, `search` without `--json`, `recent`, `get`, `pinned`, `tag <t>` and the two-letter menu aliases (`ro`, `sv`, ...). Use `search --json`, `tag`, `tasks`, `info`, `links`, `backlinks`, `graph`, `orphans`, `broken`, `diagram read|check` instead.
 - `<note>` arguments accept an id (`projects/gote.md`), a filename stem (`gote`), an alias, or a path suffix. Ambiguous names resolve to the shortest path. `-` is the last opened note.
 - Every result carries `id`: the vault-relative path. Absolute `path` is in `search` and `info` results.
 
@@ -26,7 +26,45 @@ gote indexes a directory of Markdown notes and `.excalidraw` drawings (the vault
 
 ## Search
 
-`gote search [-n N] [-s] <query...>` returns ranked notes. Terms are ANDed. `-s` is semantic search (needs the `semantic:` config block; otherwise `invalid`).
+`gote search [-n N] <words...>` is a fuzzy match (fzf scoring) over note titles, paths and aliases, best first. It never reads note bodies and takes no filters; a filter token (`tag:`, `created:`, `-word`, quotes) is an `invalid` error that points at `-t`. Result: `id`, `title`, `kind`, `path` (absolute), `score`.
+
+```console
+$ gote search --json desi
+{
+  "results": [
+    {
+      "id": "design.md",
+      "title": "design",
+      "kind": "note",
+      "path": "~/notes/design.md",
+      "score": 114
+    },
+    {
+      "id": "ideas.md",
+      "title": "ideas",
+      "kind": "note",
+      "path": "~/notes/ideas.md",
+      "score": 71
+    },
+    {
+      "id": "diagrams/261101130000_diagram_broken.excalidraw",
+      "title": "261101130000_diagram_broken",
+      "kind": "diagram",
+      "path": "~/notes/diagrams/261101130000_diagram_broken.excalidraw",
+      "score": 38
+    },
+    {
+      "id": "diagrams/261101120000_diagram_architecture.excalidraw",
+      "title": "261101120000_diagram_architecture",
+      "kind": "diagram",
+      "path": "~/notes/diagrams/261101120000_diagram_architecture.excalidraw",
+      "score": 32
+    }
+  ]
+}
+```
+
+`gote search -t [-n N] <query...>` is full-text search (title, aliases, tags, body) with filters. Terms are ANDed. `-s` instead of `-t` is semantic search (needs the `semantic:` config block; otherwise `invalid`). `-t` and `-s` together is a usage error. Tokens for `-t`:
 
 | Token | Meaning |
 |---|---|
@@ -38,12 +76,12 @@ gote indexes a directory of Markdown notes and `.excalidraw` drawings (the vault
 | `modified:<d>` | file mtime in the period |
 | `-token` | negate any token, e.g. `-tag:draft` |
 
-Dates `<d>` are `yymmddhhmmss` prefixes of even length 2-12: `26` = 2026, `2603` = March 2026, `260314` = 14 March 2026. Forms: `2603` (inside the period), `>2603` (after it), `<2603` (before it), `2601..2603` (both periods inclusive). An odd length is a usage error. A query of only filters lists matching notes by mtime, newest first. Query tokens that start with `-` stay part of the query; put flags (`-n`, `-s`) first, or use `--` to end flags.
+Dates `<d>` are `yymmddhhmmss` prefixes of even length 2-12: `26` = 2026, `2603` = March 2026, `260314` = 14 March 2026. Forms: `2603` (inside the period), `>2603` (after it), `<2603` (before it), `2601..2603` (both periods inclusive). An odd length is a usage error. A query of only filters lists matching notes by mtime, newest first. Query tokens that start with `-` stay part of the query; put flags (`-n`, `-t`, `-s`) first, or use `--` to end flags.
 
-Result: `id`, `title`, `kind` (`note` or `diagram`), `path` (absolute), `snippet`, `line` (first matching body line, 0 if none), `score`.
+Full-text result: `id`, `title`, `kind` (`note` or `diagram`), `path` (absolute), `snippet`, `line` (first matching body line, 0 if none), `score`.
 
 ```console
-$ gote search --json socket
+$ gote search -t --json socket
 {
   "results": [
     {
@@ -60,7 +98,7 @@ $ gote search --json socket
 ```
 
 ```console
-$ gote search --json tag:go -tag:project
+$ gote search -t --json tag:go -tag:project
 {
   "results": [
     {
@@ -77,7 +115,7 @@ $ gote search --json tag:go -tag:project
 ```
 
 ```console
-$ gote search --json created:2611
+$ gote search -t --json created:2611
 {
   "results": [
     {
@@ -96,7 +134,7 @@ $ gote search --json created:2611
 Without `--json`, a result is `title  (id)` and an indented snippet:
 
 ```console
-$ gote search modified:2611 -tag:ideas
+$ gote search -t modified:2611 -tag:ideas
 261101130000_diagram_broken  (diagrams/261101130000_diagram_broken.excalidraw)
 261101120000_diagram_architecture  (diagrams/261101120000_diagram_architecture.excalidraw)
 Gote  (projects/gote.md)
@@ -106,7 +144,7 @@ design  (design.md)
 
 ## Tasks
 
-`gote tasks [--all] [<query>...]` lists open `- [ ]` items across notes, newest note first, then by line. `--all` adds done items (`- [x]`). A query restricts to notes matching it (same syntax as search). Text output is `title (id:line)  [ ] text`.
+`gote tasks [--all] [<query>...]` lists open `- [ ]` items across notes, newest note first, then by line. `--all` adds done items (`- [x]`). A query restricts to notes matching it (same syntax as `search -t`). Text output is `title (id:line)  [ ] text`.
 
 ```console
 $ gote tasks

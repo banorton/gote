@@ -26,10 +26,11 @@ done
 export XDG_CONFIG_HOME="$WORK/config" XDG_STATE_HOME="$WORK/state" EDITOR=true
 
 CMDS=(
-  "search --json socket"
-  "search --json tag:go -tag:project"
-  "search --json created:2611"
-  "search modified:2611 -tag:ideas"
+  "search --json desi"
+  "search -t --json socket"
+  "search -t --json tag:go -tag:project"
+  "search -t --json created:2611"
+  "search -t modified:2611 -tag:ideas"
   "tasks"
   "tasks --all --json tag:go"
   "info --json gote"
