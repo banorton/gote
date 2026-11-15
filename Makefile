@@ -1,7 +1,14 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X github.com/banorton/gote/internal/cli.Version=$(VERSION)
 
-.PHONY: build test cross
+.PHONY: build test cross web web-check
+
+web:
+	cd web && npm ci && node build.mjs
+
+web-check: web
+	git diff --exit-code --stat -- web/dist
+	git ls-files --others --exclude-standard web/dist | (! grep .)
 
 build:
 	CGO_ENABLED=0 go build -ldflags '$(LDFLAGS)' -o gote ./cmd/gote
