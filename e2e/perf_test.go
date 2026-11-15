@@ -28,8 +28,8 @@ func TestBigNote(t *testing.T) {
 	if !strings.Contains(out, `"notes": 2`) {
 		t.Fatalf("status: %s", out)
 	}
-	if indexTime > 2*time.Second {
-		t.Errorf("index of 5 MB note took %v, budget 2s (incl. process start)", indexTime)
+	if indexTime > budget(2*time.Second) {
+		t.Errorf("index of 5 MB note took %v, budget %v (incl. process start)", indexTime, budget(2*time.Second))
 	}
 
 	e.ok("--no-server", "search", "-t", "needleunicorn") // warm
@@ -39,8 +39,8 @@ func TestBigNote(t *testing.T) {
 	if !strings.Contains(res, "big.md") {
 		t.Fatalf("search: %s", res)
 	}
-	if searchTime > 200*time.Millisecond {
-		t.Errorf("warm search took %v, budget 200ms (incl. process start)", searchTime)
+	if searchTime > budget(200*time.Millisecond) {
+		t.Errorf("warm search took %v, budget %v (incl. process start)", searchTime, budget(200*time.Millisecond))
 	}
 	t.Logf("index %v, warm search %v", indexTime, searchTime)
 }
