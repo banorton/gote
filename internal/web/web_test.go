@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -283,7 +284,8 @@ func TestRenderNote(t *testing.T) {
 		`class="tag">beta<`,
 		`/assets/viewer.js`,
 		`prefers-color-scheme: dark`,
-		`new EventSource("/events?id=a.md")`,
+		`data-events="/events?id=a.md"`,
+		`/assets/reload.js`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q in:\n%s", want, body)
@@ -603,3 +605,69 @@ type countLock struct{ locks, unlocks int }
 
 func (c *countLock) Lock()   { c.locks++ }
 func (c *countLock) Unlock() { c.unlocks++ }
+
+const wantCSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+
+func TestHTMLSecurityHeaders(t *testing.T) {
+	f := newFixture(t)
+	for _, route := range []string{"/n/a.md", "/n/b.md", "/d/" + drawingID} {
+		resp := f.do("GET", f.tok(route), nil, nil)
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != 200 {
+			t.Fatalf("%s: %d", route, resp.StatusCode)
+		}
+		csp := resp.Header.Get("Content-Security-Policy")
+		if csp != wantCSP {
+			t.Errorf("%s CSP:\n got %q\nwant %q", route, csp, wantCSP)
+		}
+		for _, bad := range []string{"http:", "https:", "ws:", "wss:", "*", "//"} {
+			if strings.Contains(csp, bad) {
+				t.Errorf("%s CSP contains %q", route, bad)
+			}
+		}
+		if got := resp.Header.Get("Referrer-Policy"); got != "no-referrer" {
+			t.Errorf("%s Referrer-Policy %q", route, got)
+		}
+		if got := resp.Header.Get("X-Content-Type-Options"); got != "nosniff" {
+			t.Errorf("%s nosniff %q", route, got)
+		}
+		for _, m := range regexp.MustCompile(`(?is)<script\b[^>]*>`).FindAllString(string(body), -1) {
+			if !strings.Contains(m, ` src="/assets/`) {
+				t.Errorf("%s inline or foreign script %q", route, m)
+			}
+		}
+		if regexp.MustCompile(`(?i)\son[a-z]+\s*=`).MatchString(string(body)) {
+			t.Errorf("%s has inline event handler", route)
+		}
+	}
+}
+
+func TestFilesKeepSandboxCSP(t *testing.T) {
+	f := newFixture(t)
+	resp := f.do("GET", f.tok("/f/pic.png"), nil, nil)
+	resp.Body.Close()
+	if got := resp.Header.Get("Content-Security-Policy"); !strings.HasPrefix(got, "sandbox;") {
+		t.Errorf("/f/ CSP %q", got)
+	}
+}
+
+func TestBundleHasNoCDNFallback(t *testing.T) {
+	dir := filepath.Join("..", "..", "web", "dist", "assets")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if !strings.HasSuffix(e.Name(), ".js") {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if bytes.Contains(b, []byte("esm.sh")) {
+			t.Errorf("%s references esm.sh", e.Name())
+		}
+	}
+}

@@ -3,7 +3,6 @@ package web
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"html"
 	"html/template"
@@ -70,7 +69,7 @@ type page struct {
 	Tags     []string
 	Body     template.HTML
 	Drawings bool
-	Events   template.JS
+	Events   string
 }
 
 type wikiRenderer struct {
@@ -259,10 +258,15 @@ func (s *Server) handleNote(w http.ResponseWriter, r *http.Request) {
 		failErr(w, err)
 		return
 	}
-	events, _ := json.Marshal("/events?id=" + url.QueryEscape(id))
-	p := page{ID: id, Title: n.Title, Tags: n.Tags, Body: body, Drawings: drawings, Events: template.JS(events)}
+	events := "/events?id=" + url.QueryEscape(id)
+	p := page{ID: id, Title: n.Title, Tags: n.Tags, Body: body, Drawings: drawings, Events: events}
 	renderPage(w, notePage, p)
 }
+
+// htmlCSP makes the browser refuse every public network call from gote pages,
+// including the ones bundled Excalidraw features (share link, AI, collab,
+// library browser, embeds) would make. No inline script is allowed.
+const htmlCSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 
 func renderPage(w http.ResponseWriter, t *template.Template, data any) {
 	var buf bytes.Buffer
@@ -270,6 +274,10 @@ func renderPage(w http.ResponseWriter, t *template.Template, data any) {
 		fail(w, http.StatusInternalServerError, "render: %v", err)
 		return
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	h := w.Header()
+	h.Set("Content-Type", "text/html; charset=utf-8")
+	h.Set("Content-Security-Policy", htmlCSP)
+	h.Set("Referrer-Policy", "no-referrer")
+	h.Set("X-Content-Type-Options", "nosniff")
 	io.Copy(w, &buf)
 }

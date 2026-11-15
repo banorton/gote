@@ -21,6 +21,7 @@ img{max-width:100%}hr{border:0;border-top:1px solid var(--rule)}
 .gote-drawing{position:relative;height:420px;margin:1rem 0;border:1px solid var(--rule);border-radius:6px;overflow:hidden}
 .gote-drawing-canvas{position:absolute;inset:0}
 .gote-drawing .App-bottom-bar{display:none}
+.library-menu-browse-button{display:none!important}
 .gote-edit{position:absolute;top:.5rem;right:.5rem;z-index:5;font-size:.8rem;background:var(--chip);color:var(--chip-fg);padding:.1rem .6rem;border-radius:999px;text-decoration:none}
 `
 
@@ -31,13 +32,13 @@ var notePage = template.Must(template.New("note").Parse(`<!doctype html>
 <link rel="icon" href="data:,">
 <style>` + baseCSS + `</style>
 {{if .Drawings}}<link rel="stylesheet" href="/assets/viewer.css">{{end}}
-</head><body><main>
+</head><body data-events="{{.Events}}"><main>
 <div class="note-title">{{.ID}}</div>
 {{if .Tags}}<div class="tags">{{range .Tags}}<span class="tag">{{.}}</span>{{end}}</div>{{end}}
 <article>{{.Body}}</article>
 </main>
 {{if .Drawings}}<script type="module" src="/assets/viewer.js"></script>{{end}}
-<script>new EventSource({{.Events}}).addEventListener("reload",function(){location.reload()})</script>
+<script type="module" src="/assets/reload.js"></script>
 </body></html>
 `))
 
@@ -56,6 +57,7 @@ html,body{margin:0;height:100%;overflow:hidden}
 .gote-pill.saving,.gote-pill.dirty{background:#fdf2c9;color:#6b4e00}
 .gote-pill.conflict,.gote-pill.error{background:#fbd5d3;color:#8c1d18;cursor:pointer}
 .gote-error{padding:1rem;white-space:pre-wrap}
+.library-menu-browse-button{display:none!important}
 </style>
 </head><body>
 <div id="root" data-id="{{.ID}}"></div>
