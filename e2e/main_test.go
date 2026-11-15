@@ -149,7 +149,7 @@ func (e *env) stopServer() {
 		e.cmd("vA", "server", "stop").Run()
 		// a server that ignores stop must not outlive the test
 		time.Sleep(100 * time.Millisecond)
-		if syscall.Kill(st.PID, 0) == nil {
+		if alive(st.PID) {
 			syscall.Kill(st.PID, syscall.SIGKILL)
 		}
 	}
@@ -158,10 +158,38 @@ func (e *env) stopServer() {
 func waitDead(t *testing.T, pid int) {
 	t.Helper()
 	for i := 0; i < 200; i++ {
-		if syscall.Kill(pid, 0) != nil {
+		if !alive(pid) {
 			return
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
 	t.Fatalf("pid %d still alive", pid)
+}
+
+// alive reports whether pid is a live process. A killed server is orphaned
+// (spawned detached), and in containers or CI the reaper may be slow or absent,
+// so a zombie counts as dead.
+func alive(pid int) bool {
+	if syscall.Kill(pid, 0) != nil {
+		return false
+	}
+	if b, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid)); err == nil {
+		i := strings.LastIndexByte(string(b), ')')
+		return i < 0 || i+2 >= len(b) || b[i+2] != 'Z'
+	}
+	out, err := exec.Command("ps", "-o", "stat=", "-p", fmt.Sprint(pid)).Output()
+	if err != nil {
+		return true
+	}
+	return !strings.HasPrefix(strings.TrimSpace(string(out)), "Z")
+}
+
+// budget scales a timing limit on shared CI runners, which are several times
+// slower than a dev machine; the scaled limit still catches the regressions
+// these budgets exist for (e.g. quadratic indexing took >8 s locally).
+func budget(d time.Duration) time.Duration {
+	if os.Getenv("CI") != "" {
+		return 3 * d
+	}
+	return d
 }
