@@ -12,7 +12,7 @@ gote indexes a directory of Markdown notes and `.excalidraw` drawings (the vault
 - Always pass `--json` when you parse the output. Exit codes: 0 ok, 1 error, 2 usage. On error with `--json`, stderr is `{"error":{"code","msg"}}`; codes are `not_found`, `invalid`, `conflict`, `internal`.
 - Put `--no-server` first when you want a one-shot in-process run (no background server). Otherwise the first call auto-spawns a server that keeps the index fresh.
 - Create notes with `gote new <name> --json` (daily note: `gote today --json`); with `--json` they never launch the editor or record a visit, and return `{id,path,created}`. Then edit `path` directly.
-- Never run commands that open a menu or a pager unless asked: `template open`, `config edit`, `view`, `search` without `--json`, `recent`, `get`, `pinned`, `tag <t>` and the two-letter menu aliases (`ro`, `sv`, ...). Use `search --json`, `tag`, `tasks`, `info`, `links`, `backlinks`, `graph`, `orphans`, `broken`, `diagram read|check` instead.
+- Never run commands that open a menu or a pager unless asked: `template open`, `config edit`, `view`, `search` without `--json`, `recent`, `get`, `pinned`, `tag <t>` and the two-letter menu aliases (`ro`, `sv`, ...). Use `search --json`, `tag`, `tasks`, `info`, `links`, `backlinks`, `graph`, `orphans`, `broken`, `diagram list --json`, `diagram read|check` instead.
 - `<note>` arguments accept an id (`projects/gote.md`), a filename stem (`gote`), an alias, or a path suffix. Ambiguous names resolve to the shortest path. `-` is the last opened note.
 - Every result carries `id`: the vault-relative path. Absolute `path` is in `search` and `info` results.
 
@@ -27,7 +27,7 @@ gote indexes a directory of Markdown notes and `.excalidraw` drawings (the vault
 
 ## Search
 
-`gote search [-n N] <words...>` is a fuzzy match (fzf scoring) over note titles, paths and aliases, best first. It never reads note bodies and takes no filters; a filter token (`tag:`, `created:`, `-word`, quotes) is an `invalid` error that points at `-t`. Result: `id`, `title`, `kind`, `path` (absolute), `score`.
+`gote search [-n N] <words...>` is a fuzzy match (fzf scoring) over note titles, paths and aliases, best first. It never reads note bodies and takes no filters; a filter token (`tag:`, `kind:`, `created:`, `-word`, quotes) is an `invalid` error that points at `-t`. Result: `id`, `title`, `kind`, `path` (absolute), `score`.
 
 ```console
 $ gote search --json desi
@@ -73,6 +73,7 @@ $ gote search --json desi
 | `"two words"` | phrase |
 | `tag:x` | has tag `x` |
 | `field:value` | frontmatter field equals value (case-insensitive; lists match any element) |
+| `kind:note` / `kind:diagram` | only notes / only drawings (anything else is `invalid`) |
 | `created:<d>` | frontmatter `created` in the period |
 | `modified:<d>` | file mtime in the period |
 | `-token` | negate any token, e.g. `-tag:draft` |
@@ -110,6 +111,23 @@ $ gote search -t --json tag:go -tag:project
       "snippet": "",
       "line": 0,
       "score": 0
+    }
+  ]
+}
+```
+
+```console
+$ gote search -t --json kind:diagram architecture
+{
+  "results": [
+    {
+      "id": "diagrams/261101120000_diagram_architecture.excalidraw",
+      "title": "261101120000_diagram_architecture",
+      "kind": "diagram",
+      "path": "~/notes/diagrams/261101120000_diagram_architecture.excalidraw",
+      "snippet": "Client\nServer\nrequest\nCache\nsee [[Design Doc]]",
+      "line": 0,
+      "score": 1.1870764684092023
     }
   ]
 }
@@ -349,6 +367,24 @@ Workflow to understand or change a drawing:
 3. Run `gote diagram check <ref>`. It must print `ok`. Exit 1 lists the broken invariants.
 
 ```console
+$ gote diagram list --json
+[
+  {
+    "id": "diagrams/261101130000_diagram_broken.excalidraw",
+    "title": "261101130000_diagram_broken",
+    "path": "~/notes/diagrams/261101130000_diagram_broken.excalidraw",
+    "modified": "261101140000"
+  },
+  {
+    "id": "diagrams/261101120000_diagram_architecture.excalidraw",
+    "title": "261101120000_diagram_architecture",
+    "path": "~/notes/diagrams/261101120000_diagram_architecture.excalidraw",
+    "modified": "261101130000"
+  }
+]
+```
+
+```console
 $ gote diagram read --json 261101120000_diagram_architecture
 {
   "id": "diagrams/261101120000_diagram_architecture.excalidraw",
@@ -417,7 +453,7 @@ Binding invariants (both directions must agree, ignoring elements with `isDelete
 - Deleting an element: set `"isDeleted": true` and remove its references from other elements' `boundElements` and bindings.
 - Every element you edit or add gets its `version` incremented, a new random integer `versionNonce`, and `updated` set to the current time in milliseconds. A new element needs all the fields of its type; copy an existing sibling and change the ids.
 
-`gote diagram <name>` and `gote diagram open <ref>` open the browser editor: for the user, not for you.
+`gote diagram list` without `--json` opens a menu on a terminal; always pass `--json`. `gote diagram <name>` and `gote diagram open <ref>` open the browser editor: for the user, not for you.
 
 ## Other commands
 

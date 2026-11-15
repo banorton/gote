@@ -72,7 +72,7 @@ A note's id is its path relative to the notes directory. Its title is the frontm
 | `graph` | | link neighborhood as a tree: `graph <note> [-d N]` (depth 1-5) |
 | `orphans` | | notes with no links in or out |
 | `broken` | | links to missing notes or files (links to attachments that exist are fine) |
-| `diagram` | | Excalidraw drawings: `diagram [name]` creates and opens the editor, `diagram open <ref>`, `diagram read <ref>`, `diagram check <ref>` |
+| `diagram` | | Excalidraw drawings: `diagram [name]` creates and opens the editor, `diagram open <ref>`, `diagram list [-n N] [--json]`, `diagram read <ref>`, `diagram check <ref>` |
 | `view` | `v` | open a rendered note in the browser; `view --terminal <note>` (`-T`) renders in the terminal |
 | `embed` | | compute embeddings for semantic search; `embed status` |
 | `config` | `c` | show the config file |
@@ -101,7 +101,7 @@ In a menu, items are labeled with the home row (`a s d f g h j k l ;`); `n`/`p` 
 
 ### Search
 
-`gote search <words>` fuzzy-matches (fzf scoring) the same text the finder sees: title, path, aliases. Best match first; on a terminal the results open in the home-row menu below, otherwise they print as `title  (id)`, or `{results:[{id,title,kind,path,score}]}` with `--json`. It never reads note bodies. Filters and negation are not fuzzy: `gote search tag:x` fails with a hint to use `-t`.
+`gote search <words>` fuzzy-matches (fzf scoring) the same text the finder sees: title, path, aliases. Best match first; on a terminal the results open in the home-row menu below, otherwise they print as `title  (id)`, or `{results:[{id,title,kind,path,score}]}` with `--json`. It never reads note bodies. Filters and negation are not fuzzy: `gote search tag:x` or `kind:diagram` fails with a hint to use `-t`.
 
 `gote search -t <query>` is full-text (FTS5 over title, aliases, tags, body) and ANDs its terms. `-s <query>` is semantic. `-t` and `-s` together is a usage error. `gote tasks <query>` and `gote tag add --query` take the full-text syntax too.
 
@@ -111,6 +111,7 @@ In a menu, items are labeled with the home row (`a s d f g h j k l ;`); `n`/`p` 
 | `"two words"` | phrase |
 | `tag:x` | has tag `x` |
 | `field:value` | frontmatter field equals value (lists match any element) |
+| `kind:note` / `kind:diagram` | only notes / only drawings |
 | `created:<d>` | frontmatter `created` in the period |
 | `modified:<d>` | file mtime in the period |
 | `-token` | negates any token |
@@ -149,7 +150,7 @@ Optional. Configure an embedding provider (OpenAI-compatible endpoint, or any co
 
 ## Drawings
 
-Drawings are native `.excalidraw` files, indexed like notes: their text is searchable and `[[links]]` in them count. `gote diagram [name]` creates `diagrams/<yymmddhhmmss>_diagram[_<name>].excalidraw` and opens the browser editor (an embedded Excalidraw, saved back to the file). Embed one in a note with `![[<stem>]]`. `diagram read` prints a text summary; `diagram check` prints `ok` or the binding problems it finds.
+Drawings are native `.excalidraw` files, indexed like notes: their text is searchable and `[[links]]` in them count. `gote diagram [name]` creates `diagrams/<yymmddhhmmss>_diagram[_<name>].excalidraw` and opens the browser editor (an embedded Excalidraw, saved back to the file). Embed one in a note with `![[<stem>]]`. `diagram list` shows drawings newest first (home-row menu on a terminal, `title  (id)` lines otherwise, `[{id,title,path,modified}]` with `--json`); `diagram read` prints a text summary; `diagram check` prints `ok` or the binding problems it finds.
 
 The web view makes no public network calls: pages are served from `127.0.0.1` only, fonts and scripts are bundled, and a strict Content-Security-Policy makes the browser enforce it. Excalidraw's share links, live collaboration, AI features, library browser and external embeds are disabled.
 

@@ -123,7 +123,7 @@ Menu commands print `id<TAB>title` lines without a terminal and are interactive 
 | `pin` | | pin a note |
 | `unpin` | `u` `up` | unpin a note |
 | `pinned` | `p` | menu of pins; with a note name, pins it |
-| `diagram` | | `diagram read <ref>` summary, `diagram check <ref>` validate; bare/`open` start the browser editor (user only) |
+| `diagram` | | `diagram list [-n N] [--json]` drawings newest first (menu on a terminal: use `--json`), `diagram read <ref>` summary, `diagram check <ref>` validate; bare/`open` start the browser editor (user only) |
 | `template` | `tmpl` | `template list`; `open`, `rename`, `delete` act on `~/.config/gote/templates/` |
 | `status` | | index counts (`notes`, `links`, `unresolved`) |
 | `reindex` | `idx` | drop and rebuild the index; use after bulk edits outside gote or stale results |
@@ -147,7 +147,7 @@ Menu commands print `id<TAB>title` lines without a terminal and are interactive 
 
 ### Search
 
-`gote search --json [-n N] <words>`: fuzzy (fzf scoring) over titles, paths and aliases, best first. Never reads bodies; filter tokens (`tag:`, `created:`, `-word`, quotes) are an `invalid` error pointing at `-t`. Result: `{results:[{id,title,kind,path,score}]}`.
+`gote search --json [-n N] <words>`: fuzzy (fzf scoring) over titles, paths and aliases, best first. Never reads bodies; filter tokens (`tag:`, `kind:`, `created:`, `-word`, quotes) are an `invalid` error pointing at `-t`. Result: `{results:[{id,title,kind,path,score}]}`.
 
 `gote search -t --json [-n N] <query>`: full-text over title, aliases, tags, body; terms ANDed. Result adds `snippet` and `line`. `-s` is semantic (needs a `semantic:` config block, else `invalid`); `-t` with `-s` is a usage error. Put flags before query tokens that start with `-`, or use `--`. `tasks <query>` and `tag add --query` take the same syntax.
 
@@ -157,6 +157,7 @@ Menu commands print `id<TAB>title` lines without a terminal and are interactive 
 | `"two words"` | phrase |
 | `tag:x` | has tag `x` |
 | `field:value` | frontmatter field equals value; lists match any element |
+| `kind:note` / `kind:diagram` | only notes / only drawings (anything else is `invalid`) |
 | `created:<d>` | frontmatter `created` in the period |
 | `modified:<d>` | file mtime in the period |
 | `-token` | negates any token, e.g. `-tag:draft` |
