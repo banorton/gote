@@ -1,0 +1,39 @@
+{
+  "shapes": [
+    {
+      "id": "rect-a",
+      "type": "rectangle",
+      "label": "Client"
+    },
+    {
+      "id": "rect-b",
+      "type": "rectangle",
+      "label": "Server"
+    },
+    {
+      "id": "ell-c",
+      "type": "ellipse",
+      "label": "Cache"
+    }
+  ],
+  "texts": [
+    {
+      "id": "note-1",
+      "text": "see [[Design Doc]]"
+    }
+  ],
+  "edges": [
+    {
+      "id": "arrow-1",
+      "from": "Client",
+      "to": "Server",
+      "label": "request"
+    },
+    {
+      "id": "arrow-2",
+      "from": "Server",
+      "to": null,
+      "label": ""
+    }
+  ]
+}
