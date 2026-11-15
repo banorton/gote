@@ -50,6 +50,44 @@ type Indexer struct {
 
 	mu   sync.Mutex
 	last Stats
+
+	hookMu sync.Mutex
+	hooks  map[int]func(Stats)
+	nextID int
+}
+
+// OnReconcile subscribes fn to every reconcile, IndexFile or RemoveFile that
+// added, updated or removed a note. fn runs on the mutating goroutine after the
+// indexer lock is released, so it must not block. The returned func unsubscribes.
+func (ix *Indexer) OnReconcile(fn func(Stats)) (cancel func()) {
+	ix.hookMu.Lock()
+	defer ix.hookMu.Unlock()
+	if ix.hooks == nil {
+		ix.hooks = map[int]func(Stats){}
+	}
+	id := ix.nextID
+	ix.nextID++
+	ix.hooks[id] = fn
+	return func() {
+		ix.hookMu.Lock()
+		defer ix.hookMu.Unlock()
+		delete(ix.hooks, id)
+	}
+}
+
+func (ix *Indexer) notify(st Stats) {
+	if st.Added+st.Updated+st.Removed == 0 {
+		return
+	}
+	ix.hookMu.Lock()
+	fns := make([]func(Stats), 0, len(ix.hooks))
+	for _, f := range ix.hooks {
+		fns = append(fns, f)
+	}
+	ix.hookMu.Unlock()
+	for _, f := range fns {
+		f(st)
+	}
 }
 
 // New resolves a symlinked notes dir because WalkDir does not follow a
@@ -133,8 +171,12 @@ func (ix *Indexer) walk(ctx context.Context) (map[string]fileInfo, error) {
 // Reconcile brings the cache in line with the files on disk in one transaction.
 func (ix *Indexer) Reconcile(ctx context.Context) (Stats, error) {
 	ix.mu.Lock()
-	defer ix.mu.Unlock()
-	return ix.reconcile(ctx)
+	st, err := ix.reconcile(ctx)
+	ix.mu.Unlock()
+	if err == nil {
+		ix.notify(st)
+	}
+	return st, err
 }
 
 func (ix *Indexer) reconcile(ctx context.Context) (Stats, error) {
@@ -368,12 +410,20 @@ func insertNote(ctx context.Context, tx *sql.Tx, n note.Note, fi fileInfo, hash 
 // IndexFile re-indexes one file after a write; a missing file is removed.
 func (ix *Indexer) IndexFile(id string) error {
 	ix.mu.Lock()
-	defer ix.mu.Unlock()
+	st, err := ix.indexFile(id)
+	ix.mu.Unlock()
+	if err == nil {
+		ix.notify(st)
+	}
+	return err
+}
+
+func (ix *Indexer) indexFile(id string) (Stats, error) {
 	if hidden(id) {
-		return fmt.Errorf("index %s: path is not indexable", id)
+		return Stats{}, fmt.Errorf("index %s: path is not indexable", id)
 	}
 	if _, ok := parserFor(id); !ok {
-		return fmt.Errorf("index %s: unsupported file type", id)
+		return Stats{}, fmt.Errorf("index %s: unsupported file type", id)
 	}
 	abs := filepath.Join(ix.root, filepath.FromSlash(id))
 	info, err := os.Lstat(abs)
@@ -381,15 +431,15 @@ func (ix *Indexer) IndexFile(id string) error {
 		return ix.removeFile(id)
 	}
 	if err != nil {
-		return err
+		return Stats{}, err
 	}
 	if !info.Mode().IsRegular() {
-		return fmt.Errorf("index %s: not a regular file", id)
+		return Stats{}, fmt.Errorf("index %s: not a regular file", id)
 	}
 	ctx := context.Background()
 	tx, err := ix.st.DB.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return Stats{}, err
 	}
 	defer tx.Rollback()
 	var old *row
@@ -399,12 +449,12 @@ func (ix *Indexer) IndexFile(id string) error {
 		old = &r
 	case sql.ErrNoRows:
 	default:
-		return err
+		return Stats{}, err
 	}
 	var st Stats
 	structural, rewritten, err := ix.applyFile(ctx, tx, id, fileInfo{info.ModTime().UnixNano(), info.Size()}, old, &st)
 	if err != nil {
-		return err
+		return Stats{}, err
 	}
 	if structural {
 		err = resolveAll(ctx, tx)
@@ -412,40 +462,52 @@ func (ix *Indexer) IndexFile(id string) error {
 		err = resolveFor(ctx, tx, []string{id})
 	}
 	if err != nil {
-		return err
+		return Stats{}, err
 	}
-	return tx.Commit()
+	return st, tx.Commit()
 }
 
 func (ix *Indexer) RemoveFile(id string) error {
 	ix.mu.Lock()
-	defer ix.mu.Unlock()
-	return ix.removeFile(id)
+	st, err := ix.removeFile(id)
+	ix.mu.Unlock()
+	if err == nil {
+		ix.notify(st)
+	}
+	return err
 }
 
-func (ix *Indexer) removeFile(id string) error {
+func (ix *Indexer) removeFile(id string) (Stats, error) {
 	ctx := context.Background()
 	tx, err := ix.st.DB.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return Stats{}, err
 	}
 	defer tx.Rollback()
+	var n int
+	if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM notes WHERE id=?", id).Scan(&n); err != nil {
+		return Stats{}, err
+	}
 	if err := deleteNote(ctx, tx, id); err != nil {
-		return err
+		return Stats{}, err
 	}
 	if err := resolveAll(ctx, tx); err != nil {
-		return err
+		return Stats{}, err
 	}
-	return tx.Commit()
+	return Stats{Removed: n}, tx.Commit()
 }
 
 // Rebuild drops and recreates the cache, then reconciles.
 func (ix *Indexer) Rebuild(ctx context.Context) error {
 	ix.mu.Lock()
-	defer ix.mu.Unlock()
 	if err := ix.st.ResetCache(); err != nil {
+		ix.mu.Unlock()
 		return err
 	}
-	_, err := ix.reconcile(ctx)
+	st, err := ix.reconcile(ctx)
+	ix.mu.Unlock()
+	if err == nil {
+		ix.notify(st)
+	}
 	return err
 }

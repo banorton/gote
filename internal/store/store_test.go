@@ -81,3 +81,41 @@ func TestResetCache(t *testing.T) {
 		t.Fatal(notes, visits)
 	}
 }
+
+func TestChunksCacheAndEmbeddingsState(t *testing.T) {
+	s, p := open(t)
+	for _, q := range []string{
+		"INSERT INTO notes VALUES('a.md','note','A','a',NULL,1,1,'h','{}',1,NULL)",
+		"INSERT INTO chunks(note_id, ord, heading_path, start_line, text, hash) VALUES('a.md',0,'',1,'t','h1')",
+		"INSERT INTO embeddings VALUES('m','h1',2,x'0000803f00000000')",
+	} {
+		if _, err := s.DB.Exec(q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	if _, err := s.DB.Exec("DELETE FROM notes WHERE id='a.md'"); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	s.DB.QueryRow("SELECT count(*) FROM chunks").Scan(&n)
+	if n != 0 {
+		t.Fatal("chunks not cascaded")
+	}
+	s.DB.Exec("INSERT INTO notes VALUES('a.md','note','A','a',NULL,1,1,'h','{}',1,NULL)")
+	s.DB.Exec("INSERT INTO chunks(note_id, ord, heading_path, start_line, text, hash) VALUES('a.md',0,'',1,'t','h1')")
+	if err := s.ResetCache(); err != nil {
+		t.Fatal(err)
+	}
+	s.DB.QueryRow("SELECT count(*) FROM chunks").Scan(&n)
+	if n != 0 {
+		t.Fatal("chunks survived cache reset")
+	}
+	s.DB.QueryRow("SELECT count(*) FROM embeddings").Scan(&n)
+	if n != 1 {
+		t.Fatal("embeddings lost on cache reset")
+	}
+	s.Close()
+	if _, err := Open(p); err != nil {
+		t.Fatal(err)
+	}
+}
