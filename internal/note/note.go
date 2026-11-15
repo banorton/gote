@@ -1,5 +1,11 @@
 package note
 
+import (
+	"strings"
+
+	"golang.org/x/text/unicode/norm"
+)
+
 const (
 	KindNote    = "note"
 	KindDiagram = "diagram"
@@ -45,3 +51,7 @@ type Note struct {
 	Tasks                 []Task
 	ParseErr              string
 }
+
+// Fold is the comparison key for names and link targets: lowercase, NFC.
+// macOS filesystems hand back NFD names while users type NFC.
+func Fold(s string) string { return norm.NFC.String(strings.ToLower(s)) }

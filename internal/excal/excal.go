@@ -106,7 +106,7 @@ func ParseNote(id string, src []byte) note.Note {
 		ID:       id,
 		Kind:     note.KindDiagram,
 		Title:    name,
-		Stem:     strings.ToLower(name),
+		Stem:     note.Fold(name),
 		Semantic: true,
 		Fields:   map[string]any{},
 	}
