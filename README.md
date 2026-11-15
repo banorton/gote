@@ -146,7 +146,7 @@ The first command spawns a background server on a Unix socket in the state direc
 
 ## Semantic search
 
-Optional. Configure an embedding provider (OpenAI-compatible endpoint, or any command) in the `semantic:` config block, run `gote embed --yes` (the first full embed needs confirmation), then `gote search -s <query>`. After that the server keeps embeddings current in the background. Setup, key handling and the command adapter protocol: [docs/embedding.md](docs/embedding.md).
+Optional. Configure an embedding provider in the `semantic:` config block: the built-in `openai` adapter works with any OpenAI-compatible endpoint (OpenAI, Gemini, Mistral, Together, or a local Ollama / LM Studio / llama.cpp server), and a `command` adapter runs any script you write (Cohere, Voyage, Bedrock, an internal service, a local model). Then run `gote embed --yes` (the first full embed needs confirmation), then `gote search -s <query>`. After that the server keeps embeddings current in the background. Supported providers, key handling, and how to write and test an adapter: [docs/embedding.md](docs/embedding.md).
 
 ## Drawings
 
