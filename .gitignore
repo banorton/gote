@@ -4,3 +4,4 @@
 local_docs/
 builds/
 /web/node_modules/
+/web/e2e/.results/
