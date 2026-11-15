@@ -236,12 +236,19 @@ func Sync(ctx context.Context, env *ops.Env, confirm bool) (Stats, error) {
 		if err != nil {
 			return st, internal("count embeddings: %v", err)
 		}
-		if prev != "" && prev != model && have == 0 {
+		reason := ""
+		switch {
+		case prev == "" && have == 0:
+			reason = "first embed"
+		case prev != "" && prev != model && have == 0:
+			reason = "model changed"
+		}
+		if reason != "" {
 			cost := ""
 			if usd, ok := Cost(cfg, tokens); ok {
 				cost = fmt.Sprintf(", ~$%.4f", usd)
 			}
-			return st, ops.Errorf(ops.CodeInvalid, "model changed: %d chunks (~%d tokens%s); rerun with --yes", len(pending), tokens, cost)
+			return st, ops.Errorf(ops.CodeInvalid, "%s: %d chunks (~%d tokens%s); rerun with --yes", reason, len(pending), tokens, cost)
 		}
 	}
 

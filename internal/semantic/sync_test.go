@@ -384,3 +384,46 @@ func TestBackgroundLogsModelChangeRefusal(t *testing.T) {
 		t.Fatal("no log")
 	}
 }
+
+func TestFirstSyncRequiresConfirm(t *testing.T) {
+	v := newVault(t, map[string]string{"a.md": "apple\n", "b.md": "banana\n"})
+	_, err := Sync(context.Background(), v.env, false)
+	var oe *ops.Error
+	if !errors.As(err, &oe) || oe.Code != ops.CodeInvalid || !strings.Contains(oe.Msg, "first embed: 2 chunks") {
+		t.Fatalf("want first-embed refusal, got %v", err)
+	}
+	if v.f.embedded() != 0 {
+		t.Fatal("embedded before confirm")
+	}
+	if st := v.sync(t, true); st.Embedded != 2 {
+		t.Fatalf("confirmed sync embedded %d", st.Embedded)
+	}
+	v.write(t, "c.md", "cherry\n")
+	v.reindex(t)
+	if st := v.sync(t, false); st.Embedded != 1 {
+		t.Fatalf("incremental sync after first embed: %d", st.Embedded)
+	}
+}
+
+func TestBackgroundDoesNotRunFirstEmbed(t *testing.T) {
+	v := newVault(t, map[string]string{"a.md": "apple\n"})
+	old := Debounce
+	Debounce = 20 * time.Millisecond
+	defer func() { Debounce = old }()
+	logged := make(chan string, 4)
+	stop := StartBackground(context.Background(), v.env, func(f string, a ...any) { logged <- fmt.Sprintf(f, a...) })
+	defer stop()
+	v.write(t, "n.md", "cherry\n")
+	v.reindex(t)
+	select {
+	case msg := <-logged:
+		if !strings.Contains(msg, "first embed") {
+			t.Fatalf("unexpected log %q", msg)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("no refusal logged")
+	}
+	if v.f.embedded() != 0 {
+		t.Fatal("background ran the first embed")
+	}
+}
