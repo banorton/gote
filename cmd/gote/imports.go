@@ -13,5 +13,6 @@ import (
 	_ "github.com/banorton/gote/internal/ops/graph"
 	_ "github.com/banorton/gote/internal/ops/notes"
 	_ "github.com/banorton/gote/internal/ops/search"
+	_ "github.com/banorton/gote/internal/ops/tasks"
 	_ "github.com/banorton/gote/internal/server"
 )
