@@ -31,6 +31,30 @@ semantic:
 
 Config errors name the offending key, for example `semantic.api_key`.
 
+## Supported providers
+
+gote has two adapters:
+
+| `provider` | Covers |
+|---|---|
+| `openai` (built in) | Any server that speaks the OpenAI `POST /embeddings` API. Set `base_url`, `model` and a key. |
+| `command` | Anything else: a script you write that turns texts into vectors (see [Writing a command adapter](#writing-a-command-adapter)). |
+
+Common `base_url` values for `provider: openai` (check the provider's docs for current model names):
+
+| Provider | `base_url` | Key needed |
+|---|---|---|
+| OpenAI | `https://api.openai.com/v1` | yes |
+| Google Gemini (OpenAI-compatible endpoint) | `https://generativelanguage.googleapis.com/v1beta/openai` | yes |
+| Mistral | `https://api.mistral.ai/v1` | yes |
+| Together AI | `https://api.together.xyz/v1` | yes |
+| Ollama (local) | `http://localhost:11434/v1` | any non-empty value |
+| LM Studio (local) | `http://localhost:1234/v1` | any non-empty value |
+| llama.cpp server (local) | `http://localhost:8080/v1` | any non-empty value |
+
+Providers with their own API shape (Cohere, Voyage, AWS Bedrock, Vertex AI,
+an internal service) need a command adapter.
+
 ## What is embedded
 
 - Notes are split at every heading. Text before the first heading is its own
@@ -82,7 +106,9 @@ last change, but only in a vault that is already embedded. It never starts the
 first full embed or a model-change re-embed. Those refusals are written to
 `server.log`; run `gote embed --yes` to proceed.
 
-## Command adapter protocol
+## Writing a command adapter
+
+### Protocol
 
 `provider: command` runs `sh -c "<embed_cmd>"` once per batch (60 second
 timeout). It writes JSON to the command's stdin:
@@ -101,7 +127,71 @@ A non-zero exit, invalid JSON, or a count mismatch is an error and includes the
 first 500 bytes of stderr. Vectors may have any length but must be consistent
 for a given model; gote normalizes them.
 
-### Example adapter (Python, Cohere)
+### Rules for an adapter
+
+- Read all of stdin (one JSON object), write exactly one JSON object to
+  stdout, exit 0. Send logs and errors to stderr only: anything else on stdout
+  breaks parsing.
+- Return one vector per input text, in the same order. gote sends at most
+  `batch_size` texts per call; lower `batch_size` if your provider limits
+  request size or a batch can take close to the 60 second timeout.
+- Every vector for a given `model` must have the same length. Changing the
+  vector length means changing `model` (gote caches vectors per model and asks
+  for `gote embed --yes` before re-embedding).
+- `model` is passed through from the config. Use it, or ignore it if your
+  adapter serves one model.
+- Retries and rate limiting are the adapter's job. Exit non-zero to fail the
+  batch; `gote embed` can be rerun and resumes where it stopped.
+- The command runs through `sh -c`, so `~` and shell syntax work in
+  `embed_cmd`. Make the script executable (`chmod +x`).
+- Read API keys inside the adapter. The background server inherits its
+  environment from the shell that spawned it, so prefer a keychain or password
+  manager lookup over an environment variable (see API key options above).
+- No key handling or network access is required: a fully local model works the
+  same way.
+
+### Test an adapter before configuring it
+
+```sh
+echo '{"model":"my-model","texts":["hello","world"]}' \
+  | ~/bin/my-embedder \
+  | jq '{count: (.embeddings | length), dims: (.embeddings[0] | length)}'
+# {"count": 2, "dims": 1024}
+```
+
+Then add it to the config and run `gote embed status` (shows pending chunks),
+`gote embed` (prints the size and cost of the first run), and
+`gote embed --yes`.
+
+### Example adapter: offline test embedder (Python, no dependencies)
+
+Useful for trying semantic search without any provider. It hashes words into
+a fixed-size vector, so it matches shared vocabulary rather than meaning.
+
+```python
+#!/usr/bin/env python3
+import hashlib, json, re, sys
+
+DIMS = 256
+req = json.load(sys.stdin)
+out = []
+for text in req["texts"]:
+    v = [0.0] * DIMS
+    for word in re.findall(r"\w+", text.lower()):
+        h = int(hashlib.sha1(word.encode()).hexdigest(), 16)
+        v[h % DIMS] += 1.0
+    out.append(v)
+json.dump({"embeddings": out}, sys.stdout)
+```
+
+```yaml
+semantic:
+  provider: command
+  model: hash-256
+  embed_cmd: ~/bin/hash-embed
+```
+
+### Example adapter: Cohere (Python)
 
 ```python
 #!/usr/bin/env python3
