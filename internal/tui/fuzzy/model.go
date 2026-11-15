@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	fz "github.com/banorton/gote/internal/fuzzy"
 )
 
 type Mode int
@@ -52,7 +54,7 @@ type Model struct {
 	linesOK bool
 	mode    Mode
 	pattern string
-	results []Result
+	results []fz.Result
 	cursor  int
 	offset  int
 	width   int
@@ -130,7 +132,7 @@ func (m *Model) refilter() {
 	for i, it := range src {
 		strs[i] = it.Search
 	}
-	m.results = Match(m.pattern, strs)
+	m.results = fz.Match(m.pattern, strs)
 	m.cursor, m.offset = 0, 0
 }
 
