@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/banorton/gote/internal/fuzzy"
 	"github.com/banorton/gote/internal/ops"
 	"github.com/banorton/gote/internal/query"
 )
@@ -38,6 +39,7 @@ var SemanticHook func(ctx context.Context, env *ops.Env, q string, limit int) ([
 
 func init() {
 	ops.Handle("search.query", runQuery)
+	ops.Handle("search.fuzzy", runFuzzy)
 	ops.Handle("search.corpus", runCorpus)
 	ops.Handle("search.lines", runLines)
 	ops.Handle("search.preview", runPreview)
@@ -225,8 +227,18 @@ func firstMatchLine(path string, terms []string) int {
 type CorpusItem struct {
 	ID      string   `json:"id"`
 	Title   string   `json:"title"`
+	Kind    string   `json:"kind"`
 	Path    string   `json:"path"`
 	Aliases []string `json:"aliases"`
+}
+
+// SearchString is the text the fuzzy matcher sees for one note.
+func SearchString(it CorpusItem) string {
+	s := it.Title + "  " + it.Path
+	if len(it.Aliases) > 0 {
+		s += "  " + strings.Join(it.Aliases, " ")
+	}
+	return s
 }
 
 type CorpusResp struct {
@@ -234,7 +246,11 @@ type CorpusResp struct {
 }
 
 func runCorpus(ctx context.Context, env *ops.Env, _ ops.Empty) (CorpusResp, error) {
-	rows, err := env.Store.DB.QueryContext(ctx, `SELECT n.id, n.title,
+	return loadCorpus(ctx, env)
+}
+
+func loadCorpus(ctx context.Context, env *ops.Env) (CorpusResp, error) {
+	rows, err := env.Store.DB.QueryContext(ctx, `SELECT n.id, n.title, n.kind,
 		COALESCE((SELECT group_concat(alias, char(31)) FROM aliases a WHERE a.note_id = n.id), '')
 		FROM notes n ORDER BY n.title COLLATE NOCASE, n.id`)
 	if err != nil {
@@ -245,7 +261,7 @@ func runCorpus(ctx context.Context, env *ops.Env, _ ops.Empty) (CorpusResp, erro
 	for rows.Next() {
 		var it CorpusItem
 		var al string
-		if err := rows.Scan(&it.ID, &it.Title, &al); err != nil {
+		if err := rows.Scan(&it.ID, &it.Title, &it.Kind, &al); err != nil {
 			return CorpusResp{}, ops.Errorf(ops.CodeInternal, "corpus: %v", err)
 		}
 		it.Path = it.ID
@@ -348,4 +364,69 @@ func runPreview(ctx context.Context, env *ops.Env, req PreviewReq) (PreviewResp,
 		end = len(lines)
 	}
 	return PreviewResp{ID: id, Start: start, Lines: lines[start-1 : end]}, nil
+}
+
+type FuzzyReq struct {
+	Q     string `json:"q"`
+	Limit int    `json:"limit"`
+}
+
+type FuzzyResult struct {
+	ID    string  `json:"id"`
+	Title string  `json:"title"`
+	Kind  string  `json:"kind"`
+	Path  string  `json:"path"`
+	Score float64 `json:"score"`
+}
+
+type FuzzyResp struct {
+	Results []FuzzyResult `json:"results"`
+}
+
+// runFuzzy matches the same corpus the finder uses (title, path, aliases).
+// Filter syntax is full-text only, so it is rejected rather than guessed at.
+func runFuzzy(ctx context.Context, env *ops.Env, req FuzzyReq) (FuzzyResp, error) {
+	if req.Limit < 0 {
+		return FuzzyResp{}, ops.Errorf(ops.CodeInvalid, "limit must be >= 0")
+	}
+	limit := req.Limit
+	if limit == 0 {
+		limit = defaultLimit
+	}
+	if strings.TrimSpace(req.Q) == "" {
+		return FuzzyResp{}, ops.Errorf(ops.CodeInvalid, "empty query")
+	}
+	q, err := query.Parse(req.Q)
+	if err != nil {
+		return FuzzyResp{}, ops.Errorf(ops.CodeInvalid, "%v (filters and negation need full-text search: use -t)", err)
+	}
+	for _, t := range q.Terms {
+		if t.Neg || t.Phrase {
+			return FuzzyResp{}, ops.Errorf(ops.CodeInvalid, "negation and quoted phrases need full-text search: use -t")
+		}
+	}
+	if len(q.Filters) > 0 {
+		return FuzzyResp{}, ops.Errorf(ops.CodeInvalid, "filters (tag:, created:, field:value) need full-text search: use -t")
+	}
+	corpus, err := loadCorpus(ctx, env)
+	if err != nil {
+		return FuzzyResp{}, err
+	}
+	strs := make([]string, len(corpus.Items))
+	for i, it := range corpus.Items {
+		strs[i] = SearchString(it)
+	}
+	out := FuzzyResp{Results: []FuzzyResult{}}
+	for _, m := range fuzzy.Match(req.Q, strs) {
+		if len(out.Results) == limit {
+			break
+		}
+		it := corpus.Items[m.Index]
+		out.Results = append(out.Results, FuzzyResult{
+			ID: it.ID, Title: it.Title, Kind: it.Kind,
+			Path:  filepath.Join(env.Cfg.NotesDir, filepath.FromSlash(it.ID)),
+			Score: float64(m.Score),
+		})
+	}
+	return out, nil
 }

@@ -74,18 +74,21 @@ func listTagged(c *cli.Ctx, args []string) ([]hit, error) {
 	return toHits(rs), nil
 }
 
-type searchResp struct {
-	Results []struct {
-		ID      string `json:"id"`
-		Title   string `json:"title"`
-		Kind    string `json:"kind"`
-		Path    string `json:"path"`
-		Snippet string `json:"snippet"`
-	} `json:"results"`
+type fuzzyResp struct {
+	Results []opsnotes.Ref `json:"results"`
 }
 
+// searchQuery is full-text (filters allowed); tag add --query uses it.
 func searchQuery(c *cli.Ctx, q string) ([]hit, error) {
-	var r searchResp
+	var r struct {
+		Results []struct {
+			ID      string `json:"id"`
+			Title   string `json:"title"`
+			Kind    string `json:"kind"`
+			Path    string `json:"path"`
+			Snippet string `json:"snippet"`
+		} `json:"results"`
+	}
 	if err := call(c, "search.query", map[string]any{"q": q, "limit": 0, "semantic": false}, &r); err != nil {
 		return nil, err
 	}
@@ -96,12 +99,23 @@ func searchQuery(c *cli.Ctx, q string) ([]hit, error) {
 	return out, nil
 }
 
+// listSearch is fuzzy over titles, paths and aliases, like `gote search <words>`.
 func listSearch(c *cli.Ctx, args []string) ([]hit, error) {
-	q := joined(args)
-	if q == "" {
-		return nil, cli.Usagef("usage: gote search <query>")
+	fs := c.FlagSet("search")
+	n := fs.Int("n", 0, "max notes")
+	pos, err := parseInterleaved(fs, args)
+	if err != nil {
+		return nil, err
 	}
-	return searchQuery(c, q)
+	q := joined(pos)
+	if q == "" {
+		return nil, cli.Usagef("usage: gote search <words>")
+	}
+	var r fuzzyResp
+	if err := call(c, "search.fuzzy", map[string]any{"q": q, "limit": *n}, &r); err != nil {
+		return nil, err
+	}
+	return toHits(r.Results), nil
 }
 
 var listers = map[string]lister{

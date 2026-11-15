@@ -443,3 +443,87 @@ func sameSet(a, b []string) bool {
 	}
 	return true
 }
+
+func (v *vault) fuzzy(t testing.TB, q string, limit int) ([]FuzzyResult, error) {
+	t.Helper()
+	var resp FuzzyResp
+	err := v.c.Call(context.Background(), "search.fuzzy", FuzzyReq{Q: q, Limit: limit}, &resp)
+	return resp.Results, err
+}
+
+var fuzzyFiles = map[string]string{
+	"k/u/b/e.md":   "---\ntitle: Misc\n---\nnothing\n",
+	"k8s.md":       "---\ntitle: Kubernetes notes\naliases: [cluster]\n---\npods\n",
+	"other.md":     "unrelated\n",
+	"body-only.md": "mentions kubernetes deeply in the body\n",
+}
+
+func TestFuzzyRanksTitleAboveWeakPath(t *testing.T) {
+	v := newVault(t, fuzzyFiles, nil)
+	rs, err := v.fuzzy(t, "kube", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rs) != 2 || rs[0].ID != "k8s.md" || rs[1].ID != "k/u/b/e.md" {
+		t.Fatalf("%+v", rs)
+	}
+	if rs[0].Title != "Kubernetes notes" || rs[0].Kind != "note" || rs[0].Score <= rs[1].Score {
+		t.Fatalf("%+v", rs)
+	}
+	if rs[0].Path != filepath.Join(v.dir, "k8s.md") {
+		t.Fatalf("path %q", rs[0].Path)
+	}
+}
+
+func TestFuzzyMatchesAliasAndSkipsBody(t *testing.T) {
+	v := newVault(t, fuzzyFiles, nil)
+	rs, _ := v.fuzzy(t, "cluster", 0)
+	if len(rs) != 1 || rs[0].ID != "k8s.md" {
+		t.Fatalf("%+v", rs)
+	}
+	if rs, _ = v.fuzzy(t, "deeply", 0); len(rs) != 0 {
+		t.Fatalf("body must not match: %+v", rs)
+	}
+}
+
+func TestFuzzyLimitAndEmptyShape(t *testing.T) {
+	v := newVault(t, fuzzyFiles, nil)
+	if rs, _ := v.fuzzy(t, "kube", 1); len(rs) != 1 {
+		t.Fatalf("%+v", rs)
+	}
+	rs, err := v.fuzzy(t, "zzzzqq", 0)
+	if err != nil || rs == nil || len(rs) != 0 {
+		t.Fatalf("%v %#v", err, rs)
+	}
+}
+
+func TestFuzzyRejectsFilterTokensWithHint(t *testing.T) {
+	v := newVault(t, fuzzyFiles, nil)
+	for _, q := range []string{"kube tag:ops", "kube -tag:ops", "kube -other", "created:2611"} {
+		_, err := v.fuzzy(t, q, 0)
+		var oe *ops.Error
+		if !errors.As(err, &oe) || oe.Code != ops.CodeInvalid || !strings.Contains(err.Error(), "-t") {
+			t.Fatalf("%q: %v", q, err)
+		}
+	}
+}
+
+func TestFuzzyEmptyAndNegativeLimitInvalid(t *testing.T) {
+	v := newVault(t, fuzzyFiles, nil)
+	if _, err := v.fuzzy(t, "  ", 0); err == nil {
+		t.Fatal("empty query")
+	}
+	if _, err := v.fuzzy(t, "kube", -1); err == nil {
+		t.Fatal("negative limit")
+	}
+}
+
+func TestSearchStringIncludesPathAndAliases(t *testing.T) {
+	got := SearchString(CorpusItem{ID: "sub/a.md", Title: "A", Path: "sub/a.md", Aliases: []string{"x", "y"}})
+	if got != "A  sub/a.md  x y" {
+		t.Fatalf("%q", got)
+	}
+	if got = SearchString(CorpusItem{ID: "a.md", Title: "A", Path: "a.md", Aliases: []string{}}); got != "A  a.md" {
+		t.Fatalf("%q", got)
+	}
+}

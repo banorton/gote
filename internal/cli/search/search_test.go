@@ -55,7 +55,7 @@ var files = map[string]string{
 
 func TestSearchPrintsRankedList(t *testing.T) {
 	c, out := testCtx(t, files)
-	if err := run(c, []string{"kubernetes"}); err != nil {
+	if err := run(c, []string{"-t", "kubernetes"}); err != nil {
 		t.Fatal(err)
 	}
 	s := out.String()
@@ -73,7 +73,7 @@ func TestSearchPrintsRankedList(t *testing.T) {
 func TestSearchJSON(t *testing.T) {
 	c, out := testCtx(t, files)
 	c.JSON = true
-	if err := run(c, []string{"kubernetes", "tag:ops"}); err != nil {
+	if err := run(c, []string{"--text", "kubernetes", "tag:ops"}); err != nil {
 		t.Fatal(err)
 	}
 	var resp opsearch.QueryResp
@@ -83,7 +83,7 @@ func TestSearchJSON(t *testing.T) {
 }
 
 func TestSearchLimitFlag(t *testing.T) {
-	for _, args := range [][]string{{"-n", "1", "kubernetes"}, {"kubernetes", "-n=1"}, {"--n", "1", "kubernetes"}} {
+	for _, args := range [][]string{{"-t", "-n", "1", "kubernetes"}, {"-t", "kubernetes", "-n=1"}, {"-t", "--n", "1", "kubernetes"}} {
 		c, out := testCtx(t, files)
 		c.JSON = true
 		if err := run(c, args); err != nil {
@@ -100,7 +100,7 @@ func TestSearchLimitFlag(t *testing.T) {
 func TestSearchNegationIsNotAFlag(t *testing.T) {
 	c, out := testCtx(t, files)
 	c.JSON = true
-	if err := run(c, []string{"kubernetes", "-tag:ops"}); err != nil {
+	if err := run(c, []string{"-t", "kubernetes", "-tag:ops"}); err != nil {
 		t.Fatal(err)
 	}
 	var resp opsearch.QueryResp
@@ -112,7 +112,7 @@ func TestSearchNegationIsNotAFlag(t *testing.T) {
 
 func TestSearchDoubleDashEndsFlags(t *testing.T) {
 	c, _ := testCtx(t, files)
-	if err := run(c, []string{"--", "-s"}); err != nil {
+	if err := run(c, []string{"-t", "--", "-s"}); err != nil {
 		t.Fatalf("-s after -- is a term: %v", err)
 	}
 }
@@ -130,7 +130,7 @@ func TestSearchSemanticNotConfigured(t *testing.T) {
 func TestSearchBadLimitIsUsage(t *testing.T) {
 	c, _ := testCtx(t, files)
 	var ue *cli.UsageError
-	for _, args := range [][]string{{"-n", "x", "a"}, {"-n"}, {"-n", "-1", "a"}} {
+	for _, args := range [][]string{{"-n", "x", "a"}, {"-n"}, {"-n", "-1", "a"}, {"-t", "-s", "a"}, {"--text", "--semantic", "a"}} {
 		if err := run(c, args); !errors.As(err, &ue) {
 			t.Errorf("%v: %v", args, err)
 		}
@@ -147,7 +147,7 @@ func TestSearchNoArgsNotTTYIsUsage(t *testing.T) {
 
 func TestSearchInvalidQuerySurfaces(t *testing.T) {
 	c, _ := testCtx(t, files)
-	err := run(c, []string{"created:260"})
+	err := run(c, []string{"-t", "created:260"})
 	var oe *ops.Error
 	if !errors.As(err, &oe) || oe.Code != ops.CodeInvalid {
 		t.Fatalf("%v", err)
@@ -186,13 +186,75 @@ func TestPreviewText(t *testing.T) {
 	}
 }
 
-func TestSearchStringIncludesPathAndAliases(t *testing.T) {
-	got := noteSearchString(opsearch.CorpusItem{ID: "sub/a.md", Title: "A", Path: "sub/a.md", Aliases: []string{"x", "y"}})
-	if got != "A  sub/a.md  x y" {
+func TestSearchDefaultIsFuzzyTitleMatch(t *testing.T) {
+	c, out := testCtx(t, files)
+	if err := run(c, []string{"kube"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := out.String(); got != "Kubernetes guide  (k8s.md)\n" {
 		t.Fatalf("%q", got)
 	}
-	got = noteSearchString(opsearch.CorpusItem{ID: "a.md", Title: "A", Path: "a.md", Aliases: []string{}})
-	if got != "A  a.md" {
-		t.Fatalf("%q", got)
+}
+
+func TestSearchFuzzyDoesNotSearchBody(t *testing.T) {
+	c, out := testCtx(t, files)
+	if err := run(c, []string{"pods"}); err != nil {
+		t.Fatal(err)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("%q", out)
+	}
+}
+
+func TestSearchFuzzyJSONShape(t *testing.T) {
+	c, out := testCtx(t, files)
+	c.JSON = true
+	if err := run(c, []string{"kube"}); err != nil {
+		t.Fatal(err)
+	}
+	var raw struct {
+		Results []map[string]any `json:"results"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &raw); err != nil || len(raw.Results) != 1 {
+		t.Fatalf("%v %s", err, out)
+	}
+	r := raw.Results[0]
+	for _, k := range []string{"id", "title", "kind", "path", "score"} {
+		if _, ok := r[k]; !ok {
+			t.Fatalf("missing %q in %v", k, r)
+		}
+	}
+	if len(r) != 5 || r["id"] != "k8s.md" {
+		t.Fatalf("%v", r)
+	}
+}
+
+func TestSearchFuzzyLimit(t *testing.T) {
+	c, out := testCtx(t, map[string]string{"ka.md": "x", "kb.md": "x", "kc.md": "x"})
+	c.JSON = true
+	if err := run(c, []string{"-n", "2", "k"}); err != nil {
+		t.Fatal(err)
+	}
+	var resp struct{ Results []any }
+	json.Unmarshal(out.Bytes(), &resp)
+	if len(resp.Results) != 2 {
+		t.Fatalf("%s", out)
+	}
+}
+
+func TestSearchFuzzyFilterTokenErrorsWithHint(t *testing.T) {
+	c, _ := testCtx(t, files)
+	err := run(c, []string{"kube", "tag:ops"})
+	var oe *ops.Error
+	if !errors.As(err, &oe) || oe.Code != ops.CodeInvalid || !strings.Contains(err.Error(), "-t") {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestSearchTextAndSemanticTogetherExit2(t *testing.T) {
+	c, _ := testCtx(t, files)
+	var ue *cli.UsageError
+	if err := run(c, []string{"-t", "-s", "kube"}); !errors.As(err, &ue) {
+		t.Fatalf("%v", err)
 	}
 }

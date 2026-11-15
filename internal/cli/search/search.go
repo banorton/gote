@@ -21,13 +21,13 @@ import (
 // until then commands the fuzzy finder triggers report "not available".
 var Invoke = cli.Invoke
 
-const usage = "gote search [-n <limit>] [-s|--semantic] [<query>...]"
+const usage = "gote search [-n <limit>] [<words>...]   fuzzy on titles, paths, aliases (no words: finder)\n       gote search [-n <limit>] -t|--text <query>...   full-text with filters\n       gote search [-n <limit>] -s|--semantic <query>..."
 
 func init() {
 	cli.Register(cli.Command{
 		Name:    "search",
 		Aliases: []string{"s"},
-		Summary: "search notes (no args: fuzzy finder)",
+		Summary: "fuzzy search titles (no args: finder); -t full-text, -s semantic",
 		Usage:   usage,
 		Run:     run,
 	})
@@ -47,37 +47,53 @@ func invokeQuiet(c *cli.Ctx, name string, args []string) error {
 	return invoke(&cc, name, args)
 }
 
-// parseArgs keeps tokens like -tag:x as query terms; only -n and -s/--semantic
-// (and everything before a bare --) are flags.
+// parseArgs keeps tokens like -tag:x as query terms; only -n, -t/--text and
+// -s/--semantic (and everything before a bare --) are flags.
 var errHelp = fmt.Errorf("help")
 
-func parseArgs(args []string) (words []string, limit int, semantic bool, err error) {
+type opts struct {
+	words          []string
+	limit          int
+	text, semantic bool
+}
+
+func parseArgs(args []string) (o opts, err error) {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
 		case a == "--":
-			return append(words, args[i+1:]...), limit, semantic, nil
+			o.words = append(o.words, args[i+1:]...)
+			return o, check(o)
 		case a == "-h" || a == "--help":
-			return nil, 0, false, errHelp
+			return opts{}, errHelp
 		case a == "-s" || a == "--semantic":
-			semantic = true
+			o.semantic = true
+		case a == "-t" || a == "--text":
+			o.text = true
 		case a == "-n" || a == "--n":
 			if i+1 >= len(args) {
-				return nil, 0, false, cli.Usagef("-n needs a value")
+				return opts{}, cli.Usagef("-n needs a value")
 			}
 			i++
-			if limit, err = parseLimit(args[i]); err != nil {
-				return nil, 0, false, err
+			if o.limit, err = parseLimit(args[i]); err != nil {
+				return opts{}, err
 			}
 		case strings.HasPrefix(a, "-n=") || strings.HasPrefix(a, "--n="):
-			if limit, err = parseLimit(a[strings.Index(a, "=")+1:]); err != nil {
-				return nil, 0, false, err
+			if o.limit, err = parseLimit(a[strings.Index(a, "=")+1:]); err != nil {
+				return opts{}, err
 			}
 		default:
-			words = append(words, a)
+			o.words = append(o.words, a)
 		}
 	}
-	return words, limit, semantic, nil
+	return o, check(o)
+}
+
+func check(o opts) error {
+	if o.text && o.semantic {
+		return cli.Usagef("search: -t and -s are mutually exclusive\nusage: %s", usage)
+	}
+	return nil
 }
 
 func parseLimit(s string) (int, error) {
@@ -89,7 +105,7 @@ func parseLimit(s string) (int, error) {
 }
 
 func run(c *cli.Ctx, args []string) error {
-	words, limit, semantic, err := parseArgs(args)
+	o, err := parseArgs(args)
 	if err == errHelp {
 		fmt.Fprintln(c.Out, "usage: "+usage)
 		return nil
@@ -97,11 +113,21 @@ func run(c *cli.Ctx, args []string) error {
 	if err != nil {
 		return err
 	}
-	if len(words) == 0 {
-		return runFuzzy(c)
+	if len(o.words) == 0 {
+		if o.text || o.semantic {
+			return cli.Usagef("search: -t/-s need a query\nusage: %s", usage)
+		}
+		return runFinder(c)
 	}
+	if o.text || o.semantic {
+		return runQuery(c, o)
+	}
+	return runFuzzy(c, o)
+}
+
+func runQuery(c *cli.Ctx, o opts) error {
 	var resp opsearch.QueryResp
-	req := opsearch.QueryReq{Q: strings.Join(words, " "), Limit: limit, Semantic: semantic}
+	req := opsearch.QueryReq{Q: strings.Join(o.words, " "), Limit: o.limit, Semantic: o.semantic}
 	if err := c.Client.Call(context.Background(), "search.query", req, &resp); err != nil {
 		return err
 	}
@@ -121,12 +147,32 @@ func run(c *cli.Ctx, args []string) error {
 	return nil
 }
 
-func noteSearchString(it opsearch.CorpusItem) string {
-	s := it.Title + "  " + it.Path
-	if len(it.Aliases) > 0 {
-		s += "  " + strings.Join(it.Aliases, " ")
+func isTTY() bool {
+	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd()))
+}
+
+// runFuzzy on a terminal hands off to the "so" lister (home-row menu, open
+// preselected); otherwise it prints the ranked list.
+func runFuzzy(c *cli.Ctx, o opts) error {
+	if !c.JSON && isTTY() {
+		var args []string
+		if o.limit > 0 {
+			args = append(args, "-n", strconv.Itoa(o.limit))
+		}
+		return invoke(c, "so", append(args, o.words...))
 	}
-	return s
+	var resp opsearch.FuzzyResp
+	req := opsearch.FuzzyReq{Q: strings.Join(o.words, " "), Limit: o.limit}
+	if err := c.Client.Call(context.Background(), "search.fuzzy", req, &resp); err != nil {
+		return err
+	}
+	if c.JSON {
+		return c.PrintJSON(resp)
+	}
+	for _, r := range resp.Results {
+		fmt.Fprintf(c.Out, "%s  (%s)\n", r.Title, r.ID)
+	}
+	return nil
 }
 
 func previewText(p opsearch.PreviewResp, line int) string {
@@ -145,8 +191,8 @@ func previewText(p opsearch.PreviewResp, line int) string {
 	return b.String()
 }
 
-func runFuzzy(c *cli.Ctx) error {
-	if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stdout.Fd())) {
+func runFinder(c *cli.Ctx) error {
+	if !isTTY() {
 		return cli.Usagef("search: no query given and not a terminal\nusage: %s", usage)
 	}
 	ctx := context.Background()
@@ -158,7 +204,7 @@ func runFuzzy(c *cli.Ctx) error {
 			}
 			items := make([]fuzzy.Item, len(r.Items))
 			for i, it := range r.Items {
-				items[i] = fuzzy.Item{ID: it.ID, Search: noteSearchString(it)}
+				items[i] = fuzzy.Item{ID: it.ID, Search: opsearch.SearchString(it)}
 			}
 			return items, nil
 		},

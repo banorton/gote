@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/banorton/gote/internal/cli"
+	_ "github.com/banorton/gote/internal/ops/search"
 )
 
 type sandbox struct {
@@ -266,5 +267,18 @@ func TestListersNonInteractivePrintList(t *testing.T) {
 	}
 	if code, _ := s.run("so"); code != 2 {
 		t.Fatal("search lister without query is a usage error")
+	}
+}
+
+func TestSearchListerUsesFuzzyTitles(t *testing.T) {
+	s := newSandbox(t)
+	s.write("k8s.md", "---\ntitle: Kubernetes notes\n---\npods\n")
+	s.write("body.md", "mentions kubernetes in the body\n")
+	code, out := s.run("so", "kube")
+	if code != 0 || !strings.Contains(out, "k8s.md") || strings.Contains(out, "body.md") {
+		t.Fatalf("%d %q", code, out)
+	}
+	if code, out = s.run("so", "kube", "tag:x"); code != 1 || out != "" {
+		t.Fatalf("filter tokens in fuzzy lister must error: %d %q", code, out)
 	}
 }
