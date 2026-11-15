@@ -150,6 +150,8 @@ Optional. Configure an embedding provider (OpenAI-compatible endpoint, or any co
 
 Drawings are native `.excalidraw` files, indexed like notes: their text is searchable and `[[links]]` in them count. `gote diagram [name]` creates `diagrams/<yymmddhhmmss>_diagram[_<name>].excalidraw` and opens the browser editor (an embedded Excalidraw, saved back to the file). Embed one in a note with `![[<stem>]]`. `diagram read` prints a text summary; `diagram check` prints `ok` or the binding problems it finds.
 
+The web view makes no public network calls: pages are served from `127.0.0.1` only, fonts and scripts are bundled, and a strict Content-Security-Policy makes the browser enforce it. Excalidraw's share links, live collaboration, AI features, library browser and external embeds are disabled.
+
 `gote view <note>` renders a note in the browser with live reload. The web server listens on localhost only and every request needs a per-start token.
 
 ## Agent skill
