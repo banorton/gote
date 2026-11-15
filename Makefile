@@ -33,5 +33,5 @@ cross:
 test-linux:
 	docker volume create gote-gomod >/dev/null
 	docker run --rm -v gote-gomod:/go/pkg/mod -v "$(CURDIR)":/src:ro -w /src golang:1.26 go mod download
-	docker run --rm --network none -e CGO_ENABLED=0 -v gote-gomod:/go/pkg/mod -v "$(CURDIR)":/ro:ro golang:1.26 \
+	docker run --rm --network none -e CGO_ENABLED=0 -e CI -v gote-gomod:/go/pkg/mod -v "$(CURDIR)":/ro:ro golang:1.26 \
 		bash -c 'cp -r /ro /src && cd /src && go test -count=1 -timeout 600s ./...'
