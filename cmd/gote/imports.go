@@ -1,7 +1,6 @@
 package main
 
-// Each package self-registers its ops or commands from init(). Phases fill the
-// package directories; this file never needs to change.
+// Each package self-registers its ops or commands from init().
 import (
 	_ "github.com/banorton/gote/internal/cli/diagram"
 	_ "github.com/banorton/gote/internal/cli/graph"
@@ -15,5 +14,6 @@ import (
 	_ "github.com/banorton/gote/internal/ops/notes"
 	_ "github.com/banorton/gote/internal/ops/search"
 	_ "github.com/banorton/gote/internal/ops/semantic"
+	_ "github.com/banorton/gote/internal/ops/tasks"
 	_ "github.com/banorton/gote/internal/server"
 )
