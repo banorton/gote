@@ -2,6 +2,7 @@ package diagram
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -11,9 +12,12 @@ import (
 	"github.com/banorton/gote/internal/note"
 	"github.com/banorton/gote/internal/ops"
 	_ "github.com/banorton/gote/internal/ops/diagram"
+	"github.com/banorton/gote/internal/tui/menu"
 )
 
-const usage = "gote diagram [name] | gote diagram open <ref> | gote diagram read <ref> | gote diagram check <ref>"
+const usage = "gote diagram [name] | gote diagram open <ref> | gote diagram list [-n N] [--json] | gote diagram read <ref> | gote diagram check <ref>"
+
+var allActions = []menu.Action{"open"}
 
 var command = cli.Command{
 	Name:    "diagram",
@@ -33,6 +37,20 @@ func dispatch(c *cli.Ctx, args []string) error {
 			return withRef(c, args[1:], "check", check)
 		case "open":
 			return withRef(c, args[1:], "open", edit)
+		case "list":
+			return list(c, args[1:])
+		}
+	}
+	for _, a := range args {
+		if strings.HasPrefix(a, "-") {
+			if a == "-h" || a == "--help" {
+				fmt.Fprintln(c.Out, "usage:")
+				for _, l := range strings.Split(usage, " | ") {
+					fmt.Fprintln(c.Out, "  "+l)
+				}
+				return nil
+			}
+			return cli.Usagef("unknown flag %q\nusage: %s", a, usage)
 		}
 	}
 	return create(c, strings.Join(args, " "))
@@ -46,6 +64,55 @@ func create(c *cli.Ctx, name string) error {
 		return err
 	}
 	return view.Launch(c, r.ID, view.Route(r.ID, note.KindDiagram))
+}
+
+type listItem struct {
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Path     string `json:"path"`
+	Modified string `json:"modified"`
+}
+
+func list(c *cli.Ctx, args []string) error {
+	fs := c.FlagSet("diagram list")
+	n := fs.Int("n", 0, "max drawings")
+	if err := cli.ParseFlags(fs, args); err != nil {
+		return err
+	}
+	if fs.NArg() > 0 {
+		return cli.Usagef("usage: gote diagram list [-n N] [--json]")
+	}
+	var items []listItem
+	if err := c.Client.Call(context.Background(), "diagram.list", map[string]int{"limit": *n}, &items); err != nil {
+		return err
+	}
+	if items == nil {
+		items = []listItem{}
+	}
+	if c.JSON {
+		return c.PrintJSON(items)
+	}
+	if len(items) == 0 {
+		fmt.Fprintln(c.Out, "no drawings")
+		return nil
+	}
+	mi := make([]menu.Item, len(items))
+	for i, it := range items {
+		mi[i] = menu.Item{ID: it.ID, Title: it.Title}
+	}
+	it, _, err := menu.Run(mi, "open", allActions)
+	switch {
+	case errors.Is(err, menu.ErrCancelled):
+		return nil
+	case errors.Is(err, menu.ErrNotTTY):
+		for _, x := range items {
+			fmt.Fprintf(c.Out, "%s  (%s)\n", x.Title, x.ID)
+		}
+		return nil
+	case err != nil:
+		return err
+	}
+	return edit(c, it.ID)
 }
 
 func edit(c *cli.Ctx, id string) error {

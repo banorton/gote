@@ -11,6 +11,7 @@ const (
 	KindCreated  = "created"
 	KindModified = "modified"
 	KindField    = "field"
+	KindNoteKind = "kind"
 )
 
 type Term struct {
@@ -174,6 +175,12 @@ func makeFilter(key, val, token string) (Filter, error) {
 	switch strings.ToLower(key) {
 	case KindTag:
 		return Filter{Kind: KindTag, Value: val}, nil
+	case "kind":
+		v := strings.ToLower(val)
+		if v != "note" && v != "diagram" {
+			return Filter{}, errf("invalid token %q: kind must be note or diagram", token)
+		}
+		return Filter{Kind: KindNoteKind, Value: v}, nil
 	case KindCreated, KindModified:
 		r, err := parseRange(val, token)
 		if err != nil {

@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/banorton/gote/internal/excal"
 	"github.com/banorton/gote/internal/ops"
@@ -36,7 +37,19 @@ type CreateResp struct {
 	Path string `json:"path"`
 }
 
+type ListReq struct {
+	Limit int `json:"limit"`
+}
+
+type ListItem struct {
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Path     string `json:"path"`
+	Modified string `json:"modified"`
+}
+
 func init() {
+	ops.Handle("diagram.list", listDiagrams)
 	ops.Handle("diagram.read", func(ctx context.Context, env *ops.Env, req IDReq) (ReadResp, error) {
 		abs, d, err := load(env, req.ID)
 		if err != nil {
@@ -116,4 +129,36 @@ func createDiagram(ctx context.Context, env *ops.Env, req CreateReq) (CreateResp
 		return CreateResp{}, ops.Errorf(ops.CodeInternal, "index %s: %v", id, err)
 	}
 	return CreateResp{ID: id, Path: abs}, nil
+}
+
+func listDiagrams(ctx context.Context, env *ops.Env, req ListReq) ([]ListItem, error) {
+	if req.Limit < 0 {
+		return nil, ops.Errorf(ops.CodeInvalid, "limit must be >= 0")
+	}
+	q := "SELECT id, title, mtime_ns FROM notes WHERE kind = 'diagram' ORDER BY mtime_ns DESC, id"
+	var args []any
+	if req.Limit > 0 {
+		q += " LIMIT ?"
+		args = append(args, req.Limit)
+	}
+	rows, err := env.Store.DB.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, ops.Errorf(ops.CodeInternal, "list diagrams: %v", err)
+	}
+	defer rows.Close()
+	out := []ListItem{}
+	for rows.Next() {
+		var it ListItem
+		var ns int64
+		if err := rows.Scan(&it.ID, &it.Title, &ns); err != nil {
+			return nil, ops.Errorf(ops.CodeInternal, "list diagrams: %v", err)
+		}
+		it.Path = filepath.Join(env.Cfg.NotesDir, filepath.FromSlash(it.ID))
+		it.Modified = time.Unix(0, ns).Format("060102150405")
+		out = append(out, it)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, ops.Errorf(ops.CodeInternal, "list diagrams: %v", err)
+	}
+	return out, nil
 }
