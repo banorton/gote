@@ -30,6 +30,7 @@ Only `notes_dir` is required. Every key is documented in [docs/config.md](docs/c
 gote                      # open the quick note
 gote my idea              # open "my idea.md", creating it if missing
 gote new my idea          # always create (fails if it exists)
+gote new my idea --json   # create without opening the editor: {id,path,created}
 gote -                    # reopen the last note
 gote search kube          # fuzzy match on titles, paths, aliases
 gote search -t kubernetes # full-text search (body, tags, filters)
@@ -46,11 +47,11 @@ A note's id is its path relative to the notes directory. Its title is the frontm
 
 | Command | Aliases | What it does |
 |---|---|---|
-| `open` | | open a note, creating it if missing (`gote <name>`). Flags: `-t <template>`, `-d` (date prefix), `-dt` (datetime prefix), `-nt` (no prefix) |
-| `new` | | create a note and open it; fails if it exists |
+| `open` | | open a note, creating it if missing (`gote <name>`); with `--json` or piped stdout it skips the editor and prints `{id,path,created}` or the path. Flags: `-t <template>`, `-d` (date prefix), `-dt` (datetime prefix), `-nt` (no prefix) |
+| `new` | | create a note and open it; fails if it exists. With `--json` or piped stdout it skips the editor |
 | `quick` | `q` | open the quick note (`.quick.md`); `quick save <name>` turns it into a note |
 | `quick-save` | `qs` | save the quick note as a note |
-| `today` | | open the daily note (`daily/<yymmdd>_daily.md`); `today -1` is yesterday |
+| `today` | | open the daily note (`daily/<yymmdd>_daily.md`); `today -1` is yesterday. With `--json` or piped stdout it creates the note but skips the editor |
 | `recent` | `r` | menu of recently opened notes |
 | `get` | `g` | menu of all notes |
 | `pinned` | `p` | menu of pinned notes; with a note name, pins it |

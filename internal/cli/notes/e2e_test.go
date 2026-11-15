@@ -33,6 +33,7 @@ func newSandbox(t *testing.T) *sandbox {
 	t.Setenv("XDG_CONFIG_HOME", cfg)
 	t.Setenv("XDG_STATE_HOME", filepath.Join(root, "state"))
 	t.Setenv("EDITOR", "true")
+	setTTY(t, true)
 	return &sandbox{t: t, notes: notes}
 }
 
@@ -281,4 +282,136 @@ func TestSearchListerUsesFuzzyTitles(t *testing.T) {
 	if code, out = s.run("so", "kube", "tag:x"); code != 1 || out != "" {
 		t.Fatalf("filter tokens in fuzzy lister must error: %d %q", code, out)
 	}
+}
+
+func setTTY(t *testing.T, v bool) {
+	t.Helper()
+	old := isTTY
+	isTTY = func(io.Writer) bool { return v }
+	t.Cleanup(func() { isTTY = old })
+}
+
+// trapEditor makes any editor launch leave a marker file and fail.
+func (s *sandbox) trapEditor() string {
+	s.t.Helper()
+	dir := s.t.TempDir()
+	marker := filepath.Join(dir, "ran")
+	script := filepath.Join(dir, "ed.sh")
+	body := "#!/bin/sh\ntouch '" + marker + "'\nexit 1\n"
+	if err := os.WriteFile(script, []byte(body), 0o755); err != nil {
+		s.t.Fatal(err)
+	}
+	s.t.Setenv("EDITOR", script)
+	return marker
+}
+
+func (s *sandbox) noEditorRan(marker string) {
+	s.t.Helper()
+	if _, err := os.Stat(marker); err == nil {
+		s.t.Fatal("editor was launched")
+	}
+}
+
+func (s *sandbox) lastVisitedIsEmpty() {
+	s.t.Helper()
+	_, out := s.run("--json", "recent")
+	var rec []struct{ ID string }
+	if err := json.Unmarshal([]byte(out), &rec); err != nil || len(rec) != 0 {
+		s.t.Fatalf("visit recorded: %v %q", err, out)
+	}
+}
+
+type openOut struct {
+	ID      string
+	Path    string
+	Created bool
+}
+
+func TestNewJSONSkipsEditor(t *testing.T) {
+	s := newSandbox(t)
+	marker := s.trapEditor()
+	code, out := s.run("new", "x", "--json")
+	if code != 0 {
+		t.Fatalf("exit %d", code)
+	}
+	var r openOut
+	if err := json.Unmarshal([]byte(out), &r); err != nil || r.ID != "x.md" || !r.Created || r.Path != filepath.Join(s.notes, "x.md") {
+		t.Fatalf("%v %q", err, out)
+	}
+	if got := s.read("x.md"); !strings.HasPrefix(got, "---\ncreated: \"") {
+		t.Fatalf("%q", got)
+	}
+	s.noEditorRan(marker)
+	s.lastVisitedIsEmpty()
+}
+
+func TestOpenJSONExistingNotCreated(t *testing.T) {
+	s := newSandbox(t)
+	s.write("x.md", "hi\n")
+	marker := s.trapEditor()
+	code, out := s.run("x", "--json")
+	if code != 0 {
+		t.Fatalf("exit %d", code)
+	}
+	var r openOut
+	if err := json.Unmarshal([]byte(out), &r); err != nil || r.ID != "x.md" || r.Created {
+		t.Fatalf("%v %q", err, out)
+	}
+	if s.read("x.md") != "hi\n" {
+		t.Fatal("existing note modified")
+	}
+	s.noEditorRan(marker)
+	s.lastVisitedIsEmpty()
+}
+
+func TestTodayJSONSkipsEditor(t *testing.T) {
+	s := newSandbox(t)
+	marker := s.trapEditor()
+	code, out := s.run("today", "--json")
+	if code != 0 {
+		t.Fatalf("exit %d", code)
+	}
+	var r openOut
+	if err := json.Unmarshal([]byte(out), &r); err != nil || !r.Created || r.Path == "" {
+		t.Fatalf("%v %q", err, out)
+	}
+	if _, err := os.Stat(r.Path); err != nil {
+		t.Fatal(err)
+	}
+	_, out = s.run("today", "--json")
+	if err := json.Unmarshal([]byte(out), &r); err != nil || r.Created {
+		t.Fatalf("second call: %v %q", err, out)
+	}
+	s.noEditorRan(marker)
+	s.lastVisitedIsEmpty()
+}
+
+func TestNonTTYPrintsPath(t *testing.T) {
+	s := newSandbox(t)
+	setTTY(t, false)
+	marker := s.trapEditor()
+	code, out := s.run("new", "pp")
+	want := filepath.Join(s.notes, "pp.md") + "\n"
+	if code != 0 || out != want {
+		t.Fatalf("%d %q want %q", code, out, want)
+	}
+	if code, out = s.run("pp"); code != 0 || out != want {
+		t.Fatalf("%d %q", code, out)
+	}
+	s.noEditorRan(marker)
+	s.lastVisitedIsEmpty()
+}
+
+func TestQuickJSONSkipsEditor(t *testing.T) {
+	s := newSandbox(t)
+	marker := s.trapEditor()
+	code, out := s.run("quick", "--json")
+	if code != 0 {
+		t.Fatalf("exit %d %q", code, out)
+	}
+	var r struct{ Path string }
+	if err := json.Unmarshal([]byte(out), &r); err != nil || r.Path == "" {
+		t.Fatalf("%v %q", err, out)
+	}
+	s.noEditorRan(marker)
 }
