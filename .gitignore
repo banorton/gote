@@ -1,5 +1,5 @@
 # Ignore all .txt files in the repository
 *.txt
-gote
+/gote
 local_docs/
 builds/
