@@ -85,3 +85,14 @@ func TestUpdateInvalidYAML(t *testing.T) {
 		t.Fatal("want error")
 	}
 }
+
+func TestUpdateDropsReplacedKeyInlineComment(t *testing.T) {
+	src := "---\ntags: [a] # keep me?\nz: 1 # other\n---\nb"
+	out, err := Update([]byte(src), func(m *Map) { m.Set("tags", []string{"b"}) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "---\ntags:\n  - b\nz: 1 # other\n---\nb"; string(out) != want {
+		t.Fatalf("got %q", out)
+	}
+}

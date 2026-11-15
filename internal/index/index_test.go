@@ -279,3 +279,36 @@ func BenchmarkNoopReconcile2000(b *testing.B) {
 		}
 	}
 }
+
+func TestSymlinkedRootIndexed(t *testing.T) {
+	real, st, _ := setup(t)
+	write(t, real, "a.md", "[[b]]")
+	write(t, real, "sub/b.md", "x")
+	link := filepath.Join(t.TempDir(), "vault-link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	ix := New(st, link)
+	s := reconcile(t, ix)
+	if s.Added != 2 || dst(t, st, "a.md", "b") != "sub/b.md" {
+		t.Fatalf("%+v", s)
+	}
+}
+
+func TestNoopReconcileBudget(t *testing.T) {
+	if testing.Short() {
+		t.Skip("timing test")
+	}
+	dir, _, ix := setup(t)
+	for i := 0; i < 2000; i++ {
+		write(t, dir, fmt.Sprintf("d%d/note%d.md", i%20, i), fmt.Sprintf("---\ntags: [t%d]\n---\n# Title %d\nlink [[note%d]] body text\n", i%7, i, (i+1)%2000))
+	}
+	reconcile(t, ix)
+	s := reconcile(t, ix)
+	if s.Scanned != 2000 || s.Added+s.Updated+s.Touched+s.Removed != 0 {
+		t.Fatalf("%+v", s)
+	}
+	if s.Elapsed > 100*time.Millisecond {
+		t.Fatalf("no-op reconcile took %v, budget 100ms", s.Elapsed)
+	}
+}

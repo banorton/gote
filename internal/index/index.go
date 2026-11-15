@@ -52,7 +52,12 @@ type Indexer struct {
 	last Stats
 }
 
+// New resolves a symlinked notes dir because WalkDir does not follow a
+// symlinked root; a path that cannot be resolved surfaces as a walk error.
 func New(st *store.Store, notesDir string) *Indexer {
+	if r, err := filepath.EvalSymlinks(notesDir); err == nil {
+		notesDir = r
+	}
 	return &Indexer{st: st, root: notesDir}
 }
 
