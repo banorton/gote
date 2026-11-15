@@ -20,6 +20,7 @@ table{border-collapse:collapse}th,td{border:1px solid var(--rule);padding:.3rem 
 img{max-width:100%}hr{border:0;border-top:1px solid var(--rule)}
 .gote-drawing{position:relative;height:420px;margin:1rem 0;border:1px solid var(--rule);border-radius:6px;overflow:hidden}
 .gote-drawing-canvas{position:absolute;inset:0}
+.gote-drawing .App-bottom-bar{display:none}
 .gote-edit{position:absolute;top:.5rem;right:.5rem;z-index:5;font-size:.8rem;background:var(--chip);color:var(--chip-fg);padding:.1rem .6rem;border-radius:999px;text-decoration:none}
 `
 
@@ -27,6 +28,7 @@ var notePage = template.Must(template.New("note").Parse(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{.Title}}</title>
+<link rel="icon" href="data:,">
 <style>` + baseCSS + `</style>
 {{if .Drawings}}<link rel="stylesheet" href="/assets/viewer.css">{{end}}
 </head><body><main>
@@ -45,6 +47,7 @@ var editorTmpl = template.Must(template.New("editor").Parse(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{.Title}}</title>
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="/assets/editor.css">
 <style>
 html,body{margin:0;height:100%;overflow:hidden}

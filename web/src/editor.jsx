@@ -93,11 +93,12 @@ function Editor({ id }) {
     const onKey = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
+        e.stopPropagation();
         save();
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [save]);
 
   if (error && !initial) return <pre className="gote-error">{error}</pre>;
