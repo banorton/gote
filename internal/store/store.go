@@ -11,14 +11,14 @@ import (
 
 // CacheVersion invalidates all cache tables when the schema or indexing
 // semantics change.
-const CacheVersion = 1
+const CacheVersion = 2
 
 type Store struct {
 	DB   *sql.DB
 	Path string
 }
 
-var cacheTables = []string{"notes_fts", "tasks", "headings", "links", "tags", "aliases", "notes"}
+var cacheTables = []string{"chunks", "notes_fts", "tasks", "headings", "links", "tags", "aliases", "notes"}
 
 const cacheSchema = `
 CREATE TABLE notes(id TEXT PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL, stem TEXT NOT NULL,
@@ -31,6 +31,10 @@ CREATE TABLE links(src TEXT REFERENCES notes(id) ON DELETE CASCADE, dst_raw TEXT
 CREATE TABLE headings(note_id TEXT REFERENCES notes(id) ON DELETE CASCADE, level INTEGER, text TEXT, line INTEGER);
 CREATE TABLE tasks(note_id TEXT REFERENCES notes(id) ON DELETE CASCADE, line INTEGER, text TEXT, done INTEGER);
 CREATE VIRTUAL TABLE notes_fts USING fts5(note_id UNINDEXED, title, aliases, tags, body, tokenize='porter unicode61');
+CREATE TABLE chunks(id INTEGER PRIMARY KEY, note_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+  ord INTEGER NOT NULL, heading_path TEXT NOT NULL, start_line INTEGER NOT NULL, text TEXT NOT NULL, hash TEXT NOT NULL);
+CREATE INDEX chunks_note ON chunks(note_id);
+CREATE INDEX chunks_hash ON chunks(hash);
 CREATE INDEX notes_stem ON notes(stem);
 CREATE INDEX aliases_alias_lc ON aliases(alias_lc);
 CREATE INDEX tags_tag ON tags(tag);
@@ -42,6 +46,7 @@ CREATE INDEX links_src ON links(src);
 var stateMigrations = []string{
 	`CREATE TABLE pins(note_id TEXT PRIMARY KEY, pinned_at INTEGER NOT NULL);
 	 CREATE TABLE visits(note_id TEXT PRIMARY KEY, last_visited INTEGER NOT NULL);`,
+	`CREATE TABLE embeddings(model TEXT NOT NULL, hash TEXT NOT NULL, dim INTEGER NOT NULL, vec BLOB NOT NULL, PRIMARY KEY(model, hash));`,
 }
 
 func Open(path string) (*Store, error) {

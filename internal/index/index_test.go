@@ -312,3 +312,38 @@ func TestNoopReconcileBudget(t *testing.T) {
 		t.Fatalf("no-op reconcile took %v, budget 100ms", s.Elapsed)
 	}
 }
+
+func TestOnReconcileFiresOnlyOnChange(t *testing.T) {
+	dir, _, ix := setup(t)
+	var got []Stats
+	cancel := ix.OnReconcile(func(s Stats) { got = append(got, s) })
+	write(t, dir, "a.md", "one")
+	reconcile(t, ix)
+	reconcile(t, ix)
+	if len(got) != 1 || got[0].Added != 1 {
+		t.Fatalf("%+v", got)
+	}
+	write(t, dir, "a.md", "two")
+	if err := ix.IndexFile("a.md"); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[1].Updated != 1 {
+		t.Fatalf("%+v", got)
+	}
+	if err := ix.IndexFile("a.md"); err != nil || len(got) != 2 {
+		t.Fatalf("unchanged file fired: %v %+v", err, got)
+	}
+	os.Remove(filepath.Join(dir, "a.md"))
+	if err := ix.RemoveFile("a.md"); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 3 || got[2].Removed != 1 {
+		t.Fatalf("%+v", got)
+	}
+	cancel()
+	write(t, dir, "b.md", "x")
+	reconcile(t, ix)
+	if len(got) != 3 {
+		t.Fatal("fired after cancel")
+	}
+}
