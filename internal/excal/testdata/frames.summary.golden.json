@@ -1,0 +1,33 @@
+{
+  "shapes": [
+    {
+      "id": "frame-1",
+      "type": "frame",
+      "label": ""
+    },
+    {
+      "id": "rect-x",
+      "type": "rectangle",
+      "label": "API"
+    },
+    {
+      "id": "img-1",
+      "type": "image",
+      "label": ""
+    },
+    {
+      "id": "dia-1",
+      "type": "diamond",
+      "label": "ok?"
+    }
+  ],
+  "texts": [],
+  "edges": [
+    {
+      "id": "line-1",
+      "from": null,
+      "to": null,
+      "label": ""
+    }
+  ]
+}
