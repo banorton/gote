@@ -11,7 +11,7 @@ import (
 
 // CacheVersion invalidates all cache tables when the schema or indexing
 // semantics change.
-const CacheVersion = 3
+const CacheVersion = 4
 
 type Store struct {
 	DB   *sql.DB

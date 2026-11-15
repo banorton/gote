@@ -6,6 +6,8 @@ import (
 	"path"
 	"sort"
 	"strings"
+
+	"github.com/banorton/gote/internal/note"
 )
 
 type resolver struct {
@@ -40,7 +42,7 @@ func newResolver(ctx context.Context, tx *sql.Tx) (*resolver, error) {
 			return nil, err
 		}
 		r.byStem[stem] = append(r.byStem[stem], id)
-		r.byLC[strings.ToLower(id)] = id
+		r.byLC[note.Fold(id)] = id
 	}
 	if err := rs.Err(); err != nil {
 		return nil, err
@@ -97,7 +99,7 @@ func (r *resolver) resolve(src, raw, kind string) string {
 	if raw == "" {
 		return src
 	}
-	t := strings.ToLower(strings.TrimSpace(raw))
+	t := note.Fold(strings.TrimSpace(raw))
 	if kind == "md" {
 		if id, ok := r.byLC[path.Join(path.Dir(src), t)]; ok {
 			return id
@@ -108,7 +110,7 @@ func (r *resolver) resolve(src, raw, kind string) string {
 	if strings.Contains(t, "/") {
 		t = strings.TrimPrefix(t, "./")
 		for _, id := range r.byStem[path.Base(trimKnownExt(t))] {
-			lc := strings.ToLower(id)
+			lc := note.Fold(id)
 			if !hasExt {
 				lc = trimKnownExt(lc)
 			}
@@ -119,7 +121,7 @@ func (r *resolver) resolve(src, raw, kind string) string {
 		return pick(cands)
 	}
 	for _, id := range r.byStem[trimKnownExt(t)] {
-		if !hasExt || strings.ToLower(path.Base(id)) == t {
+		if !hasExt || note.Fold(path.Base(id)) == t {
 			cands = append(cands, id)
 		}
 	}
@@ -131,13 +133,13 @@ func (r *resolver) resolve(src, raw, kind string) string {
 // file: a target with a non-note extension matched by basename, or by path
 // suffix when it contains "/". md links try a src-relative path first.
 func (r *resolver) isAttachment(src, raw, kind string) bool {
-	t := strings.ToLower(strings.TrimSpace(raw))
+	t := note.Fold(strings.TrimSpace(raw))
 	if path.Ext(t) == "" || knownExt(t) {
 		return false
 	}
 	cands := r.attach[path.Base(t)]
 	if kind == "md" {
-		rel := path.Join(path.Dir(strings.ToLower(src)), t)
+		rel := path.Join(path.Dir(note.Fold(src)), t)
 		for _, p := range cands {
 			if p == rel {
 				return true

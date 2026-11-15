@@ -36,7 +36,7 @@ func Note(id string, src []byte) note.Note {
 		ID:       id,
 		Kind:     note.KindNote,
 		Title:    name,
-		Stem:     strings.ToLower(name),
+		Stem:     note.Fold(name),
 		Semantic: true,
 		Fields:   map[string]any{},
 	}

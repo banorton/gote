@@ -306,7 +306,7 @@ func syncAttachments(ctx context.Context, tx *sql.Tx, paths []string) (bool, err
 		return false, err
 	}
 	for _, p := range paths {
-		if _, err := tx.ExecContext(ctx, "INSERT INTO attachments VALUES(?,?)", p, strings.ToLower(p)); err != nil {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO attachments VALUES(?,?)", p, note.Fold(p)); err != nil {
 			return false, err
 		}
 	}
@@ -359,7 +359,7 @@ func (ix *Indexer) applyFile(ctx context.Context, tx *sql.Tx, id string, fi file
 func lowerAll(ss []string) []string {
 	out := make([]string, len(ss))
 	for i, s := range ss {
-		out[i] = strings.ToLower(s)
+		out[i] = note.Fold(s)
 	}
 	return out
 }
@@ -418,7 +418,7 @@ func insertNote(ctx context.Context, tx *sql.Tx, n note.Note, fi fileInfo, hash 
 		return err
 	}
 	for _, a := range n.Aliases {
-		if _, err := tx.ExecContext(ctx, "INSERT INTO aliases VALUES(?,?,?)", n.ID, strings.ToLower(a), a); err != nil {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO aliases VALUES(?,?,?)", n.ID, note.Fold(a), a); err != nil {
 			return err
 		}
 	}

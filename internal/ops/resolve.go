@@ -6,6 +6,8 @@ import (
 	"path"
 	"sort"
 	"strings"
+
+	"github.com/banorton/gote/internal/note"
 )
 
 func hasNoteExt(s string) bool {
@@ -50,7 +52,7 @@ func ResolveNote(ctx context.Context, env *Env, ref string) (string, error) {
 		return "", Errorf(CodeInternal, "resolve %q: %v", ref, err)
 	}
 
-	t := strings.TrimPrefix(strings.ToLower(ref), "./")
+	t := strings.TrimPrefix(note.Fold(ref), "./")
 	hasExt := hasNoteExt(t)
 	var cands []string
 	collect := func(q string, args ...any) error {
@@ -79,7 +81,7 @@ func ResolveNote(ctx context.Context, env *Env, ref string) (string, error) {
 			if err := rs.Scan(&id); err != nil {
 				return "", Errorf(CodeInternal, "resolve %q: %v", ref, err)
 			}
-			lc := strings.ToLower(id)
+			lc := note.Fold(id)
 			if !hasExt {
 				lc = trimNoteExt(lc)
 			}
@@ -97,7 +99,7 @@ func ResolveNote(ctx context.Context, env *Env, ref string) (string, error) {
 		if hasExt {
 			kept := cands[:0]
 			for _, id := range cands {
-				if strings.ToLower(path.Base(id)) == t {
+				if note.Fold(path.Base(id)) == t {
 					kept = append(kept, id)
 				}
 			}
