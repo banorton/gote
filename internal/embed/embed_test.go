@@ -105,6 +105,20 @@ func TestOpenAIRetryExhausted(t *testing.T) {
 	}
 }
 
+// Some OpenAI-compatible gateways answer 201 Created with a normal embeddings body.
+func TestOpenAIAcceptsAny2xx(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"object":"list","data":[{"index":0,"embedding":[3,4]}]}`))
+	}))
+	defer srv.Close()
+	e, _ := New(openaiCfg(srv.URL))
+	got, err := e.Embed(context.Background(), []string{"a"})
+	if err != nil || len(got) != 1 || len(got[0]) != 2 {
+		t.Fatalf("got %v, err %v", got, err)
+	}
+}
+
 func TestOpenAIErrorExcerptNoKey(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(401)

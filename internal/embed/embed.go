@@ -146,7 +146,7 @@ func (o *openai) Embed(ctx context.Context, texts []string) ([][]float32, error)
 				return nil, ctx.Err()
 			}
 		}
-		if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode < 200 || resp.StatusCode > 299 {
 			return nil, fmt.Errorf("embeddings request failed: status %d: %s", resp.StatusCode, redact(excerpt(data, 200)))
 		}
 		return decodeOpenAI(data, len(texts))
