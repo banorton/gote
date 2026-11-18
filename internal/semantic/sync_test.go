@@ -427,3 +427,12 @@ func TestBackgroundDoesNotRunFirstEmbed(t *testing.T) {
 		t.Fatal("background ran the first embed")
 	}
 }
+
+func TestSearchKindRestrictsBeforeLimit(t *testing.T) {
+	v := newVault(t, fixture)
+	v.sync(t, true)
+	rs, err := SearchKind(context.Background(), v.env, "apple", 1, "diagram")
+	if err != nil || len(rs) != 1 || rs[0].Kind != "diagram" {
+		t.Fatalf("%v %+v", err, rs)
+	}
+}

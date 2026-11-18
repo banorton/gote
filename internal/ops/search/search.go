@@ -28,6 +28,8 @@ type QueryReq struct {
 	Q        string `json:"q"`
 	Limit    int    `json:"limit"`
 	Semantic bool   `json:"semantic"`
+	// Kind restricts results to "note" or "diagram"; empty means both.
+	Kind string `json:"kind"`
 }
 
 type QueryResp struct {
@@ -35,7 +37,15 @@ type QueryResp struct {
 }
 
 // SemanticHook is set by the semantic search phase; nil means not configured.
-var SemanticHook func(ctx context.Context, env *ops.Env, q string, limit int) ([]Result, error)
+// kind is "" or a note kind to restrict results to.
+var SemanticHook func(ctx context.Context, env *ops.Env, q string, limit int, kind string) ([]Result, error)
+
+func checkKind(kind string) error {
+	if kind != "" && kind != "note" && kind != "diagram" {
+		return ops.Errorf(ops.CodeInvalid, "kind must be note or diagram, got %q", kind)
+	}
+	return nil
+}
 
 func init() {
 	ops.Handle("search.query", runQuery)
@@ -49,6 +59,9 @@ func runQuery(ctx context.Context, env *ops.Env, req QueryReq) (QueryResp, error
 	if req.Limit < 0 {
 		return QueryResp{}, ops.Errorf(ops.CodeInvalid, "limit must be >= 0")
 	}
+	if err := checkKind(req.Kind); err != nil {
+		return QueryResp{}, err
+	}
 	limit := req.Limit
 	if limit == 0 {
 		limit = defaultLimit
@@ -57,7 +70,7 @@ func runQuery(ctx context.Context, env *ops.Env, req QueryReq) (QueryResp, error
 		if SemanticHook == nil {
 			return QueryResp{}, ops.Errorf(ops.CodeInvalid, "semantic search not configured")
 		}
-		rs, err := SemanticHook(ctx, env, req.Q, limit)
+		rs, err := SemanticHook(ctx, env, req.Q, limit, req.Kind)
 		if err != nil {
 			return QueryResp{}, err
 		}
@@ -66,6 +79,9 @@ func runQuery(ctx context.Context, env *ops.Env, req QueryReq) (QueryResp, error
 	q, err := query.Parse(req.Q)
 	if err != nil {
 		return QueryResp{}, ops.Errorf(ops.CodeInvalid, "%v", err)
+	}
+	if req.Kind != "" {
+		q.Filters = append(q.Filters, query.Filter{Kind: query.KindNoteKind, Value: req.Kind})
 	}
 	sqlText, args := buildSQL(q, limit)
 	rows, err := env.Store.DB.QueryContext(ctx, sqlText, args...)
@@ -372,6 +388,8 @@ func runPreview(ctx context.Context, env *ops.Env, req PreviewReq) (PreviewResp,
 type FuzzyReq struct {
 	Q     string `json:"q"`
 	Limit int    `json:"limit"`
+	// Kind restricts matches to "note" or "diagram"; empty means both.
+	Kind string `json:"kind"`
 }
 
 type FuzzyResult struct {
@@ -391,6 +409,9 @@ type FuzzyResp struct {
 func runFuzzy(ctx context.Context, env *ops.Env, req FuzzyReq) (FuzzyResp, error) {
 	if req.Limit < 0 {
 		return FuzzyResp{}, ops.Errorf(ops.CodeInvalid, "limit must be >= 0")
+	}
+	if err := checkKind(req.Kind); err != nil {
+		return FuzzyResp{}, err
 	}
 	limit := req.Limit
 	if limit == 0 {
@@ -414,6 +435,15 @@ func runFuzzy(ctx context.Context, env *ops.Env, req FuzzyReq) (FuzzyResp, error
 	corpus, err := loadCorpus(ctx, env)
 	if err != nil {
 		return FuzzyResp{}, err
+	}
+	if req.Kind != "" {
+		kept := corpus.Items[:0]
+		for _, it := range corpus.Items {
+			if it.Kind == req.Kind {
+				kept = append(kept, it)
+			}
+		}
+		corpus.Items = kept
 	}
 	strs := make([]string, len(corpus.Items))
 	for i, it := range corpus.Items {

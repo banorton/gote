@@ -79,6 +79,11 @@ func snippet(s string) string {
 
 // Search embeds q and returns the best chunk per note, nearest first.
 func Search(ctx context.Context, env *ops.Env, q string, limit int) ([]search.Result, error) {
+	return SearchKind(ctx, env, q, limit, "")
+}
+
+// SearchKind is Search restricted to notes of one kind ("" means all).
+func SearchKind(ctx context.Context, env *ops.Env, q string, limit int, kind string) ([]search.Result, error) {
 	cfg := env.Cfg.Semantic
 	if !cfg.Enabled() {
 		return nil, notConfigured()
@@ -133,13 +138,16 @@ func Search(ctx context.Context, env *ops.Env, q string, limit int) ([]search.Re
 		if len(out) >= limit {
 			break
 		}
-		var title, kind string
-		err := env.Store.DB.QueryRowContext(ctx, "SELECT title, kind FROM notes WHERE id=?", b.e.noteID).Scan(&title, &kind)
+		var title, k string
+		err := env.Store.DB.QueryRowContext(ctx, "SELECT title, kind FROM notes WHERE id=?", b.e.noteID).Scan(&title, &k)
 		if err != nil {
 			continue
 		}
+		if kind != "" && k != kind {
+			continue
+		}
 		out = append(out, search.Result{
-			ID: b.e.noteID, Title: title, Kind: kind,
+			ID: b.e.noteID, Title: title, Kind: k,
 			Path:    filepath.Join(env.Cfg.NotesDir, filepath.FromSlash(b.e.noteID)),
 			Snippet: snippet(b.e.text), Line: b.e.line, Score: float64(b.score),
 		})

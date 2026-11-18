@@ -31,7 +31,7 @@ type StatusResp struct {
 }
 
 func init() {
-	search.SemanticHook = semantic.Search
+	search.SemanticHook = semantic.SearchKind
 	ops.Handle("semantic.sync", func(ctx context.Context, env *ops.Env, req SyncReq) (SyncResp, error) {
 		s, err := semantic.Sync(ctx, env, req.Confirm)
 		if err != nil {
