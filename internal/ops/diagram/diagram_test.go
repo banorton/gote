@@ -239,3 +239,98 @@ func TestListEmptyIsNonNil(t *testing.T) {
 		t.Fatalf("%v %#v", err, rs)
 	}
 }
+
+type descResp struct {
+	ID          string `json:"id"`
+	Description string `json:"description"`
+}
+
+func describe(c client.Client, id, desc string, clear bool) (descResp, error) {
+	var r descResp
+	err := c.Call(context.Background(), "diagram.describe", map[string]any{"id": id, "description": desc, "clear": clear}, &r)
+	return r, err
+}
+
+func summaryDesc(t *testing.T, c client.Client, id string) string {
+	t.Helper()
+	var rd struct{ Summary excal.Summary }
+	if err := c.Call(context.Background(), "diagram.read", map[string]string{"id": id}, &rd); err != nil {
+		t.Fatal(err)
+	}
+	return rd.Summary.Description
+}
+
+func TestDescribeSetClearAndIndex(t *testing.T) {
+	dir, env, c := setup(t)
+	writeFixture(t, dir, "diagrams/a.excalidraw", "valid.excalidraw")
+	if _, err := env.Index.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	id := "diagrams/a.excalidraw"
+	r, err := describe(c, id, "  login handshake sequence  ", false)
+	if err != nil || r.ID != id || r.Description != "login handshake sequence" {
+		t.Fatalf("%v %+v", err, r)
+	}
+	if got := summaryDesc(t, c, id); got != "login handshake sequence" {
+		t.Fatalf("%q", got)
+	}
+	var hit string
+	if err := env.Store.DB.QueryRow("SELECT note_id FROM notes_fts WHERE notes_fts MATCH 'handshake'").Scan(&hit); err != nil || hit != id {
+		t.Fatalf("fts %q %v", hit, err)
+	}
+	// second write right after the first: index was refreshed, so no conflict
+	if _, err := describe(c, id, "second", false); err != nil {
+		t.Fatal(err)
+	}
+	src, _ := os.ReadFile(filepath.Join(dir, id))
+	d, err := excal.Decode(src)
+	if err != nil || len(d.Elements) == 0 || d.AppState == nil {
+		t.Fatalf("content lost: %v %+v", err, d)
+	}
+	r, err = describe(c, id, "", true)
+	if err != nil || r.Description != "" || summaryDesc(t, c, id) != "" {
+		t.Fatalf("%v %+v", err, r)
+	}
+	if err := env.Store.DB.QueryRow("SELECT note_id FROM notes_fts WHERE notes_fts MATCH 'second'").Scan(&hit); err == nil {
+		t.Fatal("cleared description still indexed")
+	}
+}
+
+func TestDescribeValidation(t *testing.T) {
+	dir, env, c := setup(t)
+	writeFixture(t, dir, "a.excalidraw", "valid.excalidraw")
+	os.WriteFile(filepath.Join(dir, "n.md"), []byte("x"), 0o644)
+	env.Index.Reconcile(context.Background())
+	for _, tc := range []struct {
+		id, desc string
+		clear    bool
+		code     string
+	}{
+		{"a.excalidraw", "", false, ops.CodeInvalid},
+		{"a.excalidraw", "x", true, ops.CodeInvalid},
+		{"n.md", "x", false, ops.CodeInvalid},
+		{"missing.excalidraw", "x", false, ops.CodeNotFound},
+	} {
+		_, err := describe(c, tc.id, tc.desc, tc.clear)
+		if oe, ok := err.(*ops.Error); !ok || oe.Code != tc.code {
+			t.Errorf("%+v: %v", tc, err)
+		}
+	}
+}
+
+func TestDescribeConflictWhenFileChangedSinceIndexed(t *testing.T) {
+	dir, env, c := setup(t)
+	writeFixture(t, dir, "a.excalidraw", "valid.excalidraw")
+	env.Index.Reconcile(context.Background())
+	later := time.Now().Add(time.Hour)
+	if err := os.Chtimes(filepath.Join(dir, "a.excalidraw"), later, later); err != nil {
+		t.Fatal(err)
+	}
+	_, err := describe(c, "a.excalidraw", "x", false)
+	if oe, ok := err.(*ops.Error); !ok || oe.Code != ops.CodeConflict {
+		t.Fatalf("%v", err)
+	}
+	if summaryDesc(t, c, "a.excalidraw") != "" {
+		t.Fatal("conflicting write applied")
+	}
+}

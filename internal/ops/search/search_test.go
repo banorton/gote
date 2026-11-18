@@ -349,7 +349,7 @@ func TestSemanticNotConfigured(t *testing.T) {
 
 func TestSemanticHookCalled(t *testing.T) {
 	v := newVault(t, fixture, nil)
-	SemanticHook = func(ctx context.Context, env *ops.Env, q string, limit int) ([]Result, error) {
+	SemanticHook = func(ctx context.Context, env *ops.Env, q string, limit int, kind string) ([]Result, error) {
 		return []Result{{ID: "x.md", Title: q}}, nil
 	}
 	defer func() { SemanticHook = nil }()
@@ -586,5 +586,59 @@ func TestFuzzyRejectsKindFilterWithHint(t *testing.T) {
 		if errCode(err) != ops.CodeInvalid || !strings.Contains(err.Error(), "-t") {
 			t.Fatalf("%q: %v", q, err)
 		}
+	}
+}
+
+var sharedFiles = map[string]string{
+	"kube-notes.md":          "kubernetes in a note\n",
+	"kube-sketch.excalidraw": `{"type":"excalidraw","gote":{"description":"rollout topology"},"elements":[{"id":"t1","type":"text","text":"kubernetes sketch"}]}`,
+	"other.excalidraw":       `{"type":"excalidraw","gote":{"description":"zebra layout"},"elements":[]}`,
+}
+
+func TestQueryKindRestriction(t *testing.T) {
+	v := newVault(t, sharedFiles, nil)
+	var resp QueryResp
+	if err := v.c.Call(context.Background(), "search.query", QueryReq{Q: "kubernetes", Kind: "diagram"}, &resp); err != nil {
+		t.Fatal(err)
+	}
+	if got := ids(resp.Results); strings.Join(got, ",") != "kube-sketch.excalidraw" {
+		t.Fatalf("%v", got)
+	}
+	if err := v.c.Call(context.Background(), "search.query", QueryReq{Q: "zebra", Kind: "diagram"}, &resp); err != nil || !has(resp.Results, "other.excalidraw") {
+		t.Fatalf("description not searchable: %v %v", err, ids(resp.Results))
+	}
+	if err := v.c.Call(context.Background(), "search.query", QueryReq{Q: "kind:note kubernetes", Kind: "diagram"}, &resp); err != nil || len(resp.Results) != 0 {
+		t.Fatalf("restriction must AND with user filters: %v %v", err, ids(resp.Results))
+	}
+	err := v.c.Call(context.Background(), "search.query", QueryReq{Q: "x", Kind: "image"}, &resp)
+	if errCode(err) != ops.CodeInvalid {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestQueryKindPassedToSemanticHook(t *testing.T) {
+	v := newVault(t, sharedFiles, nil)
+	var got string
+	SemanticHook = func(ctx context.Context, env *ops.Env, q string, limit int, kind string) ([]Result, error) {
+		got = kind
+		return nil, nil
+	}
+	defer func() { SemanticHook = nil }()
+	if err := v.c.Call(context.Background(), "search.query", QueryReq{Q: "x", Semantic: true, Kind: "diagram"}, nil); err != nil || got != "diagram" {
+		t.Fatalf("%v %q", err, got)
+	}
+}
+
+func TestFuzzyKindRestriction(t *testing.T) {
+	v := newVault(t, sharedFiles, nil)
+	var resp FuzzyResp
+	if err := v.c.Call(context.Background(), "search.fuzzy", FuzzyReq{Q: "kube", Kind: "diagram"}, &resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Results) != 1 || resp.Results[0].ID != "kube-sketch.excalidraw" {
+		t.Fatalf("%+v", resp.Results)
+	}
+	if err := v.c.Call(context.Background(), "search.fuzzy", FuzzyReq{Q: "kube"}, &resp); err != nil || len(resp.Results) != 2 {
+		t.Fatalf("%v %+v", err, resp.Results)
 	}
 }

@@ -24,9 +24,10 @@ type Edge struct {
 }
 
 type Summary struct {
-	Shapes []Shape `json:"shapes"`
-	Texts  []Text  `json:"texts"`
-	Edges  []Edge  `json:"edges"`
+	Description string  `json:"description"`
+	Shapes      []Shape `json:"shapes"`
+	Texts       []Text  `json:"texts"`
+	Edges       []Edge  `json:"edges"`
 }
 
 var shapeTypes = map[string]bool{"rectangle": true, "ellipse": true, "diamond": true, "frame": true, "image": true}
@@ -71,7 +72,7 @@ func Summarize(d *Doc) Summary {
 		return &s
 	}
 
-	s := Summary{Shapes: []Shape{}, Texts: []Text{}, Edges: []Edge{}}
+	s := Summary{Description: d.Gote.Description, Shapes: []Shape{}, Texts: []Text{}, Edges: []Edge{}}
 	for _, e := range els {
 		switch {
 		case shapeTypes[e.Type]:

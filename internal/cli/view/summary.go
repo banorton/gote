@@ -12,6 +12,9 @@ import (
 // and by the terminal pager.
 func WriteSummary(w io.Writer, path string, s excal.Summary) {
 	fmt.Fprintf(w, "%s\n", path)
+	if s.Description != "" {
+		fmt.Fprintf(w, "\ndescription\n  %s\n", strings.ReplaceAll(s.Description, "\n", "\n  "))
+	}
 	section := func(name string, n int) { fmt.Fprintf(w, "\n%s (%d)\n", name, n) }
 	section("shapes", len(s.Shapes))
 	for _, sh := range s.Shapes {

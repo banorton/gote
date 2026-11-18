@@ -110,6 +110,20 @@ func (s *Server) handleDrawingPut(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusConflict, "%s changed on disk (mtime_ns %d, expected %d)", id, fi.ModTime().UnixNano(), want)
 		return
 	}
+	existing, err := os.ReadFile(abs)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, "read %s: %v", id, err)
+		return
+	}
+	// Excalidraw drops unknown top-level keys on save; keep gote's from disk.
+	if merged, err := excal.CarryGote(existing, body); err != nil {
+		if _, derr := excal.Decode(existing); derr == nil {
+			fail(w, http.StatusInternalServerError, "merge gote metadata for %s: %v", id, err)
+			return
+		}
+	} else {
+		body = merged
+	}
 	if err := writeAtomic(abs, body, fi.Mode().Perm()); err != nil {
 		fail(w, http.StatusInternalServerError, "write %s: %v", id, err)
 		return

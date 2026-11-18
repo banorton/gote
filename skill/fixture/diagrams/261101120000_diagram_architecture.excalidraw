@@ -2,6 +2,9 @@
   "type": "excalidraw",
   "version": 2,
   "source": "https://excalidraw.com",
+  "gote": {
+    "description": "Request path from client through server to cache"
+  },
   "elements": [
     {
       "id": "rect-a",

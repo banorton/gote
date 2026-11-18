@@ -12,7 +12,7 @@ gote indexes a directory of Markdown notes and `.excalidraw` drawings (the vault
 - Always pass `--json` when you parse the output. Exit codes: 0 ok, 1 error, 2 usage. On error with `--json`, stderr is `{"error":{"code","msg"}}`; codes are `not_found`, `invalid`, `conflict`, `internal`.
 - Put `--no-server` first when you want a one-shot in-process run (no background server). Otherwise the first call auto-spawns a server that keeps the index fresh.
 - Create notes with `gote new <name> --json` (daily note: `gote today --json`); with `--json` they never launch the editor or record a visit, and return `{id,path,created}`. Then edit `path` directly.
-- Never run commands that open a menu or a pager unless asked: `template open`, `config edit`, `view`, `search` without `--json`, `recent`, `get`, `pinned`, `tag <t>` and the two-letter menu aliases (`ro`, `sv`, ...). Use `search --json`, `tag`, `tasks`, `info`, `links`, `backlinks`, `graph`, `orphans`, `broken`, `diagram list --json`, `diagram read|check` instead.
+- Never run commands that open a menu or a pager unless asked: `template open`, `config edit`, `view`, `search` without `--json`, `recent`, `get`, `pinned`, `tag <t>` and the two-letter menu aliases (`ro`, `sv`, ...). Use `search --json`, `tag`, `tasks`, `info`, `links`, `backlinks`, `graph`, `orphans`, `broken`, `diagram list --json`, `diagram search --json`, `diagram read|check|describe` instead.
 - `<note>` arguments accept an id (`projects/gote.md`), a filename stem (`gote`), an alias, or a path suffix. Ambiguous names resolve to the shortest path. `-` is the last opened note.
 - Every result carries `id`: the vault-relative path. Absolute `path` is in `search` and `info` results.
 
@@ -93,7 +93,7 @@ $ gote search -t --json socket
       "path": "~/notes/design.md",
       "snippet": "\n# Design\n\nClient talks to server over a Unix socket. Implements [[gote-cli]].\n",
       "line": 8,
-      "score": 1.2707203391444954
+      "score": 1.3155919755628585
     }
   ]
 }
@@ -125,9 +125,9 @@ $ gote search -t --json kind:diagram architecture
       "title": "261101120000_diagram_architecture",
       "kind": "diagram",
       "path": "~/notes/diagrams/261101120000_diagram_architecture.excalidraw",
-      "snippet": "Client\nServer\nrequest\nCache\nsee [[Design Doc]]",
+      "snippet": "Client\nServer\nrequest\nCache\nsee [[Design Doc]]\nRequest path from client through…",
       "line": 0,
-      "score": 1.1870764684092023
+      "score": 1.1462076785359614
     }
   ]
 }
@@ -365,6 +365,13 @@ Workflow to understand or change a drawing:
 1. `gote diagram read --json <ref>` gives a summary: `shapes` (with their label), standalone `texts`, and `edges` (arrows as `from` -> `to` with a label; an unbound end is `null`). Read this first; do not parse the raw JSON to answer questions.
 2. To change it, edit the `.excalidraw` JSON file directly (the path is in the read result).
 3. Run `gote diagram check <ref>`. It must print `ok`. Exit 1 lists the broken invariants.
+4. After creating a drawing or substantially editing one, set or refresh its description: `gote diagram describe <ref> -` with a short summary of what it shows (read from stdin, so long text is fine). The description is stored in the file as a top-level `"gote": {"description": "..."}` object, indexed for `-t` and `-s` search, and shown by `diagram read`. Write it so a later search finds the drawing: name the system, the main components and the purpose.
+
+Find drawings with `gote diagram search`, which only returns drawings: fuzzy over title and path by default, `-t` full-text over labels and description (full query syntax: tags, dates, field filters), `-s` semantic, `-n <limit>`. Always pass `--json`: without it a terminal gets a menu.
+
+Description commands: `gote diagram describe <ref>` prints it, `gote diagram describe <ref> <text...>` sets it, `gote diagram describe <ref> -` reads it from stdin, `gote diagram describe <ref> --clear` removes it; `--json` gives `{id, description}`. A write after the file changed since it was indexed fails with `conflict`; re-read and retry.
+
+When you edit the `.excalidraw` JSON directly, or rewrite it with a script, keep every unknown top-level key, above all `"gote"`: the description lives there. Load the whole object, change `elements`, write it back; never rebuild the file from only `type`, `elements`, `appState`, `files`.
 
 ```console
 $ gote diagram list --json
@@ -390,6 +397,7 @@ $ gote diagram read --json 261101120000_diagram_architecture
   "id": "diagrams/261101120000_diagram_architecture.excalidraw",
   "path": "~/notes/diagrams/261101120000_diagram_architecture.excalidraw",
   "summary": {
+    "description": "Request path from client through server to cache",
     "shapes": [
       {
         "id": "rect-a",
@@ -453,7 +461,60 @@ Binding invariants (both directions must agree, ignoring elements with `isDelete
 - Deleting an element: set `"isDeleted": true` and remove its references from other elements' `boundElements` and bindings.
 - Every element you edit or add gets its `version` incremented, a new random integer `versionNonce`, and `updated` set to the current time in milliseconds. A new element needs all the fields of its type; copy an existing sibling and change the ids.
 
-`gote diagram list` without `--json` opens a menu on a terminal; always pass `--json`. `gote diagram <name>` and `gote diagram open <ref>` open the browser editor: for the user, not for you.
+```console
+$ gote diagram search --json arch
+{
+  "results": [
+    {
+      "id": "diagrams/261101120000_diagram_architecture.excalidraw",
+      "title": "261101120000_diagram_architecture",
+      "path": "~/notes/diagrams/261101120000_diagram_architecture.excalidraw",
+      "score": 104
+    }
+  ]
+}
+```
+
+```console
+$ gote diagram search -t --json cache
+{
+  "results": [
+    {
+      "id": "diagrams/261101120000_diagram_architecture.excalidraw",
+      "title": "261101120000_diagram_architecture",
+      "kind": "diagram",
+      "path": "~/notes/diagrams/261101120000_diagram_architecture.excalidraw",
+      "snippet": "Client\nServer\nrequest\nCache\nsee [[Design Doc]]\nRequest path from client through…",
+      "line": 6,
+      "score": 0.7880574676250016
+    },
+    {
+      "id": "diagrams/261101130000_diagram_broken.excalidraw",
+      "title": "261101130000_diagram_broken",
+      "kind": "diagram",
+      "path": "~/notes/diagrams/261101130000_diagram_broken.excalidraw",
+      "snippet": "Client\nServer\nrequest\nCache\nsee [[Design Doc]]",
+      "line": 304,
+      "score": 0.7007111965828218
+    }
+  ]
+}
+```
+
+```console
+$ gote diagram describe 261101120000_diagram_architecture
+Request path from client through server to cache
+```
+
+```console
+$ gote diagram describe --json 261101130000_diagram_broken Sample with deliberately broken bindings
+{
+  "id": "diagrams/261101130000_diagram_broken.excalidraw",
+  "description": "Sample with deliberately broken bindings"
+}
+```
+
+`gote diagram list` and `gote diagram search` without `--json` open a menu on a terminal; always pass `--json`. `gote diagram <name>` and `gote diagram open <ref>` open the browser editor: for the user, not for you.
 
 ## Other commands
 

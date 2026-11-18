@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/banorton/gote/internal/excal"
 	"github.com/banorton/gote/internal/note"
 	"github.com/banorton/gote/internal/parse"
 )
@@ -136,5 +137,16 @@ func TestChunkHashStability(t *testing.T) {
 		if h0[i] == h2[i] {
 			t.Fatalf("tag change must change every hash: %v %v", h0, h2)
 		}
+	}
+}
+
+func TestDiagramDescriptionChangesChunkHash(t *testing.T) {
+	src := func(desc string) []byte {
+		return []byte(`{"type":"excalidraw","gote":{"description":"` + desc + `"},"elements":[{"id":"t","type":"text","text":"box"}]}`)
+	}
+	a := ChunkNote(excal.ParseNote("d.excalidraw", src("one")), 0, nil)
+	b := ChunkNote(excal.ParseNote("d.excalidraw", src("two")), 0, nil)
+	if len(a) != 1 || len(b) != 1 || a[0].Hash == b[0].Hash || !strings.Contains(a[0].Embed, "one") {
+		t.Fatalf("%+v %+v", a, b)
 	}
 }

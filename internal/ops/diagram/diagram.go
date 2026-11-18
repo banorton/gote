@@ -2,6 +2,7 @@ package diagram
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"io/fs"
 	"os"
@@ -22,6 +23,17 @@ type ReadResp struct {
 	ID      string        `json:"id"`
 	Path    string        `json:"path"`
 	Summary excal.Summary `json:"summary"`
+}
+
+type DescribeReq struct {
+	ID          string `json:"id"`
+	Description string `json:"description"`
+	Clear       bool   `json:"clear"`
+}
+
+type DescribeResp struct {
+	ID          string `json:"id"`
+	Description string `json:"description"`
 }
 
 type CheckResp struct {
@@ -69,6 +81,73 @@ func init() {
 		return CheckResp{Issues: iss}, nil
 	})
 	ops.Handle("diagram.create", createDiagram)
+	ops.Handle("diagram.describe", describeDiagram)
+}
+
+func describeDiagram(ctx context.Context, env *ops.Env, req DescribeReq) (DescribeResp, error) {
+	desc := strings.TrimSpace(req.Description)
+	switch {
+	case req.Clear && desc != "":
+		return DescribeResp{}, ops.Errorf(ops.CodeInvalid, "description and clear are mutually exclusive")
+	case !req.Clear && desc == "":
+		return DescribeResp{}, ops.Errorf(ops.CodeInvalid, "description is empty; pass text or clear")
+	}
+	abs, _, err := load(env, req.ID)
+	if err != nil {
+		return DescribeResp{}, err
+	}
+	src, err := os.ReadFile(abs)
+	if err != nil {
+		return DescribeResp{}, ops.Errorf(ops.CodeInternal, "read %s: %v", req.ID, err)
+	}
+	st, err := os.Stat(abs)
+	if err != nil {
+		return DescribeResp{}, ops.Errorf(ops.CodeInternal, "stat %s: %v", req.ID, err)
+	}
+	var indexed int64
+	err = env.Store.DB.QueryRowContext(ctx, "SELECT mtime_ns FROM notes WHERE id = ?", req.ID).Scan(&indexed)
+	if errors.Is(err, sql.ErrNoRows) {
+		return DescribeResp{}, ops.Errorf(ops.CodeConflict, "%s is not indexed yet; run again after reindexing", req.ID)
+	}
+	if err != nil {
+		return DescribeResp{}, ops.Errorf(ops.CodeInternal, "lookup %s: %v", req.ID, err)
+	}
+	if indexed != st.ModTime().UnixNano() {
+		return DescribeResp{}, ops.Errorf(ops.CodeConflict, "%s was modified since it was indexed; run again after reindexing", req.ID)
+	}
+	out, err := excal.SetDescription(src, desc)
+	if err != nil {
+		return DescribeResp{}, ops.Errorf(ops.CodeInvalid, "%s: %v", req.ID, err)
+	}
+	if err := writeAtomic(abs, out, st.Mode().Perm()); err != nil {
+		return DescribeResp{}, ops.Errorf(ops.CodeInternal, "write %s: %v", req.ID, err)
+	}
+	if err := env.Index.IndexFile(req.ID); err != nil {
+		return DescribeResp{}, ops.Errorf(ops.CodeInternal, "index %s: %v", req.ID, err)
+	}
+	return DescribeResp{ID: req.ID, Description: desc}, nil
+}
+
+// writeAtomic replaces path via a hidden temp file in the same directory.
+func writeAtomic(path string, data []byte, perm os.FileMode) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".gote-write-*")
+	if err != nil {
+		return err
+	}
+	name := tmp.Name()
+	defer os.Remove(name)
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(perm); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(name, path)
 }
 
 func load(env *ops.Env, id string) (string, *excal.Doc, error) {

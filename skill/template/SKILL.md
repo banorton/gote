@@ -96,7 +96,7 @@ Single-binary CLI over a directory of Markdown notes and `.excalidraw` drawings 
 
 - Always pass `--json` and parse it. Exit codes: 0 ok, 1 error, 2 usage. With `--json`, errors are `{"error":{"code","msg"}}` on stderr; `code` is `not_found`, `invalid`, `conflict` or `internal`.
 - Every result carries `id`, the vault-relative path (`projects/gote.md`). Absolute `path` appears in `search`, `info`, `new`, `open`, `today`.
-- Never run commands that open a menu, a pager or a browser (`template open`, `config-edit`, `view`, menu and two-letter menu aliases, `diagram` without `read`/`check`/`list --json`). `new`, `open`, `quick` and `today` are safe with `--json` (or when stdout is not a terminal): they create the note if needed but do not launch the editor or record a visit.
+- Never run commands that open a menu, a pager or a browser (`template open`, `config-edit`, `view`, menu and two-letter menu aliases, `diagram` without `read`/`check`/`describe`/`list --json`/`search --json`). `new`, `open`, `quick` and `today` are safe with `--json` (or when stdout is not a terminal): they create the note if needed but do not launch the editor or record a visit.
 - Create notes with `gote new <name> --json` (daily note: `gote today --json`), not by writing files by hand: gote applies the stub, template and prefix. Then edit the returned `path` with normal file tools.
 - Resolving `<note>`: an id (`projects/gote.md`), a filename stem (`gote`), an alias, or a path suffix, case-insensitive. Ambiguous names resolve to the shortest path. `-` is the last opened note. An unknown ref is `not_found`.
 
@@ -123,7 +123,7 @@ Menu commands print `id<TAB>title` lines without a terminal and are interactive 
 | `pin` | | pin a note |
 | `unpin` | `u` `up` | unpin a note |
 | `pinned` | `p` | menu of pins; with a note name, pins it |
-| `diagram` | | `diagram list [-n N] [--json]` drawings newest first (menu on a terminal: use `--json`), `diagram read <ref>` summary, `diagram check <ref>` validate; bare/`open` start the browser editor (user only) |
+| `diagram` | | `diagram list [-n N] [--json]` drawings newest first (menu on a terminal: use `--json`), `diagram read <ref>` summary, `diagram check <ref>` validate, `diagram describe <ref> [<text>\|-\|--clear]` print/set/clear the description, `diagram search [-n N] [-t\|-s] <words>` drawings only: fuzzy, `-t` full-text, `-s` semantic (use `--json`); bare/`open` start the browser editor (user only) |
 | `template` | `tmpl` | `template list`; `open`, `rename`, `delete` act on `~/.config/gote/templates/` |
 | `status` | | index counts (`notes`, `links`, `unresolved`) |
 | `reindex` | `idx` | drop and rebuild the index; use after bulk edits outside gote or stale results |
@@ -209,6 +209,10 @@ Native Excalidraw JSON, `<diagram_dir>/<yymmddhhmmss>_diagram[_<name>].excalidra
 1. `gote diagram read --json <ref>`: `summary` with `shapes` (id, type, label), `texts`, `edges` (`from` -> `to`, label; unbound end is `null`). Read this first; do not parse raw JSON to answer questions.
 2. Edit the `.excalidraw` file directly (path is in the result).
 3. `gote diagram check <ref>` must print `ok`. Exit 1 lists broken invariants.
+4. After creating or substantially editing a drawing, set or refresh its description: `gote diagram describe <ref> -` with a short summary of what it shows on stdin (`gote diagram describe <ref> <text...>` for short text, `--clear` to remove, no text to print, `--json` for `{id, description}`). It is stored in the file as a top-level `"gote": {"description": "..."}` object, shown by `diagram read`, and indexed for `-t` and `-s` search. A write after the file changed since it was indexed fails with `conflict`.
+5. Find drawings with `gote diagram search --json <words>` (fuzzy on title and path), `-t` (full-text over labels and description, full query syntax) or `-s` (semantic); it only returns drawings.
+
+When you edit the `.excalidraw` JSON directly or rewrite it with a script, keep every unknown top-level key, above all `"gote"`; do not rebuild the file from only `type`, `elements`, `appState` and `files`.
 
 Binding invariants (ignore elements with `isDeleted: true`):
 

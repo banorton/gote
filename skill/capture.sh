@@ -45,6 +45,10 @@ CMDS=(
   "diagram read --json 261101120000_diagram_architecture"
   "diagram check 261101120000_diagram_architecture"
   "diagram check 261101130000_diagram_broken"
+  "diagram search --json arch"
+  "diagram search -t --json cache"
+  "diagram describe 261101120000_diagram_architecture"
+  "diagram describe --json 261101130000_diagram_broken Sample with deliberately broken bindings"
   "rename --json ideas backlog"
   "backlinks backlog"
 )

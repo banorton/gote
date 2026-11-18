@@ -1,6 +1,7 @@
 package excal
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"os"
@@ -185,5 +186,97 @@ func TestCheckIgnoresDeletedSources(t *testing.T) {
 	src := scene(`{"id":"r1","type":"rectangle","isDeleted":true,"boundElements":[{"id":"gone","type":"text"}]}`)
 	if iss := Check(decode(t, src)); len(iss) != 0 {
 		t.Fatal(iss)
+	}
+}
+
+const withDesc = `{"type":"excalidraw","version":2,"gote":{"description":"login flow overview"},"elements":[` +
+	`{"id":"t1","type":"text","x":0,"y":0,"text":"Client"}],"appState":{},"files":{},"custom":{"keep":1}}`
+
+func TestParseNoteIndexesDescription(t *testing.T) {
+	n := ParseNote("d.excalidraw", []byte(withDesc))
+	if !strings.Contains(n.Body, "Client") || !strings.Contains(n.Body, "login flow overview") {
+		t.Fatalf("body %q", n.Body)
+	}
+	plain := ParseNote("d.excalidraw", scene(txt("t1", "")))
+	if plain.Body != "t1" {
+		t.Fatalf("body %q", plain.Body)
+	}
+	only := ParseNote("d.excalidraw", []byte(`{"type":"excalidraw","gote":{"description":"just words"},"elements":[]}`))
+	if only.Body != "just words" {
+		t.Fatalf("body %q", only.Body)
+	}
+}
+
+func TestSummarizeDescription(t *testing.T) {
+	d := decode(t, []byte(withDesc))
+	if got := Summarize(d).Description; got != "login flow overview" {
+		t.Fatalf("%q", got)
+	}
+}
+
+func TestCheckIgnoresDescription(t *testing.T) {
+	if iss := Check(decode(t, []byte(withDesc))); len(iss) != 0 {
+		t.Fatal(iss)
+	}
+}
+
+func TestSetDescriptionKeepsEverythingElse(t *testing.T) {
+	out, err := SetDescription([]byte(withDesc), "new text <b>&")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(out, &m); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"type", "version", "elements", "appState", "files", "custom", "gote"} {
+		if _, ok := m[k]; !ok {
+			t.Errorf("lost key %s", k)
+		}
+	}
+	var cb bytes.Buffer
+	json.Compact(&cb, m["custom"])
+	if cb.String() != `{"keep":1}` {
+		t.Fatalf("custom %s", m["custom"])
+	}
+	if got := Summarize(decode(t, out)).Description; got != "new text <b>&" {
+		t.Fatalf("%q", got)
+	}
+	if strings.Contains(string(out), `<`) {
+		t.Fatal("html escaped")
+	}
+	cleared, err := SetDescription(out, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(cleared), `"gote"`) || !strings.Contains(string(cleared), `"custom"`) {
+		t.Fatalf("clear: %s", cleared)
+	}
+}
+
+func TestSetDescriptionKeepsOtherGoteKeys(t *testing.T) {
+	src := `{"type":"excalidraw","gote":{"description":"a","future":true},"elements":[]}`
+	out, err := SetDescription([]byte(src), "b")
+	if err != nil || !strings.Contains(string(out), `"future": true`) {
+		t.Fatalf("%v %s", err, out)
+	}
+	out, err = SetDescription(out, "")
+	if err != nil || !strings.Contains(string(out), `"future"`) {
+		t.Fatalf("%v %s", err, out)
+	}
+}
+
+func TestCarryGote(t *testing.T) {
+	browser := scene(txt("t1", ""))
+	out, err := CarryGote([]byte(withDesc), browser)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if Summarize(decode(t, out)).Description != "login flow overview" {
+		t.Fatalf("%s", out)
+	}
+	same, err := CarryGote([]byte(`{"type":"excalidraw","elements":[]}`), browser)
+	if err != nil || string(same) != string(browser) {
+		t.Fatalf("no-gote must pass body through byte-for-byte: %v %s", err, same)
 	}
 }
