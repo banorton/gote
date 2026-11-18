@@ -15,9 +15,11 @@ import (
 	"github.com/banorton/gote/internal/cli/view"
 	"github.com/banorton/gote/internal/client"
 	"github.com/banorton/gote/internal/config"
+	"github.com/banorton/gote/internal/excal"
 	"github.com/banorton/gote/internal/index"
 	"github.com/banorton/gote/internal/ops"
 	_ "github.com/banorton/gote/internal/ops/diagram"
+	"github.com/banorton/gote/internal/ops/search"
 	"github.com/banorton/gote/internal/store"
 )
 
@@ -42,6 +44,11 @@ var lastDir string
 
 func run(t *testing.T, args ...string) (string, error) {
 	t.Helper()
+	return runWith(t, nil, args...)
+}
+
+func runWith(t *testing.T, extra map[string]string, args ...string) (string, error) {
+	t.Helper()
 	dir := t.TempDir()
 	lastDir = dir
 	st, err := store.Open(filepath.Join(t.TempDir(), "gote.db"))
@@ -55,6 +62,9 @@ func run(t *testing.T, args ...string) (string, error) {
 	os.WriteFile(filepath.Join(dir, "broken.excalidraw"), []byte(`{"type":"excalidraw","elements":[{"id":"t1","type":"text","text":"lost","containerId":"zzz"}]}`), 0o644)
 	os.Chtimes(filepath.Join(dir, "a.excalidraw"), time.Date(2026, 1, 1, 12, 0, 0, 0, time.Local), time.Date(2026, 1, 1, 12, 0, 0, 0, time.Local))
 	os.Chtimes(filepath.Join(dir, "broken.excalidraw"), time.Date(2026, 2, 3, 4, 5, 6, 0, time.Local), time.Date(2026, 2, 3, 4, 5, 6, 0, time.Local))
+	for name, content := range extra {
+		os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644)
+	}
 	if _, err := env.Index.Reconcile(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -311,5 +321,169 @@ func TestListRejectsBadArgs(t *testing.T) {
 		if err == nil {
 			t.Errorf("%v: want error", args)
 		}
+	}
+}
+
+func TestDescribeSetPrintClear(t *testing.T) {
+	out, err := run(t, "describe", "a.excalidraw", "login", "flow", "overview")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(out) != "" {
+		t.Fatalf("set should be quiet, got %q", out)
+	}
+	dir := lastDir
+	src, _ := os.ReadFile(filepath.Join(dir, "a.excalidraw"))
+	d, err := excal.Decode(src)
+	if err != nil || d.Gote.Description != "login flow overview" {
+		t.Fatalf("%v %q", err, d.Gote.Description)
+	}
+}
+
+func TestDescribePrintsExisting(t *testing.T) {
+	desc := `{"type":"excalidraw","gote":{"description":"seen before"},"elements":[]}`
+	out, err := runWith(t, map[string]string{"d.excalidraw": desc}, "describe", "d.excalidraw")
+	if err != nil || strings.TrimSpace(out) != "seen before" {
+		t.Fatalf("%v %q", err, out)
+	}
+	out, err = runWith(t, map[string]string{"d.excalidraw": desc}, "describe", "d.excalidraw", "--json")
+	var r struct{ ID, Description string }
+	if err != nil || json.Unmarshal([]byte(out), &r) != nil || r.ID != "d.excalidraw" || r.Description != "seen before" {
+		t.Fatalf("%v %q", err, out)
+	}
+}
+
+func TestDescribeClear(t *testing.T) {
+	desc := `{"type":"excalidraw","gote":{"description":"gone soon"},"elements":[]}`
+	out, err := runWith(t, map[string]string{"d.excalidraw": desc}, "describe", "d.excalidraw", "--clear", "--json")
+	var r struct{ ID, Description string }
+	if err != nil || json.Unmarshal([]byte(out), &r) != nil || r.Description != "" {
+		t.Fatalf("%v %q", err, out)
+	}
+	src, _ := os.ReadFile(filepath.Join(lastDir, "d.excalidraw"))
+	if strings.Contains(string(src), "gone soon") || strings.Contains(string(src), `"gote"`) {
+		t.Fatalf("%s", src)
+	}
+}
+
+func TestDescribeStdin(t *testing.T) {
+	old := stdin
+	stdin = strings.NewReader("long text\nover two lines\n")
+	t.Cleanup(func() { stdin = old })
+	if _, err := run(t, "describe", "a.excalidraw", "-"); err != nil {
+		t.Fatal(err)
+	}
+	src, _ := os.ReadFile(filepath.Join(lastDir, "a.excalidraw"))
+	d, _ := excal.Decode(src)
+	if d.Gote.Description != "long text\nover two lines" {
+		t.Fatalf("%q", d.Gote.Description)
+	}
+}
+
+func TestDescribeUsage(t *testing.T) {
+	for _, args := range [][]string{{"describe"}, {"describe", "a.excalidraw", "x", "--clear"}} {
+		_, err := run(t, args...)
+		var ue *cli.UsageError
+		if !errors.As(err, &ue) {
+			t.Errorf("%v: want usage error, got %v", args, err)
+		}
+	}
+	if _, err := run(t, "describe", "n.md", "x"); err == nil || !strings.Contains(err.Error(), "not a drawing") {
+		t.Fatalf("%v", err)
+	}
+}
+
+var searchFiles = map[string]string{
+	"client-flow.excalidraw": `{"type":"excalidraw","gote":{"description":"handshake between peers"},"elements":[{"id":"t","type":"text","text":"zebra label"}]}`,
+	"client.md":              "client zebra handshake note\n",
+}
+
+func ids(t *testing.T, out string) []string {
+	t.Helper()
+	var r struct {
+		Results []struct{ ID, Title, Path string }
+	}
+	if err := json.Unmarshal([]byte(out), &r); err != nil {
+		t.Fatalf("%v %q", err, out)
+	}
+	var got []string
+	for _, x := range r.Results {
+		if x.Title == "" || x.Path == "" {
+			t.Fatalf("incomplete result %+v", x)
+		}
+		got = append(got, x.ID)
+	}
+	return got
+}
+
+func TestSearchFuzzyOnlyDrawings(t *testing.T) {
+	out, err := runWith(t, searchFiles, "search", "client")
+	if err != nil || strings.TrimSpace(out) != "client-flow  (client-flow.excalidraw)" {
+		t.Fatalf("%v %q", err, out)
+	}
+	out, err = runWith(t, searchFiles, "search", "client", "--json")
+	if got := ids(t, out); err != nil || strings.Join(got, ",") != "client-flow.excalidraw" {
+		t.Fatalf("%v %v", err, got)
+	}
+	var raw struct{ Results []map[string]any }
+	json.Unmarshal([]byte(out), &raw)
+	for _, k := range []string{"id", "title", "path", "score"} {
+		if _, ok := raw.Results[0][k]; !ok {
+			t.Errorf("missing %s", k)
+		}
+	}
+}
+
+func TestSearchTextOnlyDrawingsIncludingDescription(t *testing.T) {
+	for _, q := range []string{"zebra", "handshake"} {
+		out, err := runWith(t, searchFiles, "search", "-t", q, "--json")
+		if got := ids(t, out); err != nil || strings.Join(got, ",") != "client-flow.excalidraw" {
+			t.Fatalf("%q: %v %v", q, err, got)
+		}
+	}
+	out, err := runWith(t, searchFiles, "search", "--text", "handshake")
+	if err != nil || !strings.Contains(out, "client-flow  (client-flow.excalidraw)") || strings.Contains(out, "client.md") {
+		t.Fatalf("%v %q", err, out)
+	}
+}
+
+func TestSearchSemanticOnlyDrawings(t *testing.T) {
+	var gotKind string
+	search.SemanticHook = func(ctx context.Context, env *ops.Env, q string, limit int, kind string) ([]search.Result, error) {
+		gotKind = kind
+		return []search.Result{{ID: "client-flow.excalidraw", Title: "client-flow", Kind: "diagram"}}, nil
+	}
+	t.Cleanup(func() { search.SemanticHook = nil })
+	out, err := runWith(t, searchFiles, "search", "-s", "peers talking", "--json")
+	if got := ids2(out); err != nil || gotKind != "diagram" || len(got) != 1 {
+		t.Fatalf("%v %q %q", err, gotKind, out)
+	}
+}
+
+func ids2(out string) []string {
+	var r struct{ Results []struct{ ID string } }
+	json.Unmarshal([]byte(out), &r)
+	var got []string
+	for _, x := range r.Results {
+		got = append(got, x.ID)
+	}
+	return got
+}
+
+func TestSearchUsageErrors(t *testing.T) {
+	for _, args := range [][]string{{"search"}, {"search", "-t", "-s", "x"}, {"search", "-t"}, {"search", "-n", "0", "x"}} {
+		_, err := run(t, args...)
+		var ue *cli.UsageError
+		if !errors.As(err, &ue) {
+			t.Errorf("%v: want usage error, got %v", args, err)
+		}
+	}
+}
+
+func TestSearchLimit(t *testing.T) {
+	files := map[string]string{"k1.excalidraw": `{"type":"excalidraw","elements":[]}`, "k2.excalidraw": `{"type":"excalidraw","elements":[]}`}
+	out, err := runWith(t, files, "search", "-n", "1", "k", "--json")
+	if got := ids2(out); err != nil || len(got) != 1 {
+		t.Fatalf("%v %q", err, out)
 	}
 }
