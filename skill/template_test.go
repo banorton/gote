@@ -153,3 +153,12 @@ func TestTemplateCoreSafetyRules(t *testing.T) {
 		}
 	}
 }
+
+func TestTemplateCoreDocumentsDiagramDescriptions(t *testing.T) {
+	core := templateCore(t)
+	for _, want := range []string{"diagram describe", "diagram search", "\"gote\"", "--clear"} {
+		if !strings.Contains(core, want) {
+			t.Errorf("core section must mention %q", want)
+		}
+	}
+}
