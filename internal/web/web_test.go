@@ -671,3 +671,51 @@ func TestBundleHasNoCDNFallback(t *testing.T) {
 		}
 	}
 }
+
+func TestPutPreservesGoteDescription(t *testing.T) {
+	f := newFixture(t)
+	abs := filepath.Join(f.dir, filepath.FromSlash(drawingID))
+	withDesc := strings.Replace(sceneJSON, `"version":2,`, `"version":2,"gote":{"description":"quokka overview"},`, 1)
+	if err := os.WriteFile(abs, []byte(withDesc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.env.Index.IndexFile(drawingID); err != nil {
+		t.Fatal(err)
+	}
+	route := f.tok("/api/drawing/" + drawingID)
+	put := func(body, match string) (int, string) {
+		resp := f.do("PUT", route, strings.NewReader(body), func(r *http.Request) {
+			r.Header.Set("Origin", "http://"+f.srv.Addr())
+			r.Header.Set("If-Match", match)
+		})
+		defer resp.Body.Close()
+		var out struct {
+			MtimeNS string `json:"mtime_ns"`
+		}
+		json.NewDecoder(resp.Body).Decode(&out)
+		return resp.StatusCode, out.MtimeNS
+	}
+	edited := strings.Replace(sceneJSON, `"width":10`, `"width":77`, 1)
+	stale := f.mtime(drawingID)
+	code, newM := put(edited, stale)
+	if code != 200 || newM != f.mtime(drawingID) {
+		t.Fatalf("put: %d %s", code, newM)
+	}
+	disk, _ := os.ReadFile(abs)
+	d, err := excal.Decode(disk)
+	if err != nil || d.Gote.Description != "quokka overview" || d.Elements[0].Width != 77 {
+		t.Fatalf("%v %s", err, disk)
+	}
+	var n int
+	f.env.Store.DB.QueryRow(`SELECT COUNT(*) FROM notes_fts WHERE notes_fts MATCH 'quokka'`).Scan(&n)
+	if n != 1 {
+		t.Fatalf("description not indexed after PUT: %d", n)
+	}
+	before := string(disk)
+	if code, _ := put(sceneJSON, stale); code != 409 {
+		t.Fatalf("stale: %d", code)
+	}
+	if after, _ := os.ReadFile(abs); string(after) != before {
+		t.Fatal("stale PUT modified the file")
+	}
+}
