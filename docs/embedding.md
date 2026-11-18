@@ -84,7 +84,7 @@ Set exactly one.
    it does not depend on the spawning shell, for example
    `security find-generic-password -s gote -w` on macOS or `pass show openai`.
 
-Keys are never logged and are redacted from error messages.
+Keys are never logged. Keys of 8 or more characters are redacted from error messages; shorter values (placeholders for local servers) are left as is.
 
 ## Commands
 

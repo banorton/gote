@@ -240,3 +240,50 @@ func TestNewRejectsBadProvider(t *testing.T) {
 		t.Fatal("want error")
 	}
 }
+
+func TestOpenAIAcceptsAny2xx(t *testing.T) {
+	for _, code := range []int{200, 201, 202, 203} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(code)
+			w.Write([]byte(`{"data":[{"index":0,"embedding":[1,2]}]}`))
+		}))
+		e, _ := New(openaiCfg(srv.URL))
+		v, err := e.Embed(context.Background(), []string{"a"})
+		srv.Close()
+		if err != nil || len(v) != 1 || len(v[0]) != 2 {
+			t.Fatalf("status %d: %v %v", code, v, err)
+		}
+	}
+}
+
+func TestOpenAINon2xxStillFails(t *testing.T) {
+	for _, code := range []int{204, 301, 400, 404} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if code == 301 {
+				w.Header().Set("Location", "/elsewhere")
+			}
+			w.WriteHeader(code)
+		}))
+		e, _ := New(openaiCfg(srv.URL))
+		_, err := e.Embed(context.Background(), []string{"a"})
+		srv.Close()
+		if err == nil {
+			t.Fatalf("status %d: want error", code)
+		}
+	}
+}
+
+func TestShortKeyDoesNotGarbleErrors(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(400)
+		w.Write([]byte(`{"error":"bad index field"}`))
+	}))
+	defer srv.Close()
+	cfg := openaiCfg(srv.URL)
+	cfg.APIKey = "x"
+	e, _ := New(cfg)
+	_, err := e.Embed(context.Background(), []string{"a"})
+	if err == nil || !strings.Contains(err.Error(), "bad index field") {
+		t.Fatalf("garbled: %v", err)
+	}
+}
