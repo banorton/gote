@@ -35,6 +35,8 @@ func New(cfg config.Semantic) (Embedder, error) {
 
 var retryDelays = []time.Duration{500 * time.Millisecond, time.Second, 2 * time.Second}
 
+const minRedactLen = 8
+
 const keyCmdTimeout = 10 * time.Second
 
 func excerpt(b []byte, n int) string {
@@ -120,7 +122,14 @@ func (o *openai) Embed(ctx context.Context, texts []string) ([][]float32, error)
 		return nil, err
 	}
 	url := strings.TrimRight(o.cfg.BaseURL, "/") + "/embeddings"
-	redact := func(s string) string { return strings.ReplaceAll(s, key, "***") }
+	// Keys shorter than minRedactLen are placeholders for local servers;
+	// replacing them would mangle ordinary words in the message.
+	redact := func(s string) string {
+		if len(key) < minRedactLen {
+			return s
+		}
+		return strings.ReplaceAll(s, key, "***")
+	}
 	for attempt := 0; ; attempt++ {
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 		if err != nil {
@@ -146,7 +155,7 @@ func (o *openai) Embed(ctx context.Context, texts []string) ([][]float32, error)
 				return nil, ctx.Err()
 			}
 		}
-		if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode < 200 || resp.StatusCode > 299 {
 			return nil, fmt.Errorf("embeddings request failed: status %d: %s", resp.StatusCode, redact(excerpt(data, 200)))
 		}
 		return decodeOpenAI(data, len(texts))
