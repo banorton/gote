@@ -487,3 +487,15 @@ func TestSearchLimit(t *testing.T) {
 		t.Fatalf("%v %q", err, out)
 	}
 }
+
+func TestReadShowsDescription(t *testing.T) {
+	desc := `{"type":"excalidraw","gote":{"description":"seen in read"},"elements":[]}`
+	out, err := runWith(t, map[string]string{"d.excalidraw": desc}, "read", "d.excalidraw")
+	if err != nil || !strings.Contains(out, "description\n  seen in read") {
+		t.Fatalf("%v %q", err, out)
+	}
+	out, err = runWith(t, map[string]string{"d.excalidraw": desc}, "read", "d.excalidraw", "--json")
+	if err != nil || !strings.Contains(out, `"description": "seen in read"`) {
+		t.Fatalf("%v %q", err, out)
+	}
+}
