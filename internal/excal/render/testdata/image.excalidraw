@@ -1,0 +1,110 @@
+{
+ "type": "excalidraw",
+ "version": 2,
+ "source": "gote-test",
+ "elements": [
+  {
+   "id": "e29",
+   "type": "image",
+   "x": 0,
+   "y": 0,
+   "width": 120,
+   "height": 120,
+   "angle": 0,
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "transparent",
+   "fillStyle": "solid",
+   "strokeWidth": 2,
+   "strokeStyle": "solid",
+   "roughness": 1,
+   "opacity": 100,
+   "isDeleted": false,
+   "roundness": null,
+   "boundElements": null,
+   "link": null,
+   "fileId": "f1",
+   "status": "saved"
+  },
+  {
+   "id": "e30",
+   "type": "image",
+   "x": 160,
+   "y": 0,
+   "width": 120,
+   "height": 80,
+   "angle": 0,
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "transparent",
+   "fillStyle": "solid",
+   "strokeWidth": 2,
+   "strokeStyle": "solid",
+   "roughness": 1,
+   "opacity": 100,
+   "isDeleted": false,
+   "roundness": null,
+   "boundElements": null,
+   "link": null,
+   "fileId": "svg1",
+   "status": "saved"
+  },
+  {
+   "id": "e31",
+   "type": "image",
+   "x": 320,
+   "y": 0,
+   "width": 100,
+   "height": 100,
+   "angle": 0,
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "transparent",
+   "fillStyle": "solid",
+   "strokeWidth": 2,
+   "strokeStyle": "solid",
+   "roughness": 1,
+   "opacity": 100,
+   "isDeleted": false,
+   "roundness": null,
+   "boundElements": null,
+   "link": null,
+   "fileId": "missing",
+   "status": "saved"
+  },
+  {
+   "id": "e32",
+   "type": "rectangle",
+   "x": 0,
+   "y": 160,
+   "width": 420,
+   "height": 30,
+   "angle": 0,
+   "strokeColor": "#1e1e1e",
+   "backgroundColor": "#e9ecef",
+   "fillStyle": "solid",
+   "strokeWidth": 2,
+   "strokeStyle": "solid",
+   "roughness": 1,
+   "opacity": 100,
+   "isDeleted": false,
+   "roundness": null,
+   "boundElements": null,
+   "link": null
+  }
+ ],
+ "appState": {
+  "viewBackgroundColor": "#ffffff"
+ },
+ "files": {
+  "f1": {
+   "mimeType": "image/png",
+   "id": "f1",
+   "dataURL": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAACf0lEQVR4nBXNEcC1OgAA0Mufj/N5PJ/HeZzn43k/x3k8n8d5/t4JDp/f7/fvvz8CA5GRRGZiZmFlo1DZOTi5aHRuHl5+vz8BgYHISCIzMbOwslGo7BycXDQ6Nw/v3xcEAYGByEgiMzGzsLJRqOwcnFw0OjcPb/iCQUBgIDKSyEzMLKxsFCo7BycXjc7Nwzt8QRQQGIiMJDITMwsrG4XKzsHJRaNz8/DGLxgFBAYiI4nMxMzCykahsnNwctHo3Dy84xckAYGByEgiMzGzsLJRqOwcnFw0OjcPb/qCLCAwEBlJZCZmFlY2CpWdg5OLRufm4c1fMAkIDERGEpmJmYWVjUJl5+DkotG5eXinL5gFBAYiI4nMxMzCykahsnNwctHo3Dy88xcsAgIDkZFEZmJmYWWjUNk5OLlodG4e3uULVgGBgchIIjMxs7CyUajsHJxcNDo3D+/6BZuAwEBkJJGZmFlY2ShUdg5OLhqdm4d3+4IiIDAQGUlkJmYWVjYKlZ2Dk4tG5+bhLV9QBQQGIiOJzMTMwspGobJzcHLR6Nw8vPULdgGBgchIIjMxs7CyUajsHJxcNDo3D+/+BYeAwEBkJJGZmFlY2ShUdg5OLhqdm4f3+IJTQGAgMpLITMwsrGwUKjsHJxeNzs3De37BJSAwEBlJZCZmFlY2CpWdg5OLRufm4b2+oAkIDERGEpmJmYWVjUJl5+DkotG5eXjbF3QBgYHISCIzMbOwslGo7BycXDQ6Nw9v/4JbQGAgMpLITMwsrGwUKjsHJxeNzs3De3/BIyAwEBlJZCZmFlY2CpWdg5OLRufm4X2+4BUQGIiMJDITMwsrG4XKzsHJRaNz8/DyP4NEyezjF36PAAAAAElFTkSuQmCC",
+   "created": 1
+  },
+  "svg1": {
+   "mimeType": "image/svg+xml",
+   "id": "svg1",
+   "dataURL": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciLz4=",
+   "created": 1
+  }
+ }
+}
