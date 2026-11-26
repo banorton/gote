@@ -19,7 +19,7 @@ import (
 	"github.com/banorton/gote/internal/tui/menu"
 )
 
-const usage = "gote diagram [name] | gote diagram open <ref> | gote diagram list [-n N] [--json] | gote diagram read <ref> | gote diagram check <ref> | gote diagram describe <ref> [<text>...|-|--clear] | gote diagram search [-n N] [-t|-s] <words>..."
+const usage = "gote diagram [name] | gote diagram open <ref> | gote diagram list [-n N] [--json] | gote diagram read <ref> | gote diagram check <ref> | gote diagram render <ref> [--json] | gote diagram describe <ref> [<text>...|-|--clear] | gote diagram search [-n N] [-t|-s] <words>..."
 
 // stdin is where `describe <ref> -` reads from; tests replace it.
 var stdin io.Reader = os.Stdin
@@ -42,6 +42,8 @@ func dispatch(c *cli.Ctx, args []string) error {
 			return withRef(c, args[1:], "read", read)
 		case "check":
 			return withRef(c, args[1:], "check", check)
+		case "render":
+			return withRef(c, args[1:], "render", renderPNG)
 		case "open":
 			return withRef(c, args[1:], "open", edit)
 		case "list":
@@ -355,5 +357,23 @@ func check(c *cli.Ctx, id string) error {
 	if len(r.Issues) > 0 {
 		return ops.Errorf(ops.CodeInvalid, "%d binding issue(s) in %s", len(r.Issues), id)
 	}
+	return nil
+}
+
+func renderPNG(c *cli.Ctx, id string) error {
+	var r struct {
+		ID     string `json:"id"`
+		Path   string `json:"path"`
+		Width  int    `json:"width"`
+		Height int    `json:"height"`
+		Fresh  bool   `json:"fresh"`
+	}
+	if err := c.Client.Call(context.Background(), "diagram.render", map[string]string{"id": id}, &r); err != nil {
+		return err
+	}
+	if c.JSON {
+		return c.PrintJSON(r)
+	}
+	fmt.Fprintln(c.Out, r.Path)
 	return nil
 }

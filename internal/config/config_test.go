@@ -165,3 +165,21 @@ func TestKeyFileWarning(t *testing.T) {
 		t.Fatalf("%q", w)
 	}
 }
+
+func TestDiagramPNGDefaultAndValidation(t *testing.T) {
+	setup(t, "notes_dir: NOTES\n")
+	c, err := Load()
+	if err != nil || c.DiagramPNG != "cache" {
+		t.Fatalf("%+v %v", c, err)
+	}
+	for _, v := range []string{"cache", "sidecar", "off"} {
+		setup(t, "notes_dir: NOTES\ndiagram_png: "+v+"\n")
+		if c, err := Load(); err != nil || c.DiagramPNG != v {
+			t.Fatalf("%s: %+v %v", v, c, err)
+		}
+	}
+	setup(t, "notes_dir: NOTES\ndiagram_png: always\n")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "diagram_png") || !strings.Contains(err.Error(), "always") {
+		t.Fatalf("%v", err)
+	}
+}

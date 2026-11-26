@@ -499,3 +499,41 @@ func TestReadShowsDescription(t *testing.T) {
 		t.Fatalf("%v %q", err, out)
 	}
 }
+
+func TestRenderJSONAndPlain(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	out, err := run(t, "render", "a.excalidraw", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r struct {
+		ID            string
+		Path          string
+		Width, Height int
+		Fresh         bool
+	}
+	if err := json.Unmarshal([]byte(out), &r); err != nil || r.ID != "a.excalidraw" || !strings.HasSuffix(r.Path, ".png") || r.Width < 64 || r.Height < 64 || !r.Fresh {
+		t.Fatalf("%v %s", err, out)
+	}
+	if _, err := os.Stat(r.Path); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"width"`) || !strings.Contains(out, `"fresh"`) {
+		t.Fatalf("json keys: %s", out)
+	}
+
+	plain, err := run(t, "render", "a.excalidraw")
+	if err != nil || strings.TrimSpace(plain) != r.Path {
+		t.Fatalf("%v %q want %q", err, plain, r.Path)
+	}
+}
+
+func TestRenderRejectsNonDrawingAndBadArgs(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	if _, err := run(t, "render", "n.md"); err == nil {
+		t.Fatal("note should be rejected")
+	}
+	if _, err := run(t, "render"); err == nil {
+		t.Fatal("missing ref should be a usage error")
+	}
+}

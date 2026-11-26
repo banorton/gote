@@ -18,6 +18,7 @@ type Config struct {
 	Editor     string   `yaml:"editor"`
 	Server     bool     `yaml:"server"`
 	DiagramDir string   `yaml:"diagram_dir"`
+	DiagramPNG string   `yaml:"diagram_png"`
 	Semantic   Semantic `yaml:"semantic"`
 }
 
@@ -34,6 +35,13 @@ type Semantic struct {
 	ExcludeTags  []string `yaml:"exclude_tags"`
 	PricePerMTok float64  `yaml:"price_per_mtok"`
 }
+
+// Values of the diagram_png key.
+const (
+	PNGCache   = "cache"
+	PNGSidecar = "sidecar"
+	PNGOff     = "off"
+)
 
 const (
 	ProviderOpenAI  = "openai"
@@ -128,7 +136,7 @@ func Load() (*Config, error) {
 		}
 		return nil, fmt.Errorf("read config %s: %w", p, err)
 	}
-	c := Config{Server: true, DiagramDir: "diagrams"}
+	c := Config{Server: true, DiagramDir: "diagrams", DiagramPNG: PNGCache}
 	if err := yaml.UnmarshalWithOptions(data, &c, yaml.Strict()); err != nil {
 		return nil, fmt.Errorf("parse config %s: %w", p, err)
 	}
@@ -141,6 +149,11 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("config %s: expand ~ in notes_dir: %w", p, err)
 		}
 		c.NotesDir = filepath.Join(h, strings.TrimPrefix(c.NotesDir, "~"))
+	}
+	switch c.DiagramPNG {
+	case PNGCache, PNGSidecar, PNGOff:
+	default:
+		return nil, fmt.Errorf("config %s: diagram_png: must be cache, sidecar or off, got %q", p, c.DiagramPNG)
 	}
 	if err := c.Semantic.validate(); err != nil {
 		return nil, fmt.Errorf("config %s: %w", p, err)
