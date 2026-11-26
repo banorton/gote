@@ -72,7 +72,7 @@ A note's id is its path relative to the notes directory. Its title is the frontm
 | `graph` | | link neighborhood as a tree: `graph <note> [-d N]` (depth 1-5) |
 | `orphans` | | notes with no links in or out |
 | `broken` | | links to missing notes or files (links to attachments that exist are fine) |
-| `diagram` | | Excalidraw drawings: `diagram [name]` creates and opens the editor, `diagram open <ref>`, `diagram list [-n N] [--json]`, `diagram read <ref>`, `diagram check <ref>`, `diagram describe <ref> [<text>...\|-\|--clear]`, `diagram search [-n N] [-t\|-s] <words>...` |
+| `diagram` | | Excalidraw drawings: `diagram [name]` creates and opens the editor, `diagram open <ref>`, `diagram list [-n N] [--json]`, `diagram read <ref>`, `diagram check <ref>`, `diagram render <ref> [--json]`, `diagram describe <ref> [<text>...\|-\|--clear]`, `diagram search [-n N] [-t\|-s] <words>...` |
 | `view` | `v` | open a rendered note in the browser; `view --terminal <note>` (`-T`) renders in the terminal |
 | `embed` | | compute embeddings for semantic search; `embed status` |
 | `config` | `c` | show the config file |
@@ -151,6 +151,8 @@ Optional. Configure an embedding provider in the `semantic:` config block: the b
 ## Drawings
 
 Drawings are native `.excalidraw` files, indexed like notes: their text is searchable and `[[links]]` in them count. `gote diagram [name]` creates `diagrams/<yymmddhhmmss>_diagram[_<name>].excalidraw` and opens the browser editor (an embedded Excalidraw, saved back to the file). Embed one in a note with `![[<stem>]]`. `diagram list` shows drawings newest first (home-row menu on a terminal, `title  (id)` lines otherwise, `[{id,title,path,modified}]` with `--json`); `diagram read` prints a text summary; `diagram check` prints `ok` or the binding problems it finds.
+
+`gote diagram render <ref>` prints the path of a PNG of the drawing, rendered in pure Go (no browser): clean geometry, not the hand-drawn look, and unsupported element types show as labelled outlines. `--json` gives `{id, path, width, height, fresh}` (`fresh` is true when this call drew it). The PNG is always current: it is re-rendered when the drawing's content differs from the stored render. Where it lives is set by `diagram_png` ([docs/config.md](docs/config.md)): `cache` (default) keeps it under the state dir, `sidecar` writes `<name>.png` next to the drawing, `off` renders only on demand. The server re-renders a drawing in the background after any change; without a server `render` renders on demand. Agents use it to look at a drawing.
 
 A drawing can carry a description, stored in the file as a top-level `"gote": {"description": "..."}` object. It is indexed for full-text and semantic search and shown by `diagram read`. `gote diagram describe <ref> <text...>` sets it, `gote diagram describe <ref> -` reads it from stdin (for long text), `--clear` removes it, and with no text it prints it; `--json` gives `{id, description}`. The browser editor keeps the description when it saves. `gote diagram search <words>...` searches drawings only, with the same modes as `gote search`: fuzzy on title and path by default (menu on a terminal, `title  (id)` lines otherwise, `{results:[{id,title,path,score}]}` with `--json`), `-t` full-text over labels and description with the full query syntax, `-s` semantic, `-n <limit>`. Agents are meant to set a description after creating or editing a drawing so it can be found later.
 

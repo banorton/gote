@@ -108,6 +108,7 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 	defer s.startSemantic(ctx)()
+	defer s.startDiagramPNG(ctx)()
 
 	stopWeb, err := s.startWeb(ctx)
 	if err != nil {

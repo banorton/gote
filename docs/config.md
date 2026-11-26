@@ -7,6 +7,7 @@ notes_dir: ~/notes
 editor: nvim
 server: true
 diagram_dir: diagrams
+diagram_png: cache
 ```
 
 ## Keys
@@ -17,6 +18,7 @@ diagram_dir: diagrams
 | `editor` | `$EDITOR`, then `vi` | Command used to open notes. Arguments are allowed (`code -w`). |
 | `server` | `true` | `false` runs every command in-process, as if `--no-server` were always set. |
 | `diagram_dir` | `diagrams` | Directory, inside `notes_dir`, where new drawings are created. |
+| `diagram_png` | `cache` | Where drawing PNGs (`gote diagram render`) live: `cache` stores them under `$XDG_STATE_HOME/gote/renders/`, `sidecar` writes `<drawing>.png` next to each drawing (and drops the cache), `off` renders only when asked. Cache and sidecar PNGs are re-rendered by the server after each change; unused cache files are pruned. |
 | `semantic` | absent (disabled) | Semantic search block, below. |
 
 ## `semantic`
