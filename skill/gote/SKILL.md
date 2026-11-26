@@ -12,7 +12,7 @@ gote indexes a directory of Markdown notes and `.excalidraw` drawings (the vault
 - Always pass `--json` when you parse the output. Exit codes: 0 ok, 1 error, 2 usage. On error with `--json`, stderr is `{"error":{"code","msg"}}`; codes are `not_found`, `invalid`, `conflict`, `internal`.
 - Put `--no-server` first when you want a one-shot in-process run (no background server). Otherwise the first call auto-spawns a server that keeps the index fresh.
 - Create notes with `gote new <name> --json` (daily note: `gote today --json`); with `--json` they never launch the editor or record a visit, and return `{id,path,created}`. Then edit `path` directly.
-- Never run commands that open a menu or a pager unless asked: `template open`, `config edit`, `view`, `search` without `--json`, `recent`, `get`, `pinned`, `tag <t>` and the two-letter menu aliases (`ro`, `sv`, ...). Use `search --json`, `tag`, `tasks`, `info`, `links`, `backlinks`, `graph`, `orphans`, `broken`, `diagram list --json`, `diagram search --json`, `diagram read|check|describe` instead.
+- Never run commands that open a menu or a pager unless asked: `template open`, `config edit`, `view`, `search` without `--json`, `recent`, `get`, `pinned`, `tag <t>` and the two-letter menu aliases (`ro`, `sv`, ...). Use `search --json`, `tag`, `tasks`, `info`, `links`, `backlinks`, `graph`, `orphans`, `broken`, `diagram list --json`, `diagram search --json`, `diagram read|check|describe|render` instead.
 - `<note>` arguments accept an id (`projects/gote.md`), a filename stem (`gote`), an alias, or a path suffix. Ambiguous names resolve to the shortest path. `-` is the last opened note.
 - Every result carries `id`: the vault-relative path. Absolute `path` is in `search` and `info` results.
 
@@ -366,6 +366,8 @@ Workflow to understand or change a drawing:
 2. To change it, edit the `.excalidraw` JSON file directly (the path is in the read result).
 3. Run `gote diagram check <ref>`. It must print `ok`. Exit 1 lists the broken invariants.
 4. After creating a drawing or substantially editing one, set or refresh its description: `gote diagram describe <ref> -` with a short summary of what it shows (read from stdin, so long text is fine). The description is stored in the file as a top-level `"gote": {"description": "..."}` object, indexed for `-t` and `-s` search, and shown by `diagram read`. Write it so a later search finds the drawing: name the system, the main components and the purpose.
+
+To look at a drawing, run `gote diagram render <ref> --json` and view the PNG at `path` (`{id, path, width, height, fresh}`). It is clean geometry, not the hand-drawn look: use it for layout and spatial relations, and `diagram read` for exact text and ids. The PNG is always current, so render again after editing the JSON. Not everything renders: an unsupported element type shows as a labelled outline.
 
 Find drawings with `gote diagram search`, which only returns drawings: fuzzy over title and path by default, `-t` full-text over labels and description (full query syntax: tags, dates, field filters), `-s` semantic, `-n <limit>`. Always pass `--json`: without it a terminal gets a menu.
 
