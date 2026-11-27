@@ -11,7 +11,7 @@ gote indexes a directory of Markdown notes and `.excalidraw` drawings (the vault
 
 - Always pass `--json` when you parse the output. Exit codes: 0 ok, 1 error, 2 usage. On error with `--json`, stderr is `{"error":{"code","msg"}}`; codes are `not_found`, `invalid`, `conflict`, `internal`.
 - Put `--no-server` first when you want a one-shot in-process run (no background server). Otherwise the first call auto-spawns a server that keeps the index fresh.
-- Create notes with `gote new <name> --json` (daily note: `gote today --json`); with `--json` they never launch the editor or record a visit, and return `{id,path,created}`. Then edit `path` directly.
+- Create notes with `gote new <name> --json` (daily note: `gote daily --json`); with `--json` they never launch the editor or record a visit, and return `{id,path,created}`. Then edit `path` directly.
 - Never run commands that open a menu or a pager unless asked: `template open`, `config edit`, `view`, `search` without `--json`, `recent`, `get`, `pinned`, `tag <t>` and the two-letter menu aliases (`ro`, `sv`, ...). Use `search --json`, `tag`, `tasks`, `info`, `links`, `backlinks`, `graph`, `orphans`, `broken`, `diagram list --json`, `diagram search --json`, `diagram read|check|describe|render` instead.
 - `<note>` arguments accept an id (`projects/gote.md`), a filename stem (`gote`), an alias, or a path suffix. Ambiguous names resolve to the shortest path. `-` is the last opened note.
 - Every result carries `id`: the vault-relative path. Absolute `path` is in `search` and `info` results.
@@ -23,11 +23,11 @@ gote indexes a directory of Markdown notes and `.excalidraw` drawings (the vault
 - Delete with `gote delete <note>`: the file moves to `.trash/`, restore with `gote recover <name>`. Do not `rm` notes.
 - Tags live in the frontmatter `tags:` list. Change them with `gote tag add <tag> <note...>` and `gote tag rm <tag> <note...>` (or `--query <q>` to pick targets); they edit only that field. Do not invent `#inline` tags: gote does not read them.
 - Writes check the file mtime; a concurrent change fails with `conflict` and nothing is written. Re-read and retry.
-- Frontmatter gote reads: `tags`, `aliases`, `created` (`"yymmddhhmmss"`), `title`, `related`, `parent` (typed link edges), `semantic: false` (skip embedding). Other keys are preserved and searchable as `key:value`.
+- Frontmatter gote reads: `tags`, `aliases`, `created` (quoted ISO 8601 with offset, e.g. `"2026-11-27T14:30:00-05:00"`; any other form is ignored and reported as `parse_error` by `info`), `title`, `related`, `parent` (typed link edges), `semantic: false` (skip embedding). Other keys are preserved and searchable as `key:value`.
 
 ## Search
 
-`gote search [-n N] <words...>` is a fuzzy match (fzf scoring) over note titles, paths and aliases, best first. It never reads note bodies and takes no filters; a filter token (`tag:`, `kind:`, `created:`, `-word`, quotes) is an `invalid` error that points at `-t`. Result: `id`, `title`, `kind`, `path` (absolute), `score`.
+`gote search [-n N] <words...>` is a fuzzy match (fzf scoring) over note titles, paths and aliases, best first. It never reads note bodies. Filter tokens (`tag:`, `field:value`, `kind:`, `created:`, `modified:`, `-tag:x`) narrow the candidates first, then the remaining words are fuzzy-matched: `gote search --json tag:project gote`. A quoted phrase is a literal substring filter on the title; a negated word excludes titles containing it. Filters only: lists the matches, newest modified first. Result: `id`, `title`, `kind`, `path` (absolute), `score`.
 
 ```console
 $ gote search --json desi
@@ -78,9 +78,26 @@ $ gote search --json desi
 | `modified:<d>` | file mtime in the period |
 | `-token` | negate any token, e.g. `-tag:draft` |
 
-Dates `<d>` are `yymmddhhmmss` prefixes of even length 2-12: `26` = 2026, `2603` = March 2026, `260314` = 14 March 2026. Forms: `2603` (inside the period), `>2603` (after it), `<2603` (before it), `2601..2603` (both periods inclusive). An odd length is a usage error. A query of only filters lists matching notes by mtime, newest first. Query tokens that start with `-` stay part of the query; put flags (`-n`, `-t`, `-s`) first, or use `--` to end flags.
+Dates `<d>` are ISO 8601 prefixes (config `date_format: iso`, the default): `2026`, `2026-03`, `2026-03-14`, `2026-03-14T10`, `2026-03-14T10:30`. Forms: `2026-03` (inside the period), `>2026-03` (after it), `<2026-03` (before it), `2026-01..2026-03` (both periods inclusive). With `date_format: compact` the values are `yymmddhhmmss` prefixes of even length 2-12 (`2603`) instead; the other form is an `invalid` error naming the token. Dates in output are always ISO 8601. A query of only filters lists matching notes by mtime, newest first. Query tokens that start with `-` stay part of the query; put flags (`-n`, `-t`, `-s`) first, or use `--` to end flags.
 
 Full-text result: `id`, `title`, `kind` (`note` or `diagram`), `path` (absolute), `snippet`, `line` (first matching body line, 0 if none), `score`.
+
+Filters narrow first, then the words are fuzzy-matched:
+
+```console
+$ gote search --json tag:project gote
+{
+  "results": [
+    {
+      "id": "projects/gote.md",
+      "title": "Gote",
+      "kind": "note",
+      "path": "~/notes/projects/gote.md",
+      "score": 114
+    }
+  ]
+}
+```
 
 ```console
 $ gote search -t --json socket
@@ -134,7 +151,7 @@ $ gote search -t --json kind:diagram architecture
 ```
 
 ```console
-$ gote search -t --json created:2611
+$ gote search -t --json created:2026-11
 {
   "results": [
     {
@@ -150,15 +167,15 @@ $ gote search -t --json created:2611
 }
 ```
 
-Without `--json`, a result is `title  (id)` and an indented snippet:
+Without `--json`, `-t` and `-s` print `title  path:line` (plus the score for `-s`) and an indented one-line snippet; on a terminal they open a menu instead, so agents always use `--json` (piped output is the same plain list, with no ANSI codes):
 
 ```console
-$ gote search -t modified:2611 -tag:ideas
-261101130000_diagram_broken  (diagrams/261101130000_diagram_broken.excalidraw)
-261101120000_diagram_architecture  (diagrams/261101120000_diagram_architecture.excalidraw)
-Gote  (projects/gote.md)
-lonely  (lonely.md)
-design  (design.md)
+$ gote search -t modified:2026-11 -tag:ideas
+261101130000_diagram_broken  diagrams/261101130000_diagram_broken.excalidraw
+261101120000_diagram_architecture  diagrams/261101120000_diagram_architecture.excalidraw
+Gote  projects/gote.md
+lonely  lonely.md
+design  design.md
 ```
 
 ## Tasks
@@ -243,6 +260,12 @@ $ gote tag --json
   }
 ]
 ```
+
+## Archive and daily
+
+A note is archived when its `tags` contain `archive` (case-insensitive); nothing else marks it. `gote archive <note...> --json` and `gote unarchive <note...> --json` add and remove the tag (they edit only `tags`) and return the changed ids. Archived notes are hidden by default from fuzzy and `-t`/`-s` search, `recent`, `pinned`, `tag`, `get`, `tasks`, `orphans`, `diagram list` and `diagram search`, but not from link resolution, `links`, `backlinks`, `graph`, `broken`, `info` or opening by name. Pass `--all` to include them (`tasks --all` also includes done tasks); a `tag:archive` filter in a query asks for them too. When a search comes up empty for something that should exist, retry with `--all`.
+
+`gote daily --json` returns today's daily note, creating it if missing (frontmatter `created`, `tags: [daily]`, `aliases`, empty body, or your `daily` template). `gote daily -N --json` (N >= 1) returns the existing note from N days ago; if there is none it exits 1 with `not_found` ("no daily note for YYYY-MM-DD") and never creates one. `today` is an alias. There is no rollover.
 
 ## Graph
 

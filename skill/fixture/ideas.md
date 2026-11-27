@@ -1,6 +1,6 @@
 ---
 tags: [ideas]
-created: "261101090000"
+created: "2026-11-01T09:00:00Z"
 ---
 
 # Ideas
