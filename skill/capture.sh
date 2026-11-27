@@ -23,7 +23,7 @@ for f in ideas.md design.md lonely.md projects/gote.md \
   t=$((t + 100))
 done
 
-export XDG_CONFIG_HOME="$WORK/config" XDG_STATE_HOME="$WORK/state" EDITOR=true
+export TZ=UTC XDG_CONFIG_HOME="$WORK/config" XDG_STATE_HOME="$WORK/state" EDITOR=true
 
 CMDS=(
   "search --json desi"

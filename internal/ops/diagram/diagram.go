@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/banorton/gote/internal/dates"
 	"github.com/banorton/gote/internal/excal"
 	"github.com/banorton/gote/internal/ops"
 )
@@ -233,7 +234,7 @@ func listDiagrams(ctx context.Context, env *ops.Env, req ListReq) ([]ListItem, e
 			return nil, ops.Errorf(ops.CodeInternal, "list diagrams: %v", err)
 		}
 		it.Path = filepath.Join(env.Cfg.NotesDir, filepath.FromSlash(it.ID))
-		it.Modified = time.Unix(0, ns).Format("060102150405")
+		it.Modified = dates.Format(time.Unix(0, ns))
 		out = append(out, it)
 	}
 	if err := rows.Err(); err != nil {

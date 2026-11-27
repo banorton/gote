@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/goccy/go-yaml"
 	"github.com/yuin/goldmark"
@@ -17,6 +18,7 @@ import (
 	"github.com/yuin/goldmark/text"
 	"go.abhg.dev/goldmark/wikilink"
 
+	"github.com/banorton/gote/internal/dates"
 	"github.com/banorton/gote/internal/note"
 	"github.com/banorton/gote/internal/parse/frontmatter"
 )
@@ -65,15 +67,23 @@ func applyFields(n *note.Note) {
 	if t, ok := f["title"].(string); ok && strings.TrimSpace(t) != "" {
 		n.Title = t
 	}
+	var created string
 	switch c := f["created"].(type) {
 	case string:
+		created = c
+	case time.Time:
 		n.Created = c
 	case uint64:
-		n.Created = fmt.Sprintf("%012d", c)
+		created = fmt.Sprintf("%012d", c)
 	case int64:
-		n.Created = fmt.Sprintf("%012d", c)
+		created = fmt.Sprintf("%012d", c)
 	case int:
-		n.Created = fmt.Sprintf("%012d", c)
+		created = fmt.Sprintf("%012d", c)
+	}
+	if created != "" {
+		if t, ok := dates.ParseStored(created); ok {
+			n.Created = t
+		}
 	}
 	if s, ok := f["semantic"].(bool); ok {
 		n.Semantic = s

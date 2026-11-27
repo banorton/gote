@@ -20,6 +20,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 
 	"github.com/banorton/gote/internal/client"
+	"github.com/banorton/gote/internal/dates"
 	"github.com/banorton/gote/internal/ops"
 )
 
@@ -230,7 +231,7 @@ func raiseFDLimit(l *log.Logger) {
 func (s *Server) handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/version", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, client.ServerInfo{Version: s.o.Version, PID: os.Getpid(), Started: s.started.UTC().Format(time.RFC3339)})
+		writeJSON(w, http.StatusOK, client.ServerInfo{Version: s.o.Version, PID: os.Getpid(), Started: dates.Format(s.started)})
 	})
 	mux.HandleFunc("POST /v1/shutdown", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, struct{}{})

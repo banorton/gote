@@ -6,8 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/banorton/gote/internal/config"
+	"github.com/banorton/gote/internal/dates"
 	"github.com/banorton/gote/internal/ops"
 	"github.com/banorton/gote/internal/parse/frontmatter"
 	"github.com/goccy/go-yaml"
@@ -126,7 +128,7 @@ func prefixed(name, prefix string, env *ops.Env) (string, error) {
 	case "date":
 		p = env.Now().Format("060102") + "_"
 	case "datetime":
-		p = stamp(env) + "_"
+		p = prefixStamp(env) + "_"
 	default:
 		return "", ops.Errorf(ops.CodeInvalid, "invalid prefix %q (want \"\", \"date\" or \"datetime\")", prefix)
 	}
@@ -220,7 +222,7 @@ func init() {
 
 	ops.Handle("notes.info", func(ctx context.Context, env *ops.Env, r IDReq) (InfoResp, error) {
 		var i InfoResp
-		var created sql.NullString
+		var created sql.NullInt64
 		var mtime int64
 		err := env.Store.DB.QueryRowContext(ctx, "SELECT id, title, kind, created, mtime_ns, size FROM notes WHERE id=?", r.ID).
 			Scan(&i.ID, &i.Title, &i.Kind, &created, &mtime, &i.Size)
@@ -230,8 +232,11 @@ func init() {
 		if err != nil {
 			return i, dbErr("info", err)
 		}
-		i.Path, i.Created = abs(env, i.ID), created.String
-		i.Modified = timeFromNS(mtime).Format(tsLayout)
+		i.Path = abs(env, i.ID)
+		if created.Valid {
+			i.Created = dates.Format(time.Unix(created.Int64, 0))
+		}
+		i.Modified = dates.Format(timeFromNS(mtime))
 		if i.Tags, err = column(ctx, env, "SELECT tag FROM tags WHERE note_id=? ORDER BY rowid", r.ID); err != nil {
 			return i, err
 		}

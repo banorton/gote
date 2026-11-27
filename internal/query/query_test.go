@@ -61,6 +61,18 @@ func TestParseDates(t *testing.T) {
 		{"created:<2603", time.Time{}, d(2026, 3, 1, 0, 0, 0), false, true},
 		{"created:2601..2603", d(2026, 1, 1, 0, 0, 0), d(2026, 4, 1, 0, 0, 0), true, true},
 		{"modified:2603", d(2026, 3, 1, 0, 0, 0), d(2026, 4, 1, 0, 0, 0), true, true},
+		{"created:2026", d(2026, 1, 1, 0, 0, 0), d(2027, 1, 1, 0, 0, 0), true, true},
+		{"created:2011-", d(2011, 1, 1, 0, 0, 0), d(2012, 1, 1, 0, 0, 0), true, true},
+		{"created:2011", d(2020, 11, 1, 0, 0, 0), d(2020, 12, 1, 0, 0, 0), true, true},
+		{"created:2613", d(2613, 1, 1, 0, 0, 0), d(2614, 1, 1, 0, 0, 0), true, true},
+		{"created:2026-03", d(2026, 3, 1, 0, 0, 0), d(2026, 4, 1, 0, 0, 0), true, true},
+		{"created:2026-03-14", d(2026, 3, 14, 0, 0, 0), d(2026, 3, 15, 0, 0, 0), true, true},
+		{"created:2026-03-14T10", d(2026, 3, 14, 10, 0, 0), d(2026, 3, 14, 11, 0, 0), true, true},
+		{"created:2026-03-14T10:30", d(2026, 3, 14, 10, 30, 0), d(2026, 3, 14, 10, 31, 0), true, true},
+		{"created:>2026-03", d(2026, 4, 1, 0, 0, 0), time.Time{}, true, false},
+		{"modified:<2026-03-14", time.Time{}, d(2026, 3, 14, 0, 0, 0), false, true},
+		{"created:2026-01..2603", d(2026, 1, 1, 0, 0, 0), d(2026, 4, 1, 0, 0, 0), true, true},
+		{"created:2501..2026-03-14", d(2025, 1, 1, 0, 0, 0), d(2026, 3, 15, 0, 0, 0), true, true},
 	}
 	for _, c := range cases {
 		q, err := Parse(c.in)
@@ -83,16 +95,28 @@ func TestParseDates(t *testing.T) {
 	}
 }
 
-func TestRangeStrings(t *testing.T) {
+func TestRangeUnix(t *testing.T) {
 	q, _ := Parse("created:2603")
-	lo, hi := q.Filters[0].Range.CreatedBounds()
-	if lo != "260301000000" || hi != "260401000000" {
-		t.Fatalf("%q %q", lo, hi)
+	lo, hi := q.Filters[0].Range.UnixBounds()
+	if lo == nil || hi == nil || *lo != d(2026, 3, 1, 0, 0, 0).Unix() || *hi != d(2026, 4, 1, 0, 0, 0).Unix() {
+		t.Fatalf("%v %v", lo, hi)
 	}
-	q, _ = Parse("created:<2603")
-	lo, hi = q.Filters[0].Range.CreatedBounds()
-	if lo != "" || hi != "260301000000" {
-		t.Fatalf("%q %q", lo, hi)
+	q, _ = Parse("created:<2026-03")
+	lo, hi = q.Filters[0].Range.UnixBounds()
+	if lo != nil || hi == nil || *hi != d(2026, 3, 1, 0, 0, 0).Unix() {
+		t.Fatalf("%v %v", lo, hi)
+	}
+}
+
+func TestMentionsArchive(t *testing.T) {
+	for in, want := range map[string]bool{"tag:archive": true, "TAG:Archive x": true, "-tag:archive": false, "tag:other": false, "archive": false} {
+		q, err := Parse(in)
+		if err != nil {
+			t.Fatal(in, err)
+		}
+		if got := q.MentionsArchive(); got != want {
+			t.Errorf("%q: got %v", in, got)
+		}
 	}
 }
 
@@ -105,7 +129,11 @@ func TestParseErrors(t *testing.T) {
 		"created:2603141516171": "created:2603141516171",
 		"created:abcd":          "created:abcd",
 		"created:>26x":          "created:>26x",
-		"created:2613":          "created:2613",
+		"created:2026-13":       "created:2026-13",
+		"created:2026-02-30":    "created:2026-02-30",
+		"created:2026-03-14T25": "created:2026-03-14T25",
+		"created:2026-3":        "created:2026-3",
+		"created:20261":         "created:20261",
 		"created:260230":        "created:260230",
 		"created:2601..":        "created:2601..",
 		"created:..2603":        "created:..2603",

@@ -219,7 +219,7 @@ func TestListNewestFirstDrawingsOnly(t *testing.T) {
 	if len(rs) != 2 || rs[0].ID != "diagrams/new.excalidraw" || rs[1].ID != "old.excalidraw" {
 		t.Fatalf("%+v", rs)
 	}
-	if rs[0].Modified != "260304050607" || rs[0].Path != filepath.Join(dir, "diagrams", "new.excalidraw") || rs[0].Title == "" {
+	if rs[0].Modified != time.Date(2026, 3, 4, 5, 6, 7, 0, time.Local).Format(time.RFC3339) || rs[0].Path != filepath.Join(dir, "diagrams", "new.excalidraw") || rs[0].Title == "" {
 		t.Fatalf("%+v", rs[0])
 	}
 	if err := c.Call(context.Background(), "diagram.list", ListReq{Limit: 1}, &rs); err != nil || len(rs) != 1 {

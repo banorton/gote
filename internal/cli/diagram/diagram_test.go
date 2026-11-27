@@ -300,7 +300,7 @@ func TestListJSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &rs); err != nil {
 		t.Fatal(err)
 	}
-	if len(rs) != 2 || rs[0].ID != "broken.excalidraw" || rs[0].Modified != "260203040506" || rs[1].ID != "a.excalidraw" {
+	if len(rs) != 2 || rs[0].ID != "broken.excalidraw" || rs[0].Modified != time.Date(2026, 2, 3, 4, 5, 6, 0, time.Local).Format(time.RFC3339) || rs[1].ID != "a.excalidraw" {
 		t.Fatalf("%+v", rs)
 	}
 	if rs[0].Path != filepath.Join(lastDir, "broken.excalidraw") || rs[0].Title == "" {

@@ -14,7 +14,7 @@ func TestCreatePrefixesSubdirAndConflict(t *testing.T) {
 	if r.ID != "plain.md" || !r.Created || r.Path != filepath.Join(h.dir, "plain.md") {
 		t.Fatalf("%+v", r)
 	}
-	if got := h.read("plain.md"); got != "---\ncreated: \"260305140709\"\ntags: []\naliases: []\n---\n" {
+	if got := h.read("plain.md"); got != "---\ncreated: \""+h.iso()+"\"\ntags: []\naliases: []\n---\n" {
 		t.Fatalf("content %q", got)
 	}
 	h.must("notes.create", CreateReq{Name: "d", Prefix: "date"}, &r)
@@ -39,7 +39,7 @@ func TestCreateTemplateMerge(t *testing.T) {
 	var r CreateResp
 	h.must("notes.create", CreateReq{Name: "standup", Template: "meet"}, &r)
 	got := h.read("standup.md")
-	if got != "---\ntags: [meeting]\ncreated: \"260305140709\"\nextra: 1\naliases: []\n---\n# Agenda\n- x\n" {
+	if got != "---\ntags: [meeting]\ncreated: \""+h.iso()+"\"\nextra: 1\naliases: []\n---\n# Agenda\n- x\n" {
 		t.Fatalf("%q", got)
 	}
 	h.wantCode("notes.create", CreateReq{Name: "z", Template: "missing"}, "not_found")
@@ -93,8 +93,8 @@ func TestVisitRecentInfo(t *testing.T) {
 	h.must("pins.add", IDReq{ID: "a.md"}, nil)
 	var info InfoResp
 	h.must("notes.info", IDReq{ID: "a.md"}, &info)
-	if info.Created != "250101000000" || !info.Pinned || info.Links != 1 || info.Backlinks != 1 ||
-		strings.Join(info.Tags, ",") != "x,y" || strings.Join(info.Aliases, ",") != "Ay" || info.Size == 0 || len(info.Modified) != 12 {
+	if info.Created != time.Date(2025, 1, 1, 0, 0, 0, 0, time.Local).Format(time.RFC3339) || !info.Pinned || info.Links != 1 || info.Backlinks != 1 ||
+		strings.Join(info.Tags, ",") != "x,y" || strings.Join(info.Aliases, ",") != "Ay" || info.Size == 0 || !isISO(info.Modified) {
 		t.Fatalf("%+v", info)
 	}
 	var all []Ref
@@ -110,7 +110,7 @@ func TestDuplicate(t *testing.T) {
 	h.reconcile()
 	var r CreateResp
 	h.must("notes.duplicate", DupReq{ID: "a.md", New: "b"}, &r)
-	if r.ID != "b.md" || h.read("b.md") != "---\ncreated: \"260305140709\"\ntags: []\naliases: []\n---\nbody\n" {
+	if r.ID != "b.md" || h.read("b.md") != "---\ncreated: \""+h.iso()+"\"\ntags: []\naliases: []\n---\nbody\n" {
 		t.Fatalf("%+v %q", r, h.read("b.md"))
 	}
 	h.wantCode("notes.duplicate", DupReq{ID: "a.md", New: "b"}, "conflict")
@@ -133,4 +133,9 @@ func TestPins(t *testing.T) {
 		t.Fatal("not removed")
 	}
 	h.wantCode("pins.add", IDReq{ID: "ghost.md"}, "not_found")
+}
+
+func isISO(s string) bool {
+	_, err := time.Parse(time.RFC3339, s)
+	return err == nil
 }

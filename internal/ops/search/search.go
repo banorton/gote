@@ -176,17 +176,17 @@ func filterSQL(f query.Filter) (string, []any) {
 		clause = "n.kind = ?"
 		args = []any{f.Value}
 	case query.KindCreated:
-		lo, hi := f.Range.CreatedBounds()
-		var parts []string
-		if lo != "" {
+		lo, hi := f.Range.UnixBounds()
+		parts := []string{"n.created IS NOT NULL"}
+		if lo != nil {
 			parts = append(parts, "n.created >= ?")
-			args = append(args, lo)
+			args = append(args, *lo)
 		}
-		if hi != "" {
+		if hi != nil {
 			parts = append(parts, "n.created < ?")
-			args = append(args, hi)
+			args = append(args, *hi)
 		}
-		clause = "(n.created IS NOT NULL AND " + strings.Join(parts, " AND ") + ")"
+		clause = "(" + strings.Join(parts, " AND ") + ")"
 	case query.KindModified:
 		var parts []string
 		if f.Range.HasLo {

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/banorton/gote/internal/dates"
 	"github.com/banorton/gote/internal/ops"
 )
 
@@ -69,7 +70,7 @@ func listTrash(env *ops.Env) ([]TrashEntry, error) {
 		out = append(out, TrashEntry{
 			TrashPath:  p,
 			OriginalID: trashSuffix.ReplaceAllString(rel, "$1"),
-			Deleted:    info.ModTime().Format(tsLayout),
+			Deleted:    dates.Format(info.ModTime()),
 			at:         info.ModTime(),
 		})
 		return nil
@@ -98,7 +99,7 @@ func init() {
 		dst := filepath.Join(trashDir(env), filepath.FromSlash(r.ID))
 		if _, err := os.Lstat(dst); err == nil {
 			ext := path.Ext(r.ID)
-			dst = filepath.Join(trashDir(env), filepath.FromSlash(strings.TrimSuffix(r.ID, ext)+"_"+stamp(env)+ext))
+			dst = filepath.Join(trashDir(env), filepath.FromSlash(strings.TrimSuffix(r.ID, ext)+"_"+prefixStamp(env)+ext))
 			if _, err := os.Lstat(dst); err == nil {
 				return DeleteResp{}, ops.Errorf(ops.CodeConflict, "%s already exists in trash", dst)
 			}

@@ -2,6 +2,7 @@ package note
 
 import (
 	"strings"
+	"time"
 
 	"golang.org/x/text/unicode/norm"
 )
@@ -41,7 +42,7 @@ type Task struct {
 
 type Note struct {
 	ID, Kind, Title, Stem string
-	Created               string
+	Created               time.Time // zero when absent or unparseable
 	Tags, Aliases         []string
 	Fields                map[string]any
 	Semantic              bool

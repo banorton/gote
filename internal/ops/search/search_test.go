@@ -642,3 +642,33 @@ func TestFuzzyKindRestriction(t *testing.T) {
 		t.Fatalf("%v %+v", err, resp.Results)
 	}
 }
+
+func TestCreatedFiltersAcrossForms(t *testing.T) {
+	v := newVault(t, map[string]string{
+		"legacy.md":   "---\ncreated: \"260314153045\"\n---\nx\n",
+		"legint.md":   "---\ncreated: 260320100000\n---\nx\n",
+		"iso.md":      "---\ncreated: \"2026-03-14T09:15:00-05:00\"\n---\nx\n",
+		"dateonly.md": "---\ncreated: 2026-04-02\n---\nx\n",
+		"naive.md":    "---\ncreated: \"2025-12-31T23:59:59\"\n---\nx\n",
+		"none.md":     "x\n",
+		"junk.md":     "---\ncreated: yesterday\n---\nx\n",
+	}, nil)
+	cases := map[string][]string{
+		"created:2026":                   {"dateonly.md", "iso.md", "legacy.md", "legint.md"},
+		"created:2026-03":                {"iso.md", "legacy.md", "legint.md"},
+		"created:2603":                   {"iso.md", "legacy.md", "legint.md"},
+		"created:260314":                 {"iso.md", "legacy.md"},
+		"created:2026-03-14":             {"iso.md", "legacy.md"},
+		"created:2026-03-14T15":          {"legacy.md"},
+		"created:>2026-03":               {"dateonly.md"},
+		"created:<260101":                {"naive.md"},
+		"created:2025..2026-03-14":       {"iso.md", "legacy.md", "naive.md"},
+		"created:2025-12-31T23:59":       {"naive.md"},
+		"created:2026-04-01..2026-04-30": {"dateonly.md"},
+	}
+	for q, want := range cases {
+		if got := ids(v.query(t, q)); !sameSet(got, want) {
+			t.Errorf("%s: got %v want %v", q, got, want)
+		}
+	}
+}

@@ -3,6 +3,7 @@ package parse
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/banorton/gote/internal/note"
 )
@@ -11,26 +12,30 @@ func TestFrontmatterVariants(t *testing.T) {
 	cases := []struct {
 		name, src string
 		tags      []string
-		created   string
+		created   time.Time
 		title     string
 		errSet    bool
 		sem       bool
 	}{
-		{"none", "# Hi\n", nil, "", "My Note", false, true},
-		{"empty", "---\n---\nbody", nil, "", "My Note", false, true},
-		{"invalid", "---\ntags: [\n---\nbody [[x]]", nil, "", "My Note", true, true},
-		{"tags string", "---\ntags: solo\n---\n", []string{"solo"}, "", "My Note", false, true},
-		{"tags list", "---\ntags: [a, b]\n---\n", []string{"a", "b"}, "", "My Note", false, true},
-		{"tags block", "---\ntags:\n  - a\n  - b\n---\n", []string{"a", "b"}, "", "My Note", false, true},
-		{"created int", "---\ncreated: 260102030405\n---\n", nil, "260102030405", "My Note", false, true},
-		{"created padded int", "---\ncreated: 2601\n---\n", nil, "000000002601", "My Note", false, true},
-		{"created string", "---\ncreated: \"000102030405\"\n---\n", nil, "000102030405", "My Note", false, true},
-		{"title", "---\ntitle: Custom\n---\n", nil, "", "Custom", false, true},
-		{"semantic false", "---\nsemantic: false\n---\n", nil, "", "My Note", false, false},
+		{"none", "# Hi\n", nil, time.Time{}, "My Note", false, true},
+		{"empty", "---\n---\nbody", nil, time.Time{}, "My Note", false, true},
+		{"invalid", "---\ntags: [\n---\nbody [[x]]", nil, time.Time{}, "My Note", true, true},
+		{"tags string", "---\ntags: solo\n---\n", []string{"solo"}, time.Time{}, "My Note", false, true},
+		{"tags list", "---\ntags: [a, b]\n---\n", []string{"a", "b"}, time.Time{}, "My Note", false, true},
+		{"tags block", "---\ntags:\n  - a\n  - b\n---\n", []string{"a", "b"}, time.Time{}, "My Note", false, true},
+		{"created int", "---\ncreated: 260102030405\n---\n", nil, time.Date(2026, 1, 2, 3, 4, 5, 0, time.Local), "My Note", false, true},
+		{"created unparseable int", "---\ncreated: 2601\n---\n", nil, time.Time{}, "My Note", false, true},
+		{"created junk", "---\ncreated: old\n---\n", nil, time.Time{}, "My Note", false, true},
+		{"created iso offset", "---\ncreated: \"2026-11-27T14:30:00-05:00\"\n---\n", nil, time.Date(2026, 11, 27, 14, 30, 0, 0, time.FixedZone("", -5*3600)), "My Note", false, true},
+		{"created iso date", "---\ncreated: 2026-11-27\n---\n", nil, time.Date(2026, 11, 27, 0, 0, 0, 0, time.Local), "My Note", false, true},
+		{"created iso local", "---\ncreated: \"2026-11-27T14:30:00\"\n---\n", nil, time.Date(2026, 11, 27, 14, 30, 0, 0, time.Local), "My Note", false, true},
+		{"created string", "---\ncreated: \"000102030405\"\n---\n", nil, time.Date(2000, 1, 2, 3, 4, 5, 0, time.Local), "My Note", false, true},
+		{"title", "---\ntitle: Custom\n---\n", nil, time.Time{}, "Custom", false, true},
+		{"semantic false", "---\nsemantic: false\n---\n", nil, time.Time{}, "My Note", false, false},
 	}
 	for _, c := range cases {
 		n := Note("sub/My Note.md", []byte(c.src))
-		if !reflect.DeepEqual(n.Tags, c.tags) || n.Created != c.created || n.Title != c.title || (n.ParseErr != "") != c.errSet || n.Semantic != c.sem {
+		if !reflect.DeepEqual(n.Tags, c.tags) || !n.Created.Equal(c.created) || n.Title != c.title || (n.ParseErr != "") != c.errSet || n.Semantic != c.sem {
 			t.Errorf("%s: %+v", c.name, n)
 		}
 		if n.Stem != "my note" || n.Kind != note.KindNote || n.ID != "sub/My Note.md" {
