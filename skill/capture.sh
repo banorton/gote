@@ -14,7 +14,9 @@ cp -R "$HERE/fixture" "$NOTES"
 mkdir -p "$WORK/config/gote" "$WORK/state"
 printf 'notes_dir: %s\nserver: false\neditor: "true"\n' "$NOTES" > "$WORK/config/gote/config.yaml"
 
-# Fixed mtimes: ordering and `modified:` filters must not depend on when this runs.
+# Fixed mtimes and zone: ordering, `modified:` filters and printed dates must
+# not depend on when or where this runs. TZ must be set before touch -t.
+export TZ=UTC
 t=2611010900
 for f in ideas.md design.md lonely.md projects/gote.md \
   diagrams/261101120000_diagram_architecture.excalidraw \
@@ -23,7 +25,7 @@ for f in ideas.md design.md lonely.md projects/gote.md \
   t=$((t + 100))
 done
 
-export TZ=UTC XDG_CONFIG_HOME="$WORK/config" XDG_STATE_HOME="$WORK/state" EDITOR=true
+export XDG_CONFIG_HOME="$WORK/config" XDG_STATE_HOME="$WORK/state" EDITOR=true
 
 CMDS=(
   "search --json desi"

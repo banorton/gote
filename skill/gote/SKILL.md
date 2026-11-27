@@ -228,7 +228,7 @@ $ gote info --json gote
   "kind": "note",
   "path": "~/notes/projects/gote.md",
   "created": "",
-  "modified": "2026-11-01T17:00:00Z",
+  "modified": "2026-11-01T12:00:00Z",
   "size": 301,
   "tags": [
     "go",
@@ -405,13 +405,13 @@ $ gote diagram list --json
     "id": "diagrams/261101130000_diagram_broken.excalidraw",
     "title": "261101130000_diagram_broken",
     "path": "~/notes/diagrams/261101130000_diagram_broken.excalidraw",
-    "modified": "2026-11-01T19:00:00Z"
+    "modified": "2026-11-01T14:00:00Z"
   },
   {
     "id": "diagrams/261101120000_diagram_architecture.excalidraw",
     "title": "261101120000_diagram_architecture",
     "path": "~/notes/diagrams/261101120000_diagram_architecture.excalidraw",
-    "modified": "2026-11-01T18:00:00Z"
+    "modified": "2026-11-01T13:00:00Z"
   }
 ]
 ```
