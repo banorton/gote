@@ -51,7 +51,8 @@ type CreateResp struct {
 }
 
 type ListReq struct {
-	Limit int `json:"limit"`
+	Limit int  `json:"limit"`
+	All   bool `json:"all"`
 }
 
 type ListItem struct {
@@ -215,7 +216,7 @@ func listDiagrams(ctx context.Context, env *ops.Env, req ListReq) ([]ListItem, e
 	if req.Limit < 0 {
 		return nil, ops.Errorf(ops.CodeInvalid, "limit must be >= 0")
 	}
-	q := "SELECT id, title, mtime_ns FROM notes WHERE kind = 'diagram' ORDER BY mtime_ns DESC, id"
+	q := "SELECT id, title, mtime_ns FROM notes n WHERE kind = 'diagram' AND " + ops.Visible("n", req.All) + " ORDER BY mtime_ns DESC, id"
 	var args []any
 	if req.Limit > 0 {
 		q += " LIMIT ?"

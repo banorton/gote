@@ -79,11 +79,12 @@ func snippet(s string) string {
 
 // Search embeds q and returns the best chunk per note, nearest first.
 func Search(ctx context.Context, env *ops.Env, q string, limit int) ([]search.Result, error) {
-	return SearchKind(ctx, env, q, limit, "")
+	return SearchKind(ctx, env, q, limit, "", false)
 }
 
-// SearchKind is Search restricted to notes of one kind ("" means all).
-func SearchKind(ctx context.Context, env *ops.Env, q string, limit int, kind string) ([]search.Result, error) {
+// SearchKind is Search restricted to notes of one kind ("" means all); all
+// includes archived notes.
+func SearchKind(ctx context.Context, env *ops.Env, q string, limit int, kind string, all bool) ([]search.Result, error) {
 	cfg := env.Cfg.Semantic
 	if !cfg.Enabled() {
 		return nil, notConfigured()
@@ -139,7 +140,7 @@ func SearchKind(ctx context.Context, env *ops.Env, q string, limit int, kind str
 			break
 		}
 		var title, k string
-		err := env.Store.DB.QueryRowContext(ctx, "SELECT title, kind FROM notes WHERE id=?", b.e.noteID).Scan(&title, &k)
+		err := env.Store.DB.QueryRowContext(ctx, "SELECT title, kind FROM notes n WHERE id=? AND "+ops.Visible("n", all), b.e.noteID).Scan(&title, &k)
 		if err != nil {
 			continue
 		}

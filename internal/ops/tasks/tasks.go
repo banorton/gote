@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/banorton/gote/internal/ops"
+	"github.com/banorton/gote/internal/query"
 )
 
 const searchLimit = 1000
@@ -13,6 +14,8 @@ const searchLimit = 1000
 type ListReq struct {
 	All bool   `json:"all"`
 	Q   string `json:"q"`
+	// Archived includes tasks in archived notes (a tag:archive query does too).
+	Archived bool `json:"archived"`
 }
 
 type Task struct {
@@ -32,7 +35,7 @@ func matchingIDs(ctx context.Context, env *ops.Env, q string) (map[string]bool, 
 	if !ok {
 		return nil, ops.Errorf(ops.CodeInternal, "tasks.list: search.query is not registered")
 	}
-	raw, err := json.Marshal(map[string]any{"q": q, "limit": searchLimit})
+	raw, err := json.Marshal(map[string]any{"q": q, "limit": searchLimit, "all": true})
 	if err != nil {
 		return nil, ops.Errorf(ops.CodeInternal, "tasks.list: %v", err)
 	}
@@ -67,9 +70,17 @@ func runList(ctx context.Context, env *ops.Env, req ListReq) ([]Task, error) {
 			return nil, err
 		}
 	}
-	q := `SELECT t.note_id, n.title, t.line, t.text, t.done FROM tasks t JOIN notes n ON n.id = t.note_id`
+	archived := req.Archived
+	if strings.TrimSpace(req.Q) != "" {
+		pq, err := query.Parse(req.Q)
+		if err != nil {
+			return nil, ops.Errorf(ops.CodeInvalid, "%v", err)
+		}
+		archived = archived || pq.MentionsArchive()
+	}
+	q := `SELECT t.note_id, n.title, t.line, t.text, t.done FROM tasks t JOIN notes n ON n.id = t.note_id WHERE ` + ops.Visible("n", archived)
 	if !req.All {
-		q += ` WHERE t.done = 0`
+		q += ` AND t.done = 0`
 	}
 	q += ` ORDER BY n.mtime_ns DESC, t.note_id, t.line`
 	rows, err := env.Store.DB.QueryContext(ctx, q)

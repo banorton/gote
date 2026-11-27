@@ -449,7 +449,7 @@ func TestSearchTextOnlyDrawingsIncludingDescription(t *testing.T) {
 
 func TestSearchSemanticOnlyDrawings(t *testing.T) {
 	var gotKind string
-	search.SemanticHook = func(ctx context.Context, env *ops.Env, q string, limit int, kind string) ([]search.Result, error) {
+	search.SemanticHook = func(ctx context.Context, env *ops.Env, q string, limit int, kind string, all bool) ([]search.Result, error) {
 		gotKind = kind
 		return []search.Result{{ID: "client-flow.excalidraw", Title: "client-flow", Kind: "diagram"}}, nil
 	}

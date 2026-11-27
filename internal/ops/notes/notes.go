@@ -41,11 +41,13 @@ type CreateResp struct {
 }
 
 type RecentReq struct {
-	Limit int `json:"limit"`
+	Limit int  `json:"limit"`
+	All   bool `json:"all"`
 }
 
 type ListReq struct {
 	Kind string `json:"kind"`
+	All  bool   `json:"all"`
 }
 
 type DupReq struct {
@@ -184,7 +186,7 @@ func init() {
 		if kind == "" {
 			kind = "note"
 		}
-		return queryRefs(ctx, env, "SELECT id, title, kind FROM notes WHERE kind=? ORDER BY lower(title), id", kind)
+		return queryRefs(ctx, env, "SELECT id, title, kind FROM notes n WHERE kind=? AND "+ops.Visible("n", r.All)+" ORDER BY lower(title), id", kind)
 	})
 
 	ops.Handle("notes.create", func(ctx context.Context, env *ops.Env, r CreateReq) (CreateResp, error) {
@@ -217,7 +219,7 @@ func init() {
 			limit = 50
 		}
 		return queryRefs(ctx, env, `SELECT n.id, n.title, n.kind FROM visits v JOIN notes n ON n.id=v.note_id
-			ORDER BY v.last_visited DESC LIMIT ?`, limit)
+			WHERE `+ops.Visible("n", r.All)+` ORDER BY v.last_visited DESC LIMIT ?`, limit)
 	})
 
 	ops.Handle("notes.info", func(ctx context.Context, env *ops.Env, r IDReq) (InfoResp, error) {

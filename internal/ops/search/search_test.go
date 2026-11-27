@@ -349,7 +349,7 @@ func TestSemanticNotConfigured(t *testing.T) {
 
 func TestSemanticHookCalled(t *testing.T) {
 	v := newVault(t, fixture, nil)
-	SemanticHook = func(ctx context.Context, env *ops.Env, q string, limit int, kind string) ([]Result, error) {
+	SemanticHook = func(ctx context.Context, env *ops.Env, q string, limit int, kind string, all bool) ([]Result, error) {
 		return []Result{{ID: "x.md", Title: q}}, nil
 	}
 	defer func() { SemanticHook = nil }()
@@ -498,15 +498,64 @@ func TestFuzzyLimitAndEmptyShape(t *testing.T) {
 	}
 }
 
-func TestFuzzyRejectsFilterTokensWithHint(t *testing.T) {
-	v := newVault(t, fuzzyFiles, nil)
-	for _, q := range []string{"kube tag:ops", "kube -tag:ops", "kube -other", "created:2611"} {
-		_, err := v.fuzzy(t, q, 0)
-		var oe *ops.Error
-		if !errors.As(err, &oe) || oe.Code != ops.CodeInvalid || !strings.Contains(err.Error(), "-t") {
-			t.Fatalf("%q: %v", q, err)
+var fuzzyFilterFiles = map[string]string{
+	"api-gateway.md":    "---\ntitle: API Gateway\ntags: [thread]\ncreated: \"260301000000\"\n---\nx\n",
+	"api-old.md":        "---\ntitle: API Old\ntags: [thread, archive]\n---\nx\n",
+	"api-draft.md":      "---\ntitle: API draft\ntags: [draft]\nstatus: draft\n---\nx\n",
+	"billing.md":        "---\ntags: [thread]\ncreated: \"2025-06-01\"\n---\nx\n",
+	"sketch.excalidraw": `{"type":"excalidraw","elements":[]}`,
+}
+
+func TestFuzzyWithFilters(t *testing.T) {
+	v := newVault(t, fuzzyFilterFiles, map[string]time.Time{
+		"billing.md":     time.Date(2026, 5, 1, 0, 0, 0, 0, time.Local),
+		"api-gateway.md": time.Date(2026, 4, 1, 0, 0, 0, 0, time.Local),
+		"api-draft.md":   time.Date(2026, 3, 1, 0, 0, 0, 0, time.Local),
+	})
+	cases := []struct {
+		q    string
+		want string // ordered ids, comma separated
+	}{
+		{"tag:thread api", "api-gateway.md"},
+		{"api tag:thread", "api-gateway.md"},
+		{"tag:archive api", "api-old.md"},
+		{"-tag:thread api", "api-draft.md"},
+		{"status:draft", "api-draft.md"},
+		{"tag:thread", "billing.md,api-gateway.md"},
+		{"tag:thread created:2026", "api-gateway.md"},
+		{"created:<2026", "billing.md"},
+		{"kind:diagram", "sketch.excalidraw"},
+		{"kind:diagram sketch", "sketch.excalidraw"},
+		{"modified:2026-04", "api-gateway.md"},
+		{`"api gat"`, "api-gateway.md"},
+		{`tag:thread "API G"`, "api-gateway.md"},
+		{"api -gateway", "api-draft.md"},
+		{`api -"gate"`, "api-draft.md"},
+		{"tag:nothing api", ""},
+	}
+	for _, c := range cases {
+		rs, err := v.fuzzy(t, c.q, 0)
+		if err != nil {
+			t.Errorf("%q: %v", c.q, err)
+			continue
+		}
+		if got := strings.Join(ids2(rs), ","); got != c.want {
+			t.Errorf("%q: got %q want %q", c.q, got, c.want)
 		}
 	}
+	for _, bad := range []string{"api created:123", "api tag:", `api "unterminated`} {
+		if _, err := v.fuzzy(t, bad, 0); errCode(err) != ops.CodeInvalid {
+			t.Errorf("%q: want invalid, got %v", bad, err)
+		}
+	}
+}
+
+func ids2(rs []FuzzyResult) []string {
+	var out []string
+	for _, r := range rs {
+		out = append(out, r.ID)
+	}
+	return out
 }
 
 func TestFuzzyEmptyAndNegativeLimitInvalid(t *testing.T) {
@@ -579,16 +628,6 @@ func TestKindUnknownValueInvalid(t *testing.T) {
 	}
 }
 
-func TestFuzzyRejectsKindFilterWithHint(t *testing.T) {
-	v := kindVault(t)
-	for _, q := range []string{"kube kind:diagram", "kube -kind:note"} {
-		_, err := v.fuzzy(t, q, 0)
-		if errCode(err) != ops.CodeInvalid || !strings.Contains(err.Error(), "-t") {
-			t.Fatalf("%q: %v", q, err)
-		}
-	}
-}
-
 var sharedFiles = map[string]string{
 	"kube-notes.md":          "kubernetes in a note\n",
 	"kube-sketch.excalidraw": `{"type":"excalidraw","gote":{"description":"rollout topology"},"elements":[{"id":"t1","type":"text","text":"kubernetes sketch"}]}`,
@@ -619,7 +658,7 @@ func TestQueryKindRestriction(t *testing.T) {
 func TestQueryKindPassedToSemanticHook(t *testing.T) {
 	v := newVault(t, sharedFiles, nil)
 	var got string
-	SemanticHook = func(ctx context.Context, env *ops.Env, q string, limit int, kind string) ([]Result, error) {
+	SemanticHook = func(ctx context.Context, env *ops.Env, q string, limit int, kind string, all bool) ([]Result, error) {
 		got = kind
 		return nil, nil
 	}

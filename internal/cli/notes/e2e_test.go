@@ -279,8 +279,8 @@ func TestSearchListerUsesFuzzyTitles(t *testing.T) {
 	if code != 0 || !strings.Contains(out, "k8s.md") || strings.Contains(out, "body.md") {
 		t.Fatalf("%d %q", code, out)
 	}
-	if code, out = s.run("so", "kube", "tag:x"); code != 1 || out != "" {
-		t.Fatalf("filter tokens in fuzzy lister must error: %d %q", code, out)
+	if code, out = s.run("so", "kube", "tag:x"); code != 0 || strings.Contains(out, "k8s.md") {
+		t.Fatalf("filter tokens in fuzzy lister must narrow: %d %q", code, out)
 	}
 }
 

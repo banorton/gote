@@ -18,6 +18,8 @@ var (
 	ErrNotTTY    = errors.New("interactive menu needs a terminal")
 )
 
+// Item is one menu entry. Detail follows the title on the same row; any lines
+// after its first are shown indented beneath the entry.
 type Item struct {
 	ID, Title, Detail string
 }
@@ -114,10 +116,16 @@ func (m model) View() string {
 	end := min(start+pageSize, len(m.items))
 	for i, it := range m.items[start:end] {
 		fmt.Fprintf(&sb, " [%c] %s", homeRow[i], it.Title)
-		if it.Detail != "" {
-			fmt.Fprintf(&sb, "  %s", it.Detail)
+		first, rest, _ := strings.Cut(it.Detail, "\n")
+		if first != "" {
+			fmt.Fprintf(&sb, "  %s", first)
 		}
 		sb.WriteByte('\n')
+		if rest != "" {
+			for _, l := range strings.Split(rest, "\n") {
+				fmt.Fprintf(&sb, "     %s\n", l)
+			}
+		}
 	}
 	fmt.Fprintf(&sb, "\n (%d/%d) [n]ext [p]rev [q]uit\n", m.page+1, m.pages())
 	var modes []string

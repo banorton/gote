@@ -17,6 +17,11 @@ type TagCount struct {
 
 type TagsNotesReq struct {
 	Tags []string `json:"tags"`
+	All  bool     `json:"all"`
+}
+
+type IDsReq struct {
+	IDs []string `json:"ids"`
 }
 
 type TagsEditReq struct {
@@ -93,15 +98,20 @@ func init() {
 		if len(r.Tags) == 0 {
 			return nil, ops.Errorf(ops.CodeInvalid, "no tags given")
 		}
-		uniq := slices.Compact(slices.Sorted(slices.Values(r.Tags)))
+		lowered := make([]string, len(r.Tags))
+		for i, t := range r.Tags {
+			lowered[i] = strings.ToLower(t)
+		}
+		uniq := slices.Compact(slices.Sorted(slices.Values(lowered)))
 		args := make([]any, 0, len(uniq)+1)
 		for _, t := range uniq {
 			args = append(args, t)
 		}
 		args = append(args, len(uniq))
-		return queryRefs(ctx, env, `SELECT n.id, n.title, n.kind FROM notes n WHERE n.id IN (
-			SELECT note_id FROM tags WHERE tag IN (`+strings.TrimSuffix(strings.Repeat("?,", len(uniq)), ",")+`)
-			GROUP BY note_id HAVING count(DISTINCT tag)=?) ORDER BY lower(n.title), n.id`, args...)
+		all := r.All || slices.ContainsFunc(uniq, ops.IsArchiveTag)
+		return queryRefs(ctx, env, `SELECT n.id, n.title, n.kind FROM notes n WHERE `+ops.Visible("n", all)+` AND n.id IN (
+			SELECT note_id FROM tags WHERE lower(tag) IN (`+strings.TrimSuffix(strings.Repeat("?,", len(uniq)), ",")+`)
+			GROUP BY note_id HAVING count(DISTINCT lower(tag))=?) ORDER BY lower(n.title), n.id`, args...)
 	})
 
 	ops.Handle("tags.add", func(ctx context.Context, env *ops.Env, r TagsEditReq) ([]string, error) {
@@ -110,6 +120,21 @@ func init() {
 				return tags
 			}
 			return append(tags, tag)
+		})
+	})
+
+	ops.Handle("notes.archive", func(ctx context.Context, env *ops.Env, r IDsReq) ([]string, error) {
+		return editTags(ctx, env, TagsEditReq{Tag: ops.ArchiveTag, IDs: r.IDs}, func(tags []string, _ string) []string {
+			if slices.ContainsFunc(tags, ops.IsArchiveTag) {
+				return tags
+			}
+			return append(tags, ops.ArchiveTag)
+		})
+	})
+
+	ops.Handle("notes.unarchive", func(ctx context.Context, env *ops.Env, r IDsReq) ([]string, error) {
+		return editTags(ctx, env, TagsEditReq{Tag: ops.ArchiveTag, IDs: r.IDs}, func(tags []string, _ string) []string {
+			return slices.DeleteFunc(tags, ops.IsArchiveTag)
 		})
 	})
 

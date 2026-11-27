@@ -6,6 +6,10 @@ import (
 	"github.com/banorton/gote/internal/ops"
 )
 
+type PinsListReq struct {
+	All bool `json:"all"`
+}
+
 func init() {
 	ops.Handle("pins.add", func(ctx context.Context, env *ops.Env, r IDReq) (ops.Empty, error) {
 		if _, _, err := noteRow(ctx, env, r.ID); err != nil {
@@ -18,8 +22,8 @@ func init() {
 		_, err := env.Store.DB.ExecContext(ctx, "DELETE FROM pins WHERE note_id=?", r.ID)
 		return ops.Empty{}, dbErr("unpin", err)
 	})
-	ops.Handle("pins.list", func(ctx context.Context, env *ops.Env, _ ops.Empty) ([]Ref, error) {
+	ops.Handle("pins.list", func(ctx context.Context, env *ops.Env, r PinsListReq) ([]Ref, error) {
 		return queryRefs(ctx, env, `SELECT n.id, n.title, n.kind FROM pins p JOIN notes n ON n.id=p.note_id
-			ORDER BY p.pinned_at DESC, n.id`)
+			WHERE `+ops.Visible("n", r.All)+` ORDER BY p.pinned_at DESC, n.id`)
 	})
 }

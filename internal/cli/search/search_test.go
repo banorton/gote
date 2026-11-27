@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/banorton/gote/internal/cli"
+	"github.com/banorton/gote/internal/cli/results"
 	"github.com/banorton/gote/internal/client"
 	"github.com/banorton/gote/internal/config"
 	"github.com/banorton/gote/internal/index"
@@ -58,15 +60,93 @@ func TestSearchPrintsRankedList(t *testing.T) {
 	if err := run(c, []string{"-t", "kubernetes"}); err != nil {
 		t.Fatal(err)
 	}
-	s := out.String()
-	if !strings.HasPrefix(s, "Kubernetes guide  (k8s.md:6)\n") {
-		t.Fatalf("%q", s)
+	want := "Kubernetes guide  k8s.md:6\n    intro all about kubernetes pods\nx  notes/x.md:4\n    kubernetes again\n"
+	if out.String() != want {
+		t.Fatalf("got %q want %q", out.String(), want)
 	}
-	if !strings.Contains(s, "x  (notes/x.md:4)\n") || !strings.Contains(s, "    ") {
-		t.Fatalf("%q", s)
+}
+
+func setTTY(t *testing.T, v bool) {
+	t.Helper()
+	old := results.IsTTY
+	results.IsTTY = func(io.Writer) bool { return v }
+	t.Cleanup(func() { results.IsTTY = old })
+}
+
+func TestSearchListFlagPrintsStyledList(t *testing.T) {
+	for _, flag := range []string{"--list", "-l"} {
+		c, out := testCtx(t, files)
+		setTTY(t, true)
+		if err := run(c, []string{flag, "-t", "kubernetes"}); err != nil {
+			t.Fatal(err)
+		}
+		s := out.String()
+		if !strings.HasPrefix(s, "\x1b[1mKubernetes guide\x1b[0m  \x1b[2mk8s.md:6\x1b[0m\n    intro all about \x1b[1;33mkubernetes\x1b[0m pods\n") {
+			t.Fatalf("%s: %q", flag, s)
+		}
 	}
-	if strings.Contains(s, "other.md") {
-		t.Fatal(s)
+}
+
+func TestSearchNoANSIWhenNotTTY(t *testing.T) {
+	c, out := testCtx(t, files)
+	setTTY(t, false)
+	if err := run(c, []string{"-t", "kubernetes"}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "\x1b") {
+		t.Fatalf("%q", out.String())
+	}
+}
+
+func TestSearchSemanticListFormat(t *testing.T) {
+	c, out := testCtx(t, files)
+	opsearch.SemanticHook = func(ctx context.Context, env *ops.Env, q string, limit int, kind string, all bool) ([]opsearch.Result, error) {
+		return []opsearch.Result{{ID: "k8s.md", Title: "Kubernetes guide", Kind: "note", Line: 5, Score: 0.8249, Snippet: "\n  first chunk line\nsecond"}}, nil
+	}
+	t.Cleanup(func() { opsearch.SemanticHook = nil })
+	if err := run(c, []string{"-s", "orchestration"}); err != nil {
+		t.Fatal(err)
+	}
+	if want := "Kubernetes guide  k8s.md:5  0.82\n    first chunk line\n"; out.String() != want {
+		t.Fatalf("%q", out.String())
+	}
+}
+
+func TestSearchAllIncludesArchived(t *testing.T) {
+	fs := map[string]string{
+		"live.md": "---\ntags: [x]\n---\nzebra\n",
+		"old.md":  "---\ntags: [Archive]\n---\nzebra\n",
+	}
+	ids := func(args ...string) string {
+		c, out := testCtx(t, fs)
+		c.JSON = true
+		if err := run(c, args); err != nil {
+			t.Fatal(err)
+		}
+		var resp struct{ Results []struct{ ID string } }
+		if err := json.Unmarshal(out.Bytes(), &resp); err != nil {
+			t.Fatal(err)
+		}
+		var got []string
+		for _, r := range resp.Results {
+			got = append(got, r.ID)
+		}
+		return strings.Join(got, ",")
+	}
+	if got := ids("-t", "zebra"); got != "live.md" {
+		t.Errorf("-t: %q", got)
+	}
+	if got := ids("-t", "--all", "zebra"); got != "live.md,old.md" {
+		t.Errorf("-t --all: %q", got)
+	}
+	if got := ids("-t", "zebra", "tag:archive"); got != "old.md" {
+		t.Errorf("-t tag:archive: %q", got)
+	}
+	if got := ids("old"); got != "" {
+		t.Errorf("fuzzy: %q", got)
+	}
+	if got := ids("--all", "old"); got != "old.md" {
+		t.Errorf("fuzzy --all: %q", got)
 	}
 }
 
@@ -242,12 +322,15 @@ func TestSearchFuzzyLimit(t *testing.T) {
 	}
 }
 
-func TestSearchFuzzyFilterTokenErrorsWithHint(t *testing.T) {
-	c, _ := testCtx(t, files)
-	err := run(c, []string{"kube", "tag:ops"})
-	var oe *ops.Error
-	if !errors.As(err, &oe) || oe.Code != ops.CodeInvalid || !strings.Contains(err.Error(), "-t") {
-		t.Fatalf("%v", err)
+func TestSearchFuzzyAppliesFilters(t *testing.T) {
+	c, out := testCtx(t, files)
+	c.JSON = true
+	if err := run(c, []string{"kube", "tag:ops"}); err != nil {
+		t.Fatal(err)
+	}
+	var resp struct{ Results []struct{ ID string } }
+	if err := json.Unmarshal(out.Bytes(), &resp); err != nil || len(resp.Results) != 1 || resp.Results[0].ID != "k8s.md" {
+		t.Fatalf("%v %s", err, out)
 	}
 }
 

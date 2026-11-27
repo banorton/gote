@@ -52,10 +52,10 @@ func withNote(usage string, fn func(c *cli.Ctx, r opsnotes.Ref) error) func(*cli
 }
 
 func pinnedCmd(c *cli.Ctx, args []string) error {
-	if len(args) > 0 {
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		return pinCmd(c, args)
 	}
-	return listAndPick(c, listPinned, nil, "open")
+	return listAndPick(c, listPinned, args, "open")
 }
 
 var pinCmd = withNote("gote pin <note>", func(c *cli.Ctx, r opsnotes.Ref) error { return pinID(c, r.ID, true) })
@@ -115,6 +115,27 @@ var infoCmd = withNote("gote info <note>", func(c *cli.Ctx, r opsnotes.Ref) erro
 		i.ID, i.Title, i.Path, i.Created, i.Modified, i.Size, strings.Join(i.Tags, ", "), strings.Join(i.Aliases, ", "), i.Links, i.Backlinks, i.Pinned)
 	return nil
 })
+
+func archiveEdit(op, verb string) func(c *cli.Ctx, args []string) error {
+	return func(c *cli.Ctx, args []string) error {
+		if len(args) == 0 {
+			return cli.Usagef("usage: gote %s <note...>", strings.TrimPrefix(op, "notes."))
+		}
+		ids := make([]string, 0, len(args))
+		for _, ref := range args {
+			r, err := resolve(c, ref)
+			if err != nil {
+				return err
+			}
+			ids = append(ids, r.ID)
+		}
+		changed := []string{}
+		if err := call(c, op, opsnotes.IDsReq{IDs: ids}, &changed); err != nil {
+			return err
+		}
+		return say(c, changed, "%s %d notes", verb, len(changed))
+	}
+}
 
 func tagCmd(c *cli.Ctx, args []string) error {
 	if len(args) == 0 {
@@ -338,11 +359,15 @@ func importCmd(c *cli.Ctx, args []string) error {
 
 func init() {
 	cli.Register(cli.Command{Name: "pinned", Aliases: []string{"p"}, Summary: "menu of pinned notes (with args: pin a note)",
-		Usage: "gote pinned   |   gote p <note>", Run: pinnedCmd})
+		Usage: "gote pinned [--all]   |   gote p <note>", Run: pinnedCmd})
 	cli.Register(cli.Command{Name: "pin", Summary: "pin a note", Usage: "gote pin <note>", Run: pinCmd})
 	cli.Register(cli.Command{Name: "unpin", Aliases: []string{"u", "up"}, Summary: "unpin a note", Usage: "gote unpin <note>", Run: unpinCmd})
+	cli.Register(cli.Command{Name: "archive", Summary: "archive notes (adds the archive tag; hidden from listings and search)",
+		Usage: "gote archive <note...>", Run: archiveEdit("notes.archive", "archived")})
+	cli.Register(cli.Command{Name: "unarchive", Summary: "unarchive notes (removes the archive tag)",
+		Usage: "gote unarchive <note...>", Run: archiveEdit("notes.unarchive", "unarchived")})
 	cli.Register(cli.Command{Name: "tag", Aliases: []string{"t"}, Summary: "list tags, find notes by tag, add or remove tags",
-		Usage: "gote tag [<tag>...]   |   gote tag add|rm <tag> <note...|--query q>", Run: tagCmd})
+		Usage: "gote tag [--all] [<tag>...]   |   gote tag add|rm <tag> <note...|--query q>", Run: tagCmd})
 	cli.Register(cli.Command{Name: "delete", Aliases: []string{"d", "del"}, Summary: "move a note to the trash", Usage: "gote delete <note>", Run: deleteCmd})
 	cli.Register(cli.Command{Name: "trash", Summary: "list the trash, or `trash empty`", Usage: "gote trash [empty]", Run: trashCmd})
 	cli.Register(cli.Command{Name: "recover", Summary: "restore a note from the trash", Usage: "gote recover <name>", Run: recoverCmd})
