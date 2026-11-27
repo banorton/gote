@@ -10,15 +10,18 @@ import (
 
 	"github.com/goccy/go-yaml"
 
+	"github.com/banorton/gote/internal/dates"
 	"github.com/banorton/gote/internal/paths"
 )
 
 type Config struct {
-	NotesDir   string   `yaml:"notes_dir"`
-	Editor     string   `yaml:"editor"`
-	Server     bool     `yaml:"server"`
-	DiagramDir string   `yaml:"diagram_dir"`
-	DiagramPNG string   `yaml:"diagram_png"`
+	NotesDir   string `yaml:"notes_dir"`
+	Editor     string `yaml:"editor"`
+	Server     bool   `yaml:"server"`
+	DiagramDir string `yaml:"diagram_dir"`
+	DiagramPNG string `yaml:"diagram_png"`
+	// DateFormat is how created:/modified: filter values are written: iso or compact.
+	DateFormat string   `yaml:"date_format"`
 	Semantic   Semantic `yaml:"semantic"`
 }
 
@@ -136,7 +139,7 @@ func Load() (*Config, error) {
 		}
 		return nil, fmt.Errorf("read config %s: %w", p, err)
 	}
-	c := Config{Server: true, DiagramDir: "diagrams", DiagramPNG: PNGCache}
+	c := Config{Server: true, DiagramDir: "diagrams", DiagramPNG: PNGCache, DateFormat: dates.ISO}
 	if err := yaml.UnmarshalWithOptions(data, &c, yaml.Strict()); err != nil {
 		return nil, fmt.Errorf("parse config %s: %w", p, err)
 	}
@@ -154,6 +157,9 @@ func Load() (*Config, error) {
 	case PNGCache, PNGSidecar, PNGOff:
 	default:
 		return nil, fmt.Errorf("config %s: diagram_png: must be cache, sidecar or off, got %q", p, c.DiagramPNG)
+	}
+	if c.DateFormat != dates.ISO && c.DateFormat != dates.Compact {
+		return nil, fmt.Errorf("config %s: date_format: must be iso or compact, got %q", p, c.DateFormat)
 	}
 	if err := c.Semantic.validate(); err != nil {
 		return nil, fmt.Errorf("config %s: %w", p, err)

@@ -9,6 +9,10 @@ import (
 
 const maxDepth = 5
 
+type OrphansReq struct {
+	All bool `json:"all"`
+}
+
 type IDReq struct {
 	ID string `json:"id"`
 }
@@ -113,8 +117,8 @@ func init() {
 		return out, rows.Err()
 	})
 
-	ops.Handle("graph.orphans", func(ctx context.Context, env *ops.Env, _ ops.Empty) ([]NoteRef, error) {
-		rows, err := env.Store.DB.QueryContext(ctx, `SELECT id, title, kind FROM notes n WHERE kind='note'
+	ops.Handle("graph.orphans", func(ctx context.Context, env *ops.Env, r OrphansReq) ([]NoteRef, error) {
+		rows, err := env.Store.DB.QueryContext(ctx, `SELECT id, title, kind FROM notes n WHERE kind='note' AND `+ops.Visible("n", r.All)+`
 			AND NOT EXISTS (SELECT 1 FROM links l WHERE l.src=n.id AND l.dst_id IS NOT NULL AND l.dst_id<>n.id)
 			AND NOT EXISTS (SELECT 1 FROM links l WHERE l.dst_id=n.id AND l.src<>n.id)
 			ORDER BY id`)

@@ -13,7 +13,7 @@ import (
 func init() {
 	cli.Register(cli.Command{Name: "links", Summary: "list outgoing links of a note", Usage: "gote links <note>", Run: runLinks})
 	cli.Register(cli.Command{Name: "backlinks", Summary: "list notes linking to a note", Usage: "gote backlinks <note>", Run: runBacklinks})
-	cli.Register(cli.Command{Name: "orphans", Summary: "list notes with no links in or out", Usage: "gote orphans", Run: runOrphans})
+	cli.Register(cli.Command{Name: "orphans", Summary: "list notes with no links in or out", Usage: "gote orphans [--all]", Run: runOrphans})
 	cli.Register(cli.Command{Name: "broken", Summary: "list unresolved links", Usage: "gote broken", Run: runBroken})
 	cli.Register(cli.Command{Name: "graph", Summary: "show a note's link neighborhood as a tree", Usage: "gote graph <note> [-d N]", Run: runGraph})
 }
@@ -95,11 +95,11 @@ func runBacklinks(c *cli.Ctx, args []string) error {
 }
 
 func runOrphans(c *cli.Ctx, args []string) error {
-	if len(args) != 0 {
-		return cli.Usagef("usage: gote orphans")
+	if len(args) > 1 || (len(args) == 1 && args[0] != "--all") {
+		return cli.Usagef("usage: gote orphans [--all]")
 	}
 	var out []opgraph.NoteRef
-	if err := c.Client.Call(context.Background(), "graph.orphans", nil, &out); err != nil {
+	if err := c.Client.Call(context.Background(), "graph.orphans", opgraph.OrphansReq{All: len(args) == 1}, &out); err != nil {
 		return err
 	}
 	if c.JSON {

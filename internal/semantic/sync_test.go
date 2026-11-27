@@ -431,8 +431,24 @@ func TestBackgroundDoesNotRunFirstEmbed(t *testing.T) {
 func TestSearchKindRestrictsBeforeLimit(t *testing.T) {
 	v := newVault(t, fixture)
 	v.sync(t, true)
-	rs, err := SearchKind(context.Background(), v.env, "apple", 1, "diagram")
+	rs, err := SearchKind(context.Background(), v.env, "apple", 1, "diagram", false)
 	if err != nil || len(rs) != 1 || rs[0].Kind != "diagram" {
+		t.Fatalf("%v %+v", err, rs)
+	}
+}
+
+func TestSearchHidesArchivedUnlessAll(t *testing.T) {
+	v := newVault(t, map[string]string{
+		"live.md": "cherry live\n",
+		"old.md":  "---\ntags: [Archive]\n---\ncherry cherry cherry cherry\n",
+	})
+	v.sync(t, true)
+	rs, err := SearchKind(context.Background(), v.env, "cherry", 10, "", false)
+	if err != nil || len(rs) != 1 || rs[0].ID != "live.md" {
+		t.Fatalf("%v %+v", err, rs)
+	}
+	rs, err = SearchKind(context.Background(), v.env, "cherry", 10, "", true)
+	if err != nil || len(rs) != 2 {
 		t.Fatalf("%v %+v", err, rs)
 	}
 }

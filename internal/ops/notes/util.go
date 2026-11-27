@@ -11,10 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/banorton/gote/internal/dates"
 	"github.com/banorton/gote/internal/ops"
 )
 
-const tsLayout = "060102150405"
+const tsLayout = "060102150405" // filename prefixes only
 
 type IDReq struct {
 	ID string `json:"id"`
@@ -181,7 +182,9 @@ func noteRow(ctx context.Context, env *ops.Env, id string) (title, kind string, 
 	return title, kind, dbErr("lookup "+id, err)
 }
 
-func stamp(env *ops.Env) string { return env.Now().Format(tsLayout) }
+func stamp(env *ops.Env) string { return dates.Format(env.Now()) }
+
+func prefixStamp(env *ops.Env) string { return env.Now().Format(tsLayout) }
 
 // newID builds the id for a create/rename/duplicate target. Without a "/" the
 // directory of dir is kept; ext defaults to defExt.

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/banorton/gote/internal/fuzzy"
+	"github.com/banorton/gote/internal/note"
 	"github.com/banorton/gote/internal/ops"
 	"github.com/banorton/gote/internal/query"
 )
@@ -30,6 +31,9 @@ type QueryReq struct {
 	Semantic bool   `json:"semantic"`
 	// Kind restricts results to "note" or "diagram"; empty means both.
 	Kind string `json:"kind"`
+	// All includes archived notes; a tag:archive filter in a full-text query
+	// does too.
+	All bool `json:"all"`
 }
 
 type QueryResp struct {
@@ -37,8 +41,8 @@ type QueryResp struct {
 }
 
 // SemanticHook is set by the semantic search phase; nil means not configured.
-// kind is "" or a note kind to restrict results to.
-var SemanticHook func(ctx context.Context, env *ops.Env, q string, limit int, kind string) ([]Result, error)
+// kind is "" or a note kind to restrict results to; all includes archived notes.
+var SemanticHook func(ctx context.Context, env *ops.Env, q string, limit int, kind string, all bool) ([]Result, error)
 
 func checkKind(kind string) error {
 	if kind != "" && kind != "note" && kind != "diagram" {
@@ -70,20 +74,20 @@ func runQuery(ctx context.Context, env *ops.Env, req QueryReq) (QueryResp, error
 		if SemanticHook == nil {
 			return QueryResp{}, ops.Errorf(ops.CodeInvalid, "semantic search not configured")
 		}
-		rs, err := SemanticHook(ctx, env, req.Q, limit, req.Kind)
+		rs, err := SemanticHook(ctx, env, req.Q, limit, req.Kind, req.All)
 		if err != nil {
 			return QueryResp{}, err
 		}
 		return QueryResp{Results: nonNil(rs)}, nil
 	}
-	q, err := query.Parse(req.Q)
+	q, err := query.Parse(req.Q, env.Cfg.DateFormat)
 	if err != nil {
 		return QueryResp{}, ops.Errorf(ops.CodeInvalid, "%v", err)
 	}
 	if req.Kind != "" {
 		q.Filters = append(q.Filters, query.Filter{Kind: query.KindNoteKind, Value: req.Kind})
 	}
-	sqlText, args := buildSQL(q, limit)
+	sqlText, args := buildSQL(q, limit, req.All || q.MentionsArchive())
 	rows, err := env.Store.DB.QueryContext(ctx, sqlText, args...)
 	if err != nil {
 		return QueryResp{}, ops.Errorf(ops.CodeInternal, "search: %v", err)
@@ -122,7 +126,7 @@ func nonNil(rs []Result) []Result {
 	return rs
 }
 
-func buildSQL(q query.Query, limit int) (string, []any) {
+func buildSQL(q query.Query, limit int, all bool) (string, []any) {
 	var pos, neg []string
 	for _, t := range q.Terms {
 		if t.Neg {
@@ -131,13 +135,7 @@ func buildSQL(q query.Query, limit int) (string, []any) {
 			pos = append(pos, query.Quote(t.Text))
 		}
 	}
-	var where []string
-	var wargs []any
-	for _, f := range q.Filters {
-		clause, a := filterSQL(f)
-		where = append(where, clause)
-		wargs = append(wargs, a...)
-	}
+	where, wargs := filterWhere(q, all)
 	for _, n := range neg {
 		where = append(where, "n.rowid NOT IN (SELECT rowid FROM notes_fts WHERE notes_fts MATCH ?)")
 		wargs = append(wargs, n)
@@ -165,6 +163,19 @@ FROM notes_fts JOIN notes n ON n.rowid = notes_fts.rowid WHERE notes_fts MATCH ?
 	return sb.String(), args
 }
 
+// filterWhere is the WHERE conditions (on alias n) for a query's filters plus
+// the archive exclusion, shared by full-text and fuzzy search.
+func filterWhere(q query.Query, all bool) ([]string, []any) {
+	where := []string{ops.Visible("n", all)}
+	var args []any
+	for _, f := range q.Filters {
+		clause, a := filterSQL(f)
+		where = append(where, clause)
+		args = append(args, a...)
+	}
+	return where, args
+}
+
 func filterSQL(f query.Filter) (string, []any) {
 	var clause string
 	var args []any
@@ -176,17 +187,17 @@ func filterSQL(f query.Filter) (string, []any) {
 		clause = "n.kind = ?"
 		args = []any{f.Value}
 	case query.KindCreated:
-		lo, hi := f.Range.CreatedBounds()
-		var parts []string
-		if lo != "" {
+		lo, hi := f.Range.UnixBounds()
+		parts := []string{"n.created IS NOT NULL"}
+		if lo != nil {
 			parts = append(parts, "n.created >= ?")
-			args = append(args, lo)
+			args = append(args, *lo)
 		}
-		if hi != "" {
+		if hi != nil {
 			parts = append(parts, "n.created < ?")
-			args = append(args, hi)
+			args = append(args, *hi)
 		}
-		clause = "(n.created IS NOT NULL AND " + strings.Join(parts, " AND ") + ")"
+		clause = "(" + strings.Join(parts, " AND ") + ")"
 	case query.KindModified:
 		var parts []string
 		if f.Range.HasLo {
@@ -264,14 +275,48 @@ type CorpusResp struct {
 	Items []CorpusItem `json:"items"`
 }
 
-func runCorpus(ctx context.Context, env *ops.Env, _ ops.Empty) (CorpusResp, error) {
-	return loadCorpus(ctx, env)
+type CorpusReq struct {
+	All bool `json:"all"`
+	// Q restricts the corpus to notes matching these filter tokens (no plain
+	// words); Kind restricts it to "note" or "diagram".
+	Q    string `json:"q"`
+	Kind string `json:"kind"`
 }
 
-func loadCorpus(ctx context.Context, env *ops.Env) (CorpusResp, error) {
+// scope turns a filters-only query plus kind and all into WHERE conditions.
+func scope(env *ops.Env, q, kind string, all bool) ([]string, []any, error) {
+	if err := checkKind(kind); err != nil {
+		return nil, nil, err
+	}
+	var pq query.Query
+	if strings.TrimSpace(q) != "" {
+		var err error
+		if pq, err = query.Parse(q, env.Cfg.DateFormat); err != nil {
+			return nil, nil, ops.Errorf(ops.CodeInvalid, "%v", err)
+		}
+		if len(pq.Terms) > 0 {
+			return nil, nil, ops.Errorf(ops.CodeInvalid, "finder scope takes filters only (tag:x, created:...), got plain words")
+		}
+	}
+	if kind != "" {
+		pq.Filters = append(pq.Filters, query.Filter{Kind: query.KindNoteKind, Value: kind})
+	}
+	where, args := filterWhere(pq, all || pq.MentionsArchive())
+	return where, args, nil
+}
+
+func runCorpus(ctx context.Context, env *ops.Env, req CorpusReq) (CorpusResp, error) {
+	where, args, err := scope(env, req.Q, req.Kind, req.All)
+	if err != nil {
+		return CorpusResp{}, err
+	}
+	return loadCorpus(ctx, env, where, args, "n.title COLLATE NOCASE, n.id")
+}
+
+func loadCorpus(ctx context.Context, env *ops.Env, where []string, args []any, order string) (CorpusResp, error) {
 	rows, err := env.Store.DB.QueryContext(ctx, `SELECT n.id, n.title, n.kind,
 		COALESCE((SELECT group_concat(alias, char(31)) FROM aliases a WHERE a.note_id = n.id), '')
-		FROM notes n ORDER BY n.title COLLATE NOCASE, n.id`)
+		FROM notes n WHERE `+strings.Join(where, " AND ")+` ORDER BY `+order, args...)
 	if err != nil {
 		return CorpusResp{}, ops.Errorf(ops.CodeInternal, "corpus: %v", err)
 	}
@@ -303,8 +348,17 @@ type LinesResp struct {
 	Lines []Line `json:"lines"`
 }
 
-func noteIDs(ctx context.Context, env *ops.Env) ([]string, error) {
-	rows, err := env.Store.DB.QueryContext(ctx, "SELECT id FROM notes WHERE kind = 'note' ORDER BY id")
+type LinesReq struct {
+	All bool   `json:"all"`
+	Q   string `json:"q"`
+}
+
+func noteIDs(ctx context.Context, env *ops.Env, req LinesReq) ([]string, error) {
+	where, args, err := scope(env, req.Q, "note", req.All)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := env.Store.DB.QueryContext(ctx, "SELECT n.id FROM notes n WHERE "+strings.Join(where, " AND ")+" ORDER BY n.id", args...)
 	if err != nil {
 		return nil, ops.Errorf(ops.CodeInternal, "%v", err)
 	}
@@ -320,8 +374,8 @@ func noteIDs(ctx context.Context, env *ops.Env) ([]string, error) {
 	return ids, rows.Err()
 }
 
-func runLines(ctx context.Context, env *ops.Env, _ ops.Empty) (LinesResp, error) {
-	ids, err := noteIDs(ctx, env)
+func runLines(ctx context.Context, env *ops.Env, req LinesReq) (LinesResp, error) {
+	ids, err := noteIDs(ctx, env, req)
 	if err != nil {
 		return LinesResp{}, err
 	}
@@ -390,6 +444,8 @@ type FuzzyReq struct {
 	Limit int    `json:"limit"`
 	// Kind restricts matches to "note" or "diagram"; empty means both.
 	Kind string `json:"kind"`
+	// All includes archived notes; a tag:archive filter does too.
+	All bool `json:"all"`
 }
 
 type FuzzyResult struct {
@@ -404,8 +460,12 @@ type FuzzyResp struct {
 	Results []FuzzyResult `json:"results"`
 }
 
-// runFuzzy matches the same corpus the finder uses (title, path, aliases).
-// Filter syntax is full-text only, so it is rejected rather than guessed at.
+// runFuzzy narrows the corpus with the query's filter tokens (tag:, kind:,
+// created:, modified:, field:value, negations), then fuzzy-matches the plain
+// words over title, path and aliases. A quoted phrase has no fuzzy meaning, so
+// it is a literal case-insensitive substring filter on the title; a negated
+// word or phrase excludes titles containing it. With no plain words the
+// matching notes are listed newest-modified first.
 func runFuzzy(ctx context.Context, env *ops.Env, req FuzzyReq) (FuzzyResp, error) {
 	if req.Limit < 0 {
 		return FuzzyResp{}, ops.Errorf(ops.CodeInvalid, "limit must be >= 0")
@@ -420,46 +480,77 @@ func runFuzzy(ctx context.Context, env *ops.Env, req FuzzyReq) (FuzzyResp, error
 	if strings.TrimSpace(req.Q) == "" {
 		return FuzzyResp{}, ops.Errorf(ops.CodeInvalid, "empty query")
 	}
-	q, err := query.Parse(req.Q)
+	q, err := query.Parse(req.Q, env.Cfg.DateFormat)
 	if err != nil {
-		return FuzzyResp{}, ops.Errorf(ops.CodeInvalid, "%v (filters and negation need full-text search: use -t)", err)
+		return FuzzyResp{}, ops.Errorf(ops.CodeInvalid, "%v", err)
 	}
+	if req.Kind != "" {
+		q.Filters = append(q.Filters, query.Filter{Kind: query.KindNoteKind, Value: req.Kind})
+	}
+	var words []string
+	var subs, notSubs []string
 	for _, t := range q.Terms {
-		if t.Neg || t.Phrase {
-			return FuzzyResp{}, ops.Errorf(ops.CodeInvalid, "negation and quoted phrases need full-text search: use -t")
+		switch {
+		case t.Neg:
+			notSubs = append(notSubs, note.Fold(t.Text))
+		case t.Phrase:
+			subs = append(subs, note.Fold(t.Text))
+		default:
+			words = append(words, t.Text)
 		}
 	}
-	if len(q.Filters) > 0 {
-		return FuzzyResp{}, ops.Errorf(ops.CodeInvalid, "filters (tag:, kind:, created:, field:value) need full-text search: use -t")
+	where, args := filterWhere(q, req.All || q.MentionsArchive())
+	order := "n.mtime_ns DESC, n.id"
+	if len(words) > 0 {
+		order = "n.title COLLATE NOCASE, n.id"
 	}
-	corpus, err := loadCorpus(ctx, env)
+	corpus, err := loadCorpus(ctx, env, where, args, order)
 	if err != nil {
 		return FuzzyResp{}, err
 	}
-	if req.Kind != "" {
+	if len(subs)+len(notSubs) > 0 {
 		kept := corpus.Items[:0]
 		for _, it := range corpus.Items {
-			if it.Kind == req.Kind {
+			title := note.Fold(it.Title)
+			ok := true
+			for _, x := range subs {
+				ok = ok && strings.Contains(title, x)
+			}
+			for _, x := range notSubs {
+				ok = ok && !strings.Contains(title, x)
+			}
+			if ok {
 				kept = append(kept, it)
 			}
 		}
 		corpus.Items = kept
 	}
+	out := FuzzyResp{Results: []FuzzyResult{}}
+	add := func(it CorpusItem, score float64) {
+		out.Results = append(out.Results, FuzzyResult{
+			ID: it.ID, Title: it.Title, Kind: it.Kind,
+			Path:  filepath.Join(env.Cfg.NotesDir, filepath.FromSlash(it.ID)),
+			Score: score,
+		})
+	}
+	if len(words) == 0 {
+		for _, it := range corpus.Items {
+			if len(out.Results) == limit {
+				break
+			}
+			add(it, 0)
+		}
+		return out, nil
+	}
 	strs := make([]string, len(corpus.Items))
 	for i, it := range corpus.Items {
 		strs[i] = SearchString(it)
 	}
-	out := FuzzyResp{Results: []FuzzyResult{}}
-	for _, m := range fuzzy.Match(req.Q, strs) {
+	for _, m := range fuzzy.Match(strings.Join(words, " "), strs) {
 		if len(out.Results) == limit {
 			break
 		}
-		it := corpus.Items[m.Index]
-		out.Results = append(out.Results, FuzzyResult{
-			ID: it.ID, Title: it.Title, Kind: it.Kind,
-			Path:  filepath.Join(env.Cfg.NotesDir, filepath.FromSlash(it.ID)),
-			Score: float64(m.Score),
-		})
+		add(corpus.Items[m.Index], float64(m.Score))
 	}
 	return out, nil
 }

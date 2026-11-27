@@ -23,23 +23,6 @@ import (
 	"github.com/banorton/gote/internal/store"
 )
 
-// fake of the Phase 2 notes.resolve op: ref is a notes-dir-relative path.
-func init() {
-	ops.Handle("notes.resolve", func(ctx context.Context, env *ops.Env, req struct {
-		Ref string `json:"ref"`
-	}) (map[string]string, error) {
-		p := filepath.Join(env.Cfg.NotesDir, req.Ref)
-		if _, err := os.Stat(p); err != nil {
-			return nil, ops.Errorf(ops.CodeNotFound, "no note matches %q", req.Ref)
-		}
-		kind := "note"
-		if strings.HasSuffix(req.Ref, ".excalidraw") {
-			kind = "diagram"
-		}
-		return map[string]string{"id": req.Ref, "title": req.Ref, "kind": kind, "path": p}, nil
-	})
-}
-
 var lastDir string
 
 func run(t *testing.T, args ...string) (string, error) {
@@ -300,7 +283,7 @@ func TestListJSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &rs); err != nil {
 		t.Fatal(err)
 	}
-	if len(rs) != 2 || rs[0].ID != "broken.excalidraw" || rs[0].Modified != "260203040506" || rs[1].ID != "a.excalidraw" {
+	if len(rs) != 2 || rs[0].ID != "broken.excalidraw" || rs[0].Modified != time.Date(2026, 2, 3, 4, 5, 6, 0, time.Local).Format(time.RFC3339) || rs[1].ID != "a.excalidraw" {
 		t.Fatalf("%+v", rs)
 	}
 	if rs[0].Path != filepath.Join(lastDir, "broken.excalidraw") || rs[0].Title == "" {
@@ -442,14 +425,14 @@ func TestSearchTextOnlyDrawingsIncludingDescription(t *testing.T) {
 		}
 	}
 	out, err := runWith(t, searchFiles, "search", "--text", "handshake")
-	if err != nil || !strings.Contains(out, "client-flow  (client-flow.excalidraw)") || strings.Contains(out, "client.md") {
+	if err != nil || !strings.HasPrefix(out, "client-flow  client-flow.excalidraw:1\n    zebra label handshake") || strings.Contains(out, "client.md") {
 		t.Fatalf("%v %q", err, out)
 	}
 }
 
 func TestSearchSemanticOnlyDrawings(t *testing.T) {
 	var gotKind string
-	search.SemanticHook = func(ctx context.Context, env *ops.Env, q string, limit int, kind string) ([]search.Result, error) {
+	search.SemanticHook = func(ctx context.Context, env *ops.Env, q string, limit int, kind string, all bool) ([]search.Result, error) {
 		gotKind = kind
 		return []search.Result{{ID: "client-flow.excalidraw", Title: "client-flow", Kind: "diagram"}}, nil
 	}
@@ -535,5 +518,13 @@ func TestRenderRejectsNonDrawingAndBadArgs(t *testing.T) {
 	}
 	if _, err := run(t, "render"); err == nil {
 		t.Fatal("missing ref should be a usage error")
+	}
+}
+
+func TestSearchNoArgsNeedsTerminal(t *testing.T) {
+	_, err := runWith(t, searchFiles, "search")
+	var ue *cli.UsageError
+	if !errors.As(err, &ue) {
+		t.Fatalf("%v", err)
 	}
 }

@@ -136,3 +136,20 @@ func TestRunRequiresTTY(t *testing.T) {
 		t.Fatal("expected error for empty list")
 	}
 }
+
+func TestViewRendersMultiLineDetail(t *testing.T) {
+	its := []Item{
+		{ID: "a", Title: "Alpha", Detail: "a.md:3  0.82\nthe matched snippet"},
+		{ID: "b", Title: "Beta", Detail: "b.md"},
+		{ID: "c", Title: "Gamma"},
+	}
+	got := newModel(its, "open", acts).View()
+	want := " [a] Alpha  a.md:3  0.82\n     the matched snippet\n [s] Beta  b.md\n [d] Gamma\n"
+	if !strings.HasPrefix(got, want) {
+		t.Fatalf("got %q", got)
+	}
+	m := key(newModel(its, "open", acts), "s")
+	if m.chosen.ID != "b" {
+		t.Fatalf("home-row key must still pick the entry: %+v", m.chosen)
+	}
+}

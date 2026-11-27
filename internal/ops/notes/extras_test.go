@@ -1,8 +1,11 @@
 package notes
 
 import (
+	"errors"
+	"github.com/banorton/gote/internal/ops"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -17,7 +20,7 @@ func TestQuickOpenAndSave(t *testing.T) {
 	h.write(".quick.md", "remember this\n")
 	var r CreateResp
 	h.must("quick.save", QuickSaveReq{Name: "saved"}, &r)
-	if r.ID != "saved.md" || h.read("saved.md") != "---\ncreated: \"260305140709\"\ntags: []\naliases: []\n---\nremember this\n" {
+	if r.ID != "saved.md" || h.read("saved.md") != "---\ncreated: \""+h.iso()+"\"\ntags: []\naliases: []\n---\nremember this\n" {
 		t.Fatalf("%+v %q", r, h.read("saved.md"))
 	}
 	if h.read(".quick.md") != "" {
@@ -30,25 +33,60 @@ func TestQuickOpenAndSave(t *testing.T) {
 	}
 }
 
-func TestDailyOpen(t *testing.T) {
+func TestDailyToday(t *testing.T) {
 	h := newHarness(t)
 	var r CreateResp
 	h.must("daily.open", DailyReq{}, &r)
-	if r.ID != "daily/260305_daily.md" || !r.Created || h.read(r.ID) != "---\ncreated: \"260305140709\"\ntags: []\naliases: []\n---\n" {
+	want := "---\ncreated: \"" + h.iso() + "\"\ntags:\n  - daily\naliases: []\n---\n"
+	if r.ID != "daily/260305_daily.md" || !r.Created || h.read(r.ID) != want {
 		t.Fatalf("%+v %q", r, h.read(r.ID))
 	}
 	h.must("daily.open", DailyReq{}, &r)
-	if r.Created {
+	if r.Created || h.read(r.ID) != want {
 		t.Fatal("second open must reuse")
 	}
-	h.template("daily", "---\ntags: [daily]\n---\n## Log\n")
+}
+
+func TestDailyPastOpensExistingNeverCreates(t *testing.T) {
+	h := newHarness(t)
+	h.write("daily/260304_daily.md", "---\ntags: [daily]\n---\nyesterday\n")
+	var r CreateResp
 	h.must("daily.open", DailyReq{Offset: -1}, &r)
-	if r.ID != "daily/260304_daily.md" || h.read(r.ID) != "---\ntags: [daily]\ncreated: \"260305140709\"\naliases: []\n---\n## Log\n" {
-		t.Fatalf("%+v %q", r, h.read(r.ID))
+	if r.ID != "daily/260304_daily.md" || r.Created {
+		t.Fatalf("%+v", r)
 	}
-	h.must("daily.open", DailyReq{Offset: -1}, &r)
-	if r.Created || h.read(r.ID) != "---\ntags: [daily]\ncreated: \"260305140709\"\naliases: []\n---\n## Log\n" {
-		t.Fatal("template applied twice")
+	err := h.call("daily.open", DailyReq{Offset: -2}, &r)
+	var oe *ops.Error
+	if !errors.As(err, &oe) || oe.Code != ops.CodeNotFound || !strings.Contains(oe.Msg, "no daily note for 2026-03-03") {
+		t.Fatalf("%v", err)
+	}
+	if h.exists("daily/260303_daily.md") {
+		t.Fatal("past note was created")
+	}
+	if err := h.call("daily.open", DailyReq{Offset: 1}, &r); err == nil || h.exists("daily/260306_daily.md") {
+		t.Fatalf("future note: %v", err)
+	}
+}
+
+func TestDailyTemplateMergeKeepsDailyTag(t *testing.T) {
+	h := newHarness(t)
+	h.template("daily", "---\ntags: [daily]\nmood: ok\n---\n## Log\n")
+	var r CreateResp
+	h.must("daily.open", DailyReq{}, &r)
+	if got, want := h.read(r.ID), "---\ntags: [daily]\nmood: ok\ncreated: \""+h.iso()+"\"\naliases: []\n---\n## Log\n"; got != want {
+		t.Fatalf("%q", got)
+	}
+	h.now = h.now.AddDate(0, 0, 1)
+	h.template("daily", "---\ntags: [journal, work]\n---\nbody\n")
+	h.must("daily.open", DailyReq{}, &r)
+	if got := h.read(r.ID); !strings.Contains(got, "journal") || !strings.Contains(got, "daily") || !strings.Contains(got, "work") {
+		t.Fatalf("daily tag missing: %q", got)
+	}
+	h.now = h.now.AddDate(0, 0, 1)
+	h.template("daily", "# no frontmatter\n")
+	h.must("daily.open", DailyReq{}, &r)
+	if got := h.read(r.ID); !strings.HasPrefix(got, "---\ncreated:") || !strings.Contains(got, "- daily") || !strings.HasSuffix(got, "# no frontmatter\n") {
+		t.Fatalf("%q", got)
 	}
 }
 

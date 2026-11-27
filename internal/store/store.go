@@ -14,7 +14,7 @@ import (
 
 // CacheVersion invalidates all cache tables when the schema or indexing
 // semantics change.
-const CacheVersion = 4
+const CacheVersion = 5
 
 type Store struct {
 	DB   *sql.DB
@@ -25,7 +25,7 @@ var cacheTables = []string{"attachments", "chunks", "notes_fts", "tasks", "headi
 
 const cacheSchema = `
 CREATE TABLE notes(id TEXT PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL, stem TEXT NOT NULL,
-  created TEXT, mtime_ns INTEGER NOT NULL, size INTEGER NOT NULL, hash TEXT NOT NULL,
+  created INTEGER, mtime_ns INTEGER NOT NULL, size INTEGER NOT NULL, hash TEXT NOT NULL,
   fields TEXT NOT NULL, semantic INTEGER NOT NULL, parse_error TEXT);
 CREATE TABLE aliases(note_id TEXT REFERENCES notes(id) ON DELETE CASCADE, alias_lc TEXT, alias TEXT);
 CREATE TABLE tags(note_id TEXT REFERENCES notes(id) ON DELETE CASCADE, tag TEXT);

@@ -145,19 +145,21 @@ func quickSave(c *cli.Ctx, args []string) error {
 	return say(c, r, "saved quick note as %s", r.ID)
 }
 
-var offsetRe = regexp.MustCompile(`^[+-]?\d+$`)
+var pastRe = regexp.MustCompile(`^-[1-9]\d*$`)
 
-func todayCmd(c *cli.Ctx, args []string) error {
+// dailyCmd opens today's note, creating it; -N opens the note from N days ago
+// only if it exists (past days are never created).
+func dailyCmd(c *cli.Ctx, args []string) error {
 	offset := 0
 	switch {
-	case len(args) == 1 && offsetRe.MatchString(args[0]):
+	case len(args) == 1 && pastRe.MatchString(args[0]):
 		n, err := strconv.Atoi(args[0])
 		if err != nil {
 			return cli.Usagef("bad day offset %q", args[0])
 		}
 		offset = n
 	case len(args) > 0:
-		return cli.Usagef("usage: gote today [-N]")
+		return cli.Usagef("usage: gote daily [-N]   (N >= 1: the existing note from N days ago)")
 	}
 	var r opsnotes.CreateResp
 	if err := call(c, "daily.open", opsnotes.DailyReq{Offset: offset}, &r); err != nil {
@@ -175,6 +177,6 @@ func init() {
 		Usage: "gote quick [save <name>]", Run: quickCmd})
 	cli.Register(cli.Command{Name: "quick-save", Aliases: []string{"qs"}, Summary: "save the quick note as a note",
 		Usage: "gote qs <name>", Run: quickSave})
-	cli.Register(cli.Command{Name: "today", Summary: "open the daily note",
-		Usage: "gote today [-N]", Run: todayCmd})
+	cli.Register(cli.Command{Name: "daily", Aliases: []string{"today"}, Summary: "open today's daily note (created if missing); -N opens the existing note from N days ago",
+		Usage: "gote daily [-N]   (alias: today)", Run: dailyCmd})
 }

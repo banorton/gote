@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/banorton/gote/internal/dates"
 )
 
 const (
@@ -45,28 +47,29 @@ func (e *Error) Error() string { return e.Msg }
 
 func errf(format string, args ...any) error { return &Error{Msg: fmt.Sprintf(format, args...)} }
 
-const createdLayout = "060102150405"
-
-// CreatedBounds renders the range as fixed-width yymmddhhmmss strings; an
-// unbounded side is "". Fixed width makes the string range equal the time range.
-func (r Range) CreatedBounds() (lo, hi string) {
+// UnixBounds returns the range as unix seconds for comparing against stored
+// created/modified times; an unbounded side is nil.
+func (r Range) UnixBounds() (lo, hi *int64) {
 	if r.HasLo {
-		lo = createdString(r.Lo)
+		v := r.Lo.Unix()
+		lo = &v
 	}
 	if r.HasHi {
-		hi = createdString(r.Hi)
+		v := r.Hi.Unix()
+		hi = &v
 	}
 	return lo, hi
 }
 
-func createdString(t time.Time) string {
-	if t.Year() > 2099 {
-		return "a"
+// MentionsArchive reports whether the query asks for archived notes with a
+// positive tag:archive filter.
+func (q Query) MentionsArchive() bool {
+	for _, f := range q.Filters {
+		if f.Kind == KindTag && !f.Neg && strings.EqualFold(f.Value, "archive") {
+			return true
+		}
 	}
-	if t.Year() < 2000 {
-		return "0"
-	}
-	return t.Format(createdLayout)
+	return false
 }
 
 func validName(s string) bool {
@@ -85,7 +88,9 @@ func validName(s string) bool {
 
 func isSpace(r rune) bool { return r == ' ' || r == '\t' || r == '\n' || r == '\r' }
 
-func Parse(s string) (Query, error) {
+// Parse reads a query; dateFormat (iso or compact, "" = iso) is how created:
+// and modified: values must be written.
+func Parse(s, dateFormat string) (Query, error) {
 	var q Query
 	rs := []rune(s)
 	i := 0
@@ -149,7 +154,7 @@ func Parse(s string) (Query, error) {
 		if val == "" {
 			return Query{}, errf("invalid token %q: empty value", token)
 		}
-		f, err := makeFilter(key, val, token)
+		f, err := makeFilter(key, val, token, dateFormat)
 		if err != nil {
 			return Query{}, err
 		}
@@ -171,7 +176,7 @@ func readQuoted(rs []rune, i int) (string, int, error) {
 	return "", 0, errf("unterminated quote in %q", string(rs[i:]))
 }
 
-func makeFilter(key, val, token string) (Filter, error) {
+func makeFilter(key, val, token, dateFormat string) (Filter, error) {
 	switch strings.ToLower(key) {
 	case KindTag:
 		return Filter{Kind: KindTag, Value: val}, nil
@@ -182,7 +187,7 @@ func makeFilter(key, val, token string) (Filter, error) {
 		}
 		return Filter{Kind: KindNoteKind, Value: v}, nil
 	case KindCreated, KindModified:
-		r, err := parseRange(val, token)
+		r, err := parseRange(val, token, dateFormat)
 		if err != nil {
 			return Filter{}, err
 		}
@@ -191,73 +196,37 @@ func makeFilter(key, val, token string) (Filter, error) {
 	return Filter{Kind: KindField, Field: key, Value: val}, nil
 }
 
-func parseRange(v, token string) (Range, error) {
+func parseRange(v, token, format string) (Range, error) {
 	bad := func() error {
-		return errf("invalid token %q: date must be 2-12 digits (even count), optionally >d, <d or d..d", token)
+		return errf("invalid token %q: %s, optionally >d, <d or d..d", token, dates.Expected(format))
 	}
 	switch {
 	case strings.HasPrefix(v, ">"):
-		_, end, ok := period(v[1:])
+		_, end, ok := dates.Period(v[1:], format)
 		if !ok {
 			return Range{}, bad()
 		}
 		return Range{Lo: end, HasLo: true}, nil
 	case strings.HasPrefix(v, "<"):
-		start, _, ok := period(v[1:])
+		start, _, ok := dates.Period(v[1:], format)
 		if !ok {
 			return Range{}, bad()
 		}
 		return Range{Hi: start, HasHi: true}, nil
 	}
 	if a, b, found := strings.Cut(v, ".."); found {
-		start, _, ok1 := period(a)
-		_, end, ok2 := period(b)
+		start, _, ok1 := dates.Period(a, format)
+		_, end, ok2 := dates.Period(b, format)
 		if !ok1 || !ok2 {
 			return Range{}, bad()
 		}
 		return Range{Lo: start, Hi: end, HasLo: true, HasHi: true}, nil
 	}
-	start, end, ok := period(v)
+	start, end, ok := dates.Period(v, format)
 	if !ok {
 		return Range{}, bad()
 	}
 	return Range{Lo: start, Hi: end, HasLo: true, HasHi: true}, nil
-}
-
-// period expands a yymmddhhmmss prefix into the local-time interval it denotes.
-func period(d string) (start, end time.Time, ok bool) {
-	n := len(d)
-	if n < 2 || n > 12 || n%2 != 0 {
-		return start, end, false
-	}
-	parts := [6]int{0, 1, 1, 0, 0, 0}
-	for i := 0; i < n/2; i++ {
-		a, b := d[2*i], d[2*i+1]
-		if a < '0' || a > '9' || b < '0' || b > '9' {
-			return start, end, false
-		}
-		parts[i] = int(a-'0')*10 + int(b-'0')
-	}
-	start = time.Date(2000+parts[0], time.Month(parts[1]), parts[2], parts[3], parts[4], parts[5], 0, time.Local)
-	if start.Year() != 2000+parts[0] || int(start.Month()) != parts[1] || start.Day() != parts[2] ||
-		start.Hour() != parts[3] || start.Minute() != parts[4] || start.Second() != parts[5] {
-		return start, end, false
-	}
-	switch n / 2 {
-	case 1:
-		end = start.AddDate(1, 0, 0)
-	case 2:
-		end = start.AddDate(0, 1, 0)
-	case 3:
-		end = start.AddDate(0, 0, 1)
-	case 4:
-		end = start.Add(time.Hour)
-	case 5:
-		end = start.Add(time.Minute)
-	case 6:
-		end = start.Add(time.Second)
-	}
-	return start, end, true
 }
 
 // Quote wraps s as an FTS5 string literal so no FTS syntax is interpreted.

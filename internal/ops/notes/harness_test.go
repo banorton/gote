@@ -121,3 +121,5 @@ func has(s string, subs ...string) bool {
 	}
 	return true
 }
+
+func (h *harness) iso() string { return h.now.Format(time.RFC3339) }

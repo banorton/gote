@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/banorton/gote/internal/cli"
+	"github.com/banorton/gote/internal/cli/results"
 	opsnotes "github.com/banorton/gote/internal/ops/notes"
 	"github.com/banorton/gote/internal/tui/menu"
 )
@@ -15,6 +16,8 @@ var allActions = []menu.Action{"open", "delete", "pin", "view", "rename", "unpin
 type hit struct {
 	opsnotes.Ref
 	Snippet string `json:"snippet,omitempty"`
+	// item overrides the default menu entry (set by ShowResults).
+	item *menu.Item
 }
 
 type lister struct {
@@ -33,42 +36,71 @@ func toHits(rs []opsnotes.Ref) []hit {
 func listRecent(c *cli.Ctx, args []string) ([]hit, error) {
 	fs := c.FlagSet("recent")
 	n := fs.Int("n", 0, "max notes")
+	all := fs.Bool("all", false, "include archived notes")
 	pos, err := parseInterleaved(fs, args)
 	if err != nil {
 		return nil, err
 	}
 	if len(pos) > 0 {
-		return nil, cli.Usagef("usage: gote recent [-n N]")
+		return nil, cli.Usagef("usage: gote recent [-n N] [--all]")
 	}
 	var rs []opsnotes.Ref
-	if err := call(c, "notes.recent", opsnotes.RecentReq{Limit: *n}, &rs); err != nil {
+	if err := call(c, "notes.recent", opsnotes.RecentReq{Limit: *n, All: *all}, &rs); err != nil {
 		return nil, err
 	}
 	return toHits(rs), nil
 }
 
+// noArgsAll parses a lister that takes only --all.
+func noArgsAll(c *cli.Ctx, name string, args []string) (bool, error) {
+	fs := c.FlagSet(name)
+	all := fs.Bool("all", false, "include archived notes")
+	pos, err := parseInterleaved(fs, args)
+	if err != nil {
+		return false, err
+	}
+	if len(pos) > 0 {
+		return false, cli.Usagef("usage: gote %s [--all]", name)
+	}
+	return *all, nil
+}
+
 func listPinned(c *cli.Ctx, args []string) ([]hit, error) {
+	all, err := noArgsAll(c, "pinned", args)
+	if err != nil {
+		return nil, err
+	}
 	var rs []opsnotes.Ref
-	if err := call(c, "pins.list", nil, &rs); err != nil {
+	if err := call(c, "pins.list", opsnotes.PinsListReq{All: all}, &rs); err != nil {
 		return nil, err
 	}
 	return toHits(rs), nil
 }
 
 func listAll(c *cli.Ctx, args []string) ([]hit, error) {
+	all, err := noArgsAll(c, "get", args)
+	if err != nil {
+		return nil, err
+	}
 	var rs []opsnotes.Ref
-	if err := call(c, "notes.list", opsnotes.ListReq{}, &rs); err != nil {
+	if err := call(c, "notes.list", opsnotes.ListReq{All: all}, &rs); err != nil {
 		return nil, err
 	}
 	return toHits(rs), nil
 }
 
 func listTagged(c *cli.Ctx, args []string) ([]hit, error) {
-	if len(args) == 0 {
-		return nil, cli.Usagef("usage: gote tag <tag> [tag...]")
+	fs := c.FlagSet("tag")
+	all := fs.Bool("all", false, "include archived notes")
+	tags, err := parseInterleaved(fs, args)
+	if err != nil {
+		return nil, err
+	}
+	if len(tags) == 0 {
+		return nil, cli.Usagef("usage: gote tag [--all] <tag> [tag...]")
 	}
 	var rs []opsnotes.Ref
-	if err := call(c, "tags.notes", opsnotes.TagsNotesReq{Tags: args}, &rs); err != nil {
+	if err := call(c, "tags.notes", opsnotes.TagsNotesReq{Tags: tags, All: *all}, &rs); err != nil {
 		return nil, err
 	}
 	return toHits(rs), nil
@@ -103,6 +135,7 @@ func searchQuery(c *cli.Ctx, q string) ([]hit, error) {
 func listSearch(c *cli.Ctx, args []string) ([]hit, error) {
 	fs := c.FlagSet("search")
 	n := fs.Int("n", 0, "max notes")
+	all := fs.Bool("all", false, "include archived notes")
 	pos, err := parseInterleaved(fs, args)
 	if err != nil {
 		return nil, err
@@ -112,7 +145,7 @@ func listSearch(c *cli.Ctx, args []string) ([]hit, error) {
 		return nil, cli.Usagef("usage: gote search <words>")
 	}
 	var r fuzzyResp
-	if err := call(c, "search.fuzzy", map[string]any{"q": q, "limit": *n}, &r); err != nil {
+	if err := call(c, "search.fuzzy", map[string]any{"q": q, "limit": *n, "all": *all}, &r); err != nil {
 		return nil, err
 	}
 	return toHits(r.Results), nil
@@ -175,6 +208,9 @@ func pick(c *cli.Ctx, hits []hit, action menu.Action) error {
 	items := make([]menu.Item, len(hits))
 	for i, h := range hits {
 		items[i] = menu.Item{ID: h.ID, Title: h.Title, Detail: h.Snippet}
+		if h.item != nil {
+			items[i] = *h.item
+		}
 	}
 	it, act, err := menu.Run(items, action, allActions)
 	switch {
@@ -196,6 +232,32 @@ func pick(c *cli.Ctx, hits []hit, action menu.Action) error {
 	return fmt.Errorf("menu returned unknown item %q", it.ID)
 }
 
+// ShowResults puts search results in the home-row menu (open preselected),
+// each entry rendered by st: bold title, dim location, snippet beneath.
+func ShowResults(c *cli.Ctx, rows []results.Row, st results.Style) error {
+	hits := make([]hit, len(rows))
+	for i, r := range rows {
+		it := results.MenuItem(r, st)
+		hits[i] = hit{Ref: opsnotes.Ref{ID: r.ID, Title: r.Title}, item: &it}
+	}
+	if err := resolveRefs(c, hits); err != nil {
+		return err
+	}
+	return pick(c, hits, "open")
+}
+
+// resolveRefs fills Kind and Path, which actions need, from the note ids.
+func resolveRefs(c *cli.Ctx, hits []hit) error {
+	for i := range hits {
+		r, err := resolve(c, hits[i].ID)
+		if err != nil {
+			return err
+		}
+		hits[i].Ref = r
+	}
+	return nil
+}
+
 func listAndPick(c *cli.Ctx, l func(*cli.Ctx, []string) ([]hit, error), args []string, action menu.Action) error {
 	hits, err := l(c, args)
 	if err != nil {
@@ -210,10 +272,10 @@ var actionKeys = map[string]menu.Action{
 
 func init() {
 	cli.Register(cli.Command{Name: "recent", Aliases: []string{"r"}, Summary: "menu of recently opened notes",
-		Usage: "gote recent [-n N]",
+		Usage: "gote recent [-n N] [--all]",
 		Run:   func(c *cli.Ctx, args []string) error { return listAndPick(c, listRecent, args, "open") }})
 	cli.Register(cli.Command{Name: "get", Aliases: []string{"g"}, Summary: "menu of all notes",
-		Usage: "gote get",
+		Usage: "gote get [--all]",
 		Run:   func(c *cli.Ctx, args []string) error { return listAndPick(c, listAll, args, "open") }})
 
 	combos := []string{"ro", "rd", "rp", "rv", "rr", "so", "sd", "sp", "sv", "sr", "to", "td", "tp", "tv", "tr", "po", "pd", "pv", "pu", "pr"}

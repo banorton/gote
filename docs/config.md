@@ -8,6 +8,7 @@ editor: nvim
 server: true
 diagram_dir: diagrams
 diagram_png: cache
+date_format: iso
 ```
 
 ## Keys
@@ -19,6 +20,7 @@ diagram_png: cache
 | `server` | `true` | `false` runs every command in-process, as if `--no-server` were always set. |
 | `diagram_dir` | `diagrams` | Directory, inside `notes_dir`, where new drawings are created. |
 | `diagram_png` | `cache` | Where drawing PNGs (`gote diagram render`) live: `cache` stores them under `$XDG_STATE_HOME/gote/renders/`, `sidecar` writes `<drawing>.png` next to each drawing (and drops the cache), `off` renders only when asked. Cache and sidecar PNGs are re-rendered by the server after each change; unused cache files are pruned. |
+| `date_format` | `iso` | How `created:` and `modified:` search filters are written: `iso` (`2026`, `2026-03`, `2026-03-14`, `2026-03-14T10:30`) or `compact` (`yymmddhhmmss` prefixes of even length 2-12: `26`, `2603`, `260314`). Only the one configured form is accepted; anything else is an `invalid` error that names the token and the format. Dates gote prints and writes are always ISO 8601, and filename timestamps stay compact. |
 | `semantic` | absent (disabled) | Semantic search block, below. |
 
 ## `semantic`

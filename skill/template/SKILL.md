@@ -45,7 +45,7 @@ Filename and title conventions. Example:
 
 <!-- CUSTOMIZE: daily
 How the daily note works. Example:
-  Daily note is daily/<yymmdd>_daily.md (the default gote path; `gote today --json` creates it
+  Daily note is daily/<yymmdd>_daily.md (the default gote path; `gote daily --json` creates it
   in an editor, so create or edit the file directly). Sections: Plan, Log, Tasks.
   When asked "what did I do yesterday", read yesterday's daily note and the open tasks in it.
   Carry unfinished `- [ ]` items forward by copying, never by deleting the original.
@@ -95,9 +95,9 @@ Single-binary CLI over a directory of Markdown notes and `.excalidraw` drawings 
 ### Calling gote
 
 - Always pass `--json` and parse it. Exit codes: 0 ok, 1 error, 2 usage. With `--json`, errors are `{"error":{"code","msg"}}` on stderr; `code` is `not_found`, `invalid`, `conflict` or `internal`.
-- Every result carries `id`, the vault-relative path (`projects/gote.md`). Absolute `path` appears in `search`, `info`, `new`, `open`, `today`.
-- Never run commands that open a menu, a pager or a browser (`template open`, `config-edit`, `view`, menu and two-letter menu aliases, `diagram` without `read`/`check`/`render`/`describe`/`list --json`/`search --json`). `new`, `open`, `quick` and `today` are safe with `--json` (or when stdout is not a terminal): they create the note if needed but do not launch the editor or record a visit.
-- Create notes with `gote new <name> --json` (daily note: `gote today --json`), not by writing files by hand: gote applies the stub, template and prefix. Then edit the returned `path` with normal file tools.
+- Every result carries `id`, the vault-relative path (`projects/gote.md`). Absolute `path` appears in `search`, `info`, `new`, `open`, `daily`.
+- Never run commands that open a menu, a pager or a browser (`template open`, `config-edit`, `view`, menu and two-letter menu aliases, `diagram` without `read`/`check`/`render`/`describe`/`list --json`/`search --json`). `new`, `open`, `quick` and `daily` are safe with `--json` (or when stdout is not a terminal): they create the note if needed but do not launch the editor or record a visit.
+- Create notes with `gote new <name> --json` (daily note: `gote daily --json`), not by writing files by hand: gote applies the stub, template and prefix. Then edit the returned `path` with normal file tools.
 - Resolving `<note>`: an id (`projects/gote.md`), a filename stem (`gote`), an alias, or a path suffix, case-insensitive. Ambiguous names resolve to the shortest path. `-` is the last opened note. An unknown ref is `not_found`.
 
 ### Commands
@@ -106,14 +106,16 @@ Menu commands print `id<TAB>title` lines without a terminal and are interactive 
 
 | Command | Aliases | What it does / key flags |
 |---|---|---|
-| `search` | `s` | fuzzy titles/paths/aliases; `-t` full-text with filters; `-s` semantic; `-n N` limit; no words opens a finder (avoid) |
-| `tasks` | | open `- [ ]` items; `--all` includes done; optional query restricts notes |
+| `search` | `s` | fuzzy titles/paths/aliases, filter tokens narrow first; `-t` full-text with filters; `-s` semantic; `-n N` limit; `--all` includes archived; no words (or filters only) opens a finder on a terminal (avoid; `--json` lists) |
+| `tasks` | | open `- [ ]` items; `--all` includes done tasks and archived notes; optional query restricts notes |
 | `info` | `i` | note metadata: tags, aliases, link counts, size, pinned |
 | `tag` | `t` | no args: all tags with counts. `tag add <tag> <note...>`, `tag rm <tag> <note...>`, `--query <q>` picks targets. `tag <tag>...` is a menu (avoid) |
 | `links` | | outgoing edges of a note |
 | `backlinks` | | incoming edges of a note |
 | `graph` | | link neighborhood tree: `graph <note> [-d N]`, depth 1-5 |
-| `orphans` | | notes with no links in or out |
+| `orphans` | | notes with no links in or out; `--all` includes archived |
+| `archive` | | `archive <note...>` adds the `archive` tag; hidden from search and lists unless `--all` or `tag:archive` |
+| `unarchive` | | `unarchive <note...>` removes it |
 | `broken` | | unresolved links with source and line |
 | `rename` | `mv` `rn` | `rename <note> -n <new>`; rewrites every inbound link |
 | `delete` | `d` `del` | move to `.trash/` |
@@ -140,14 +142,14 @@ Menu commands print `id<TAB>title` lines without a terminal and are interactive 
 | `new` | | create a note, `--json` returns `{id,path,created}` without opening the editor; fails with `conflict` if it exists |
 | `quick` | `q` | quick note `.quick.md`; `--json` returns `{path}` without the editor; `quick save <name>` |
 | `quick-save` | `qs` | save the quick note as a note |
-| `today` | | daily note `daily/<yymmdd>_daily.md`; `--json` creates it if missing, returns `{id,path,created}`, no editor; `today -1` yesterday |
+| `daily` | `today` | daily note `daily/<yymmdd>_daily.md`; `--json` creates it if missing, returns `{id,path,created}`, no editor; `daily -N` (N >= 1) returns the existing note from N days ago, else `not_found` (never creates) |
 | `recent` `get` | `r` `g` | menus of recent / all notes (avoid) |
 | `view` | `v` | rendered note in the browser (avoid); `-T` renders in the terminal |
 | `ro` `rd` `rp` `rv` `rr` `so` `sd` `sp` `sv` `sr` `to` `td` `tp` `tr` `tv` `po` `pd` `pr` `pu` `pv` | | lister+action menu shortcuts (recent, search, tag, pinned; open, delete, pin, view, rename, unpin). Interactive; avoid |
 
 ### Search
 
-`gote search --json [-n N] <words>`: fuzzy (fzf scoring) over titles, paths and aliases, best first. Never reads bodies; filter tokens (`tag:`, `kind:`, `created:`, `-word`, quotes) are an `invalid` error pointing at `-t`. Result: `{results:[{id,title,kind,path,score}]}`.
+`gote search --json [-n N] <words>`: fuzzy (fzf scoring) over titles, paths and aliases, best first. Never reads bodies. Filter tokens (`tag:`, `field:value`, `kind:`, `created:`, `modified:`, `-tag:x`) narrow first, then words are fuzzy-matched; a quoted phrase is a title substring filter; filters only lists matches newest first. Archived notes are hidden unless `--all` or `tag:archive`. Result: `{results:[{id,title,kind,path,score}]}`.
 
 `gote search -t --json [-n N] <query>`: full-text over title, aliases, tags, body; terms ANDed. Result adds `snippet` and `line`. `-s` is semantic (needs a `semantic:` config block, else `invalid`); `-t` with `-s` is a usage error. Put flags before query tokens that start with `-`, or use `--`. `tasks <query>` and `tag add --query` take the same syntax.
 
@@ -162,7 +164,7 @@ Menu commands print `id<TAB>title` lines without a terminal and are interactive 
 | `modified:<d>` | file mtime in the period |
 | `-token` | negates any token, e.g. `-tag:draft` |
 
-Dates `<d>` are `yymmddhhmmss` prefixes of even length 2-12 (`26` is 2026, `2603` March 2026, `260314` one day). Forms: `2603`, `>2603` after, `<2603` before, `2601..2603` inclusive range. Odd length is a usage error. Filters only: lists matches by mtime, newest first.
+Dates `<d>` are ISO 8601 prefixes (`2026`, `2026-03`, `2026-03-14`, `2026-03-14T10:30`) under the default config `date_format: iso`; `compact` switches to `yymmddhhmmss` prefixes (`2603`). Forms: `2026-03`, `>2026-03` after, `<2026-03` before, `2026-01..2026-03` inclusive range. A value in the other format is `invalid`. Output dates are always ISO. Filters only: lists matches by mtime, newest first.
 
 ### Frontmatter
 
@@ -170,7 +172,7 @@ Dates `<d>` are `yymmddhhmmss` prefixes of even length 2-12 (`26` is 2026, `2603
 ---
 tags: [project, go]            # edit with `gote tag add|rm`
 aliases: [gote-cli]            # extra names for search and link resolution
-created: "261114203015"        # quoted yymmddhhmmss
+created: "2026-11-14T20:30:15-05:00"  # quoted ISO 8601; other forms are ignored
 title: Display title           # else the filename stem
 related: ["[[other note]]"]    # typed graph edge; quote [[...]]
 parent: "[[index]]"            # typed graph edge
@@ -182,7 +184,7 @@ semantic: false                # exclude from embedding
 |---|---|
 | `tags` | list; the only tags gote reads (no inline `#tags`) |
 | `aliases` | list; resolve like filenames |
-| `created` | quoted `yymmddhhmmss` string; filter with `created:` |
+| `created` | quoted ISO 8601 string; filter with `created:` |
 | `title` | display title |
 | `related`, `parent` | `[[...]]` values must be quoted YAML strings |
 | `semantic: false` | note is never embedded |

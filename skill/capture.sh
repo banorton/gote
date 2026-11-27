@@ -14,7 +14,9 @@ cp -R "$HERE/fixture" "$NOTES"
 mkdir -p "$WORK/config/gote" "$WORK/state"
 printf 'notes_dir: %s\nserver: false\neditor: "true"\n' "$NOTES" > "$WORK/config/gote/config.yaml"
 
-# Fixed mtimes: ordering and `modified:` filters must not depend on when this runs.
+# Fixed mtimes and zone: ordering, `modified:` filters and printed dates must
+# not depend on when or where this runs. TZ must be set before touch -t.
+export TZ=UTC
 t=2611010900
 for f in ideas.md design.md lonely.md projects/gote.md \
   diagrams/261101120000_diagram_architecture.excalidraw \
@@ -29,8 +31,9 @@ CMDS=(
   "search --json desi"
   "search -t --json socket"
   "search -t --json tag:go -tag:project"
-  "search -t --json created:2611"
-  "search -t modified:2611 -tag:ideas"
+  "search -t --json created:2026-11"
+  "search --json tag:project gote"
+  "search -t modified:2026-11 -tag:ideas"
   "tasks"
   "tasks --all --json tag:go"
   "info --json gote"

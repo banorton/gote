@@ -9,7 +9,7 @@ import (
 	optasks "github.com/banorton/gote/internal/ops/tasks"
 )
 
-const usage = "gote tasks [--all] [<query>...]"
+const usage = "gote tasks [--all] [<query>...]   (--all also includes done tasks and archived notes)"
 
 func init() {
 	cli.Register(cli.Command{
@@ -39,7 +39,7 @@ func run(c *cli.Ctx, args []string) error {
 		}
 	}
 	var out []optasks.Task
-	req := optasks.ListReq{All: all, Q: strings.Join(words, " ")}
+	req := optasks.ListReq{All: all, Archived: all, Q: strings.Join(words, " ")}
 	if err := c.Client.Call(context.Background(), "tasks.list", req, &out); err != nil {
 		return err
 	}

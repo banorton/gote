@@ -5,10 +5,14 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+	"time"
 
 	"github.com/banorton/gote/internal/config"
+	"github.com/banorton/gote/internal/dates"
 	"github.com/banorton/gote/internal/ops"
+	"github.com/banorton/gote/internal/parse"
 	"github.com/banorton/gote/internal/parse/frontmatter"
 	"github.com/goccy/go-yaml"
 )
@@ -39,11 +43,13 @@ type CreateResp struct {
 }
 
 type RecentReq struct {
-	Limit int `json:"limit"`
+	Limit int  `json:"limit"`
+	All   bool `json:"all"`
 }
 
 type ListReq struct {
 	Kind string `json:"kind"`
+	All  bool   `json:"all"`
 }
 
 type DupReq struct {
@@ -64,6 +70,8 @@ type InfoResp struct {
 	Links     int      `json:"links"`
 	Backlinks int      `json:"backlinks"`
 	Pinned    bool     `json:"pinned"`
+	// ParseError is a frontmatter warning (bad YAML, non-ISO created).
+	ParseError string `json:"parse_error,omitempty"`
 }
 
 func TemplatesDir() string { return filepath.Join(filepath.Dir(config.Path()), "templates") }
@@ -77,7 +85,9 @@ func templatePath(name string) (string, error) {
 
 // withCreated returns src with created set and empty tags/aliases stubbed when
 // absent, adding a frontmatter block if needed.
-func withCreated(src []byte, ts string) ([]byte, error) {
+// A tag in mustTags that the note lacks is added (case-insensitive match).
+func withCreated(src []byte, ts string, mustTags ...string) ([]byte, error) {
+	tags := parse.Note("", src).Tags
 	present := map[string]bool{}
 	if fm, _, ok, _ := frontmatter.Split(src); ok {
 		var keys map[string]any
@@ -89,10 +99,20 @@ func withCreated(src []byte, ts string) ([]byte, error) {
 	}
 	out, err := frontmatter.Update(src, func(m *frontmatter.Map) {
 		m.Set("created", frontmatter.Quoted(ts))
-		for _, k := range []string{"tags", "aliases"} {
-			if !present[k] {
-				m.Set(k, []string{})
+		next := slices.Clone(tags)
+		for _, t := range mustTags {
+			if !slices.ContainsFunc(next, func(x string) bool { return strings.EqualFold(x, t) }) {
+				next = append(next, t)
 			}
+		}
+		switch {
+		case !present["tags"]:
+			m.Set("tags", append([]string{}, next...))
+		case len(next) != len(tags):
+			m.Set("tags", next)
+		}
+		if !present["aliases"] {
+			m.Set("aliases", []string{})
 		}
 	})
 	if err != nil {
@@ -126,7 +146,7 @@ func prefixed(name, prefix string, env *ops.Env) (string, error) {
 	case "date":
 		p = env.Now().Format("060102") + "_"
 	case "datetime":
-		p = stamp(env) + "_"
+		p = prefixStamp(env) + "_"
 	default:
 		return "", ops.Errorf(ops.CodeInvalid, "invalid prefix %q (want \"\", \"date\" or \"datetime\")", prefix)
 	}
@@ -138,8 +158,8 @@ func prefixed(name, prefix string, env *ops.Env) (string, error) {
 	return name[:i+1] + p + name[i+1:], nil
 }
 
-func createNote(env *ops.Env, id string, content []byte) (CreateResp, error) {
-	out, err := withCreated(content, stamp(env))
+func createNote(env *ops.Env, id string, content []byte, mustTags ...string) (CreateResp, error) {
+	out, err := withCreated(content, stamp(env), mustTags...)
 	if err != nil {
 		return CreateResp{}, err
 	}
@@ -182,7 +202,7 @@ func init() {
 		if kind == "" {
 			kind = "note"
 		}
-		return queryRefs(ctx, env, "SELECT id, title, kind FROM notes WHERE kind=? ORDER BY lower(title), id", kind)
+		return queryRefs(ctx, env, "SELECT id, title, kind FROM notes n WHERE kind=? AND "+ops.Visible("n", r.All)+" ORDER BY lower(title), id", kind)
 	})
 
 	ops.Handle("notes.create", func(ctx context.Context, env *ops.Env, r CreateReq) (CreateResp, error) {
@@ -215,23 +235,28 @@ func init() {
 			limit = 50
 		}
 		return queryRefs(ctx, env, `SELECT n.id, n.title, n.kind FROM visits v JOIN notes n ON n.id=v.note_id
-			ORDER BY v.last_visited DESC LIMIT ?`, limit)
+			WHERE `+ops.Visible("n", r.All)+` ORDER BY v.last_visited DESC LIMIT ?`, limit)
 	})
 
 	ops.Handle("notes.info", func(ctx context.Context, env *ops.Env, r IDReq) (InfoResp, error) {
 		var i InfoResp
-		var created sql.NullString
+		var created sql.NullInt64
+		var perr sql.NullString
 		var mtime int64
-		err := env.Store.DB.QueryRowContext(ctx, "SELECT id, title, kind, created, mtime_ns, size FROM notes WHERE id=?", r.ID).
-			Scan(&i.ID, &i.Title, &i.Kind, &created, &mtime, &i.Size)
+		err := env.Store.DB.QueryRowContext(ctx, "SELECT id, title, kind, created, mtime_ns, size, parse_error FROM notes WHERE id=?", r.ID).
+			Scan(&i.ID, &i.Title, &i.Kind, &created, &mtime, &i.Size, &perr)
 		if err == sql.ErrNoRows {
 			return i, ops.Errorf(ops.CodeNotFound, "note %q not found", r.ID)
 		}
 		if err != nil {
 			return i, dbErr("info", err)
 		}
-		i.Path, i.Created = abs(env, i.ID), created.String
-		i.Modified = timeFromNS(mtime).Format(tsLayout)
+		i.Path = abs(env, i.ID)
+		i.ParseError = perr.String
+		if created.Valid {
+			i.Created = dates.Format(time.Unix(created.Int64, 0))
+		}
+		i.Modified = dates.Format(timeFromNS(mtime))
 		if i.Tags, err = column(ctx, env, "SELECT tag FROM tags WHERE note_id=? ORDER BY rowid", r.ID); err != nil {
 			return i, err
 		}

@@ -39,6 +39,11 @@ func write(t testing.TB, dir, rel, content string, mtime time.Time) {
 
 func newVault(t testing.TB, files map[string]string, mtimes map[string]time.Time) *vault {
 	t.Helper()
+	return newVaultFmt(t, files, mtimes, "")
+}
+
+func newVaultFmt(t testing.TB, files map[string]string, mtimes map[string]time.Time, dateFormat string) *vault {
+	t.Helper()
 	dir := t.TempDir()
 	if r, err := filepath.EvalSymlinks(dir); err == nil {
 		dir = r
@@ -59,7 +64,7 @@ func newVault(t testing.TB, files map[string]string, mtimes map[string]time.Time
 	if _, err := ix.Reconcile(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	env := &ops.Env{Cfg: &config.Config{NotesDir: dir}, Store: st, Index: ix, Now: time.Now}
+	env := &ops.Env{Cfg: &config.Config{NotesDir: dir, DateFormat: dateFormat}, Store: st, Index: ix, Now: time.Now}
 	return &vault{dir: dir, c: client.Local(env), ix: ix}
 }
 
@@ -103,10 +108,10 @@ var fixture = map[string]string{
 	"untagged.md":  "plain text about kubernetes cluster\n",
 	"go.md":        "---\ntags: [go, lang]\nstatus: draft\nlabels: [Alpha, beta]\n---\nthe go language\n",
 	"rust.md":      "---\ntags: [lang]\nstatus: done\n---\nthe rust language\n",
-	"sub/deep.md":  "---\naliases: [deepnote]\ncreated: \"260314153045\"\n---\nnested content with unique zebra\n",
-	"old.md":       "---\ncreated: \"250101000000\"\n---\nancient content\n",
-	"march.md":     "---\ncreated: \"260301000000\"\n---\nmarch content\n",
-	"april.md":     "---\ncreated: \"260401000000\"\n---\napril content\n",
+	"sub/deep.md":  "---\naliases: [deepnote]\ncreated: \"2026-03-14T15:30:45\"\n---\nnested content with unique zebra\n",
+	"old.md":       "---\ncreated: \"2025-01-01\"\n---\nancient content\n",
+	"march.md":     "---\ncreated: \"2026-03-01\"\n---\nmarch content\n",
+	"april.md":     "---\ncreated: \"2026-04-01\"\n---\napril content\n",
 }
 
 func TestTitleOutranksBody(t *testing.T) {
@@ -199,17 +204,17 @@ func TestBooleanField(t *testing.T) {
 func TestCreatedRanges(t *testing.T) {
 	v := newVault(t, fixture, nil)
 	cases := map[string][]string{
-		"created:2603":       {"march.md", "sub/deep.md"},
-		"created:26":         {"april.md", "march.md", "sub/deep.md"},
-		"created:260314":     {"sub/deep.md"},
-		"created:>2603":      {"april.md"},
-		"created:<2603":      {"old.md"},
-		"created:2601..2603": {"march.md", "sub/deep.md"},
-		"-created:26":        nil,
+		"created:2026-03":          {"march.md", "sub/deep.md"},
+		"created:2026":             {"april.md", "march.md", "sub/deep.md"},
+		"created:2026-03-14":       {"sub/deep.md"},
+		"created:>2026-03":         {"april.md"},
+		"created:<2026-03":         {"old.md"},
+		"created:2026-01..2026-03": {"march.md", "sub/deep.md"},
+		"-created:2026":            nil,
 	}
 	for q, want := range cases {
 		got := ids(v.query(t, q))
-		if q == "-created:26" {
+		if q == "-created:2026" {
 			if has(v.query(t, q), "march.md") || has(v.query(t, q), "april.md") {
 				t.Errorf("%s: %v", q, got)
 			}
@@ -230,11 +235,11 @@ func TestModifiedRanges(t *testing.T) {
 	}
 	v := newVault(t, map[string]string{"a.md": "x\n", "b.md": "x\n", "c.md": "x\n", "d.md": "x\n"}, mt)
 	cases := map[string][]string{
-		"modified:2603":       {"a.md", "b.md"},
-		"modified:>2603":      {"c.md"},
-		"modified:<2603":      {"d.md"},
-		"modified:2602..2603": {"a.md", "b.md", "d.md"},
-		"modified:26":         {"a.md", "b.md", "c.md", "d.md"},
+		"modified:2026-03":          {"a.md", "b.md"},
+		"modified:>2026-03":         {"c.md"},
+		"modified:<2026-03":         {"d.md"},
+		"modified:2026-02..2026-03": {"a.md", "b.md", "d.md"},
+		"modified:2026":             {"a.md", "b.md", "c.md", "d.md"},
 	}
 	for q, want := range cases {
 		if got := ids(v.query(t, q)); !sameSet(got, want) {
@@ -250,7 +255,7 @@ func TestFilterOnlyOrdersByMtimeDesc(t *testing.T) {
 		"c.md": time.Date(2026, 3, 2, 0, 0, 0, 0, time.Local),
 	}
 	v := newVault(t, map[string]string{"a.md": "x\n", "b.md": "x\n", "c.md": "x\n"}, mt)
-	got := ids(v.query(t, "modified:2603"))
+	got := ids(v.query(t, "modified:2026-03"))
 	if strings.Join(got, ",") != "b.md,c.md,a.md" {
 		t.Fatal(got)
 	}
@@ -349,7 +354,7 @@ func TestSemanticNotConfigured(t *testing.T) {
 
 func TestSemanticHookCalled(t *testing.T) {
 	v := newVault(t, fixture, nil)
-	SemanticHook = func(ctx context.Context, env *ops.Env, q string, limit int, kind string) ([]Result, error) {
+	SemanticHook = func(ctx context.Context, env *ops.Env, q string, limit int, kind string, all bool) ([]Result, error) {
 		return []Result{{ID: "x.md", Title: q}}, nil
 	}
 	defer func() { SemanticHook = nil }()
@@ -498,15 +503,64 @@ func TestFuzzyLimitAndEmptyShape(t *testing.T) {
 	}
 }
 
-func TestFuzzyRejectsFilterTokensWithHint(t *testing.T) {
-	v := newVault(t, fuzzyFiles, nil)
-	for _, q := range []string{"kube tag:ops", "kube -tag:ops", "kube -other", "created:2611"} {
-		_, err := v.fuzzy(t, q, 0)
-		var oe *ops.Error
-		if !errors.As(err, &oe) || oe.Code != ops.CodeInvalid || !strings.Contains(err.Error(), "-t") {
-			t.Fatalf("%q: %v", q, err)
+var fuzzyFilterFiles = map[string]string{
+	"api-gateway.md":    "---\ntitle: API Gateway\ntags: [thread]\ncreated: \"2026-03-01\"\n---\nx\n",
+	"api-old.md":        "---\ntitle: API Old\ntags: [thread, archive]\n---\nx\n",
+	"api-draft.md":      "---\ntitle: API draft\ntags: [draft]\nstatus: draft\n---\nx\n",
+	"billing.md":        "---\ntags: [thread]\ncreated: \"2025-06-01\"\n---\nx\n",
+	"sketch.excalidraw": `{"type":"excalidraw","elements":[]}`,
+}
+
+func TestFuzzyWithFilters(t *testing.T) {
+	v := newVault(t, fuzzyFilterFiles, map[string]time.Time{
+		"billing.md":     time.Date(2026, 5, 1, 0, 0, 0, 0, time.Local),
+		"api-gateway.md": time.Date(2026, 4, 1, 0, 0, 0, 0, time.Local),
+		"api-draft.md":   time.Date(2026, 3, 1, 0, 0, 0, 0, time.Local),
+	})
+	cases := []struct {
+		q    string
+		want string // ordered ids, comma separated
+	}{
+		{"tag:thread api", "api-gateway.md"},
+		{"api tag:thread", "api-gateway.md"},
+		{"tag:archive api", "api-old.md"},
+		{"-tag:thread api", "api-draft.md"},
+		{"status:draft", "api-draft.md"},
+		{"tag:thread", "billing.md,api-gateway.md"},
+		{"tag:thread created:2026", "api-gateway.md"},
+		{"created:<2026", "billing.md"},
+		{"kind:diagram", "sketch.excalidraw"},
+		{"kind:diagram sketch", "sketch.excalidraw"},
+		{"modified:2026-04", "api-gateway.md"},
+		{`"api gat"`, "api-gateway.md"},
+		{`tag:thread "API G"`, "api-gateway.md"},
+		{"api -gateway", "api-draft.md"},
+		{`api -"gate"`, "api-draft.md"},
+		{"tag:nothing api", ""},
+	}
+	for _, c := range cases {
+		rs, err := v.fuzzy(t, c.q, 0)
+		if err != nil {
+			t.Errorf("%q: %v", c.q, err)
+			continue
+		}
+		if got := strings.Join(ids2(rs), ","); got != c.want {
+			t.Errorf("%q: got %q want %q", c.q, got, c.want)
 		}
 	}
+	for _, bad := range []string{"api created:123", "api tag:", `api "unterminated`} {
+		if _, err := v.fuzzy(t, bad, 0); errCode(err) != ops.CodeInvalid {
+			t.Errorf("%q: want invalid, got %v", bad, err)
+		}
+	}
+}
+
+func ids2(rs []FuzzyResult) []string {
+	var out []string
+	for _, r := range rs {
+		out = append(out, r.ID)
+	}
+	return out
 }
 
 func TestFuzzyEmptyAndNegativeLimitInvalid(t *testing.T) {
@@ -565,7 +619,7 @@ func TestKindFilter(t *testing.T) {
 	if got := ids(v.query(t, "kubernetes -kind:diagram")); strings.Join(got, ",") != "a.md" {
 		t.Fatalf("term negated kind: %v", got)
 	}
-	if got := ids(v.query(t, "kind:diagram modified:2606")); strings.Join(got, ",") != "sub/d2.excalidraw" {
+	if got := ids(v.query(t, "kind:diagram modified:2026-06")); strings.Join(got, ",") != "sub/d2.excalidraw" {
 		t.Fatalf("combined: %v", got)
 	}
 }
@@ -576,16 +630,6 @@ func TestKindUnknownValueInvalid(t *testing.T) {
 	err := v.c.Call(context.Background(), "search.query", QueryReq{Q: "kind:image"}, &resp)
 	if errCode(err) != ops.CodeInvalid || !strings.Contains(err.Error(), "diagram") || !strings.Contains(err.Error(), "note") {
 		t.Fatalf("%v", err)
-	}
-}
-
-func TestFuzzyRejectsKindFilterWithHint(t *testing.T) {
-	v := kindVault(t)
-	for _, q := range []string{"kube kind:diagram", "kube -kind:note"} {
-		_, err := v.fuzzy(t, q, 0)
-		if errCode(err) != ops.CodeInvalid || !strings.Contains(err.Error(), "-t") {
-			t.Fatalf("%q: %v", q, err)
-		}
 	}
 }
 
@@ -619,7 +663,7 @@ func TestQueryKindRestriction(t *testing.T) {
 func TestQueryKindPassedToSemanticHook(t *testing.T) {
 	v := newVault(t, sharedFiles, nil)
 	var got string
-	SemanticHook = func(ctx context.Context, env *ops.Env, q string, limit int, kind string) ([]Result, error) {
+	SemanticHook = func(ctx context.Context, env *ops.Env, q string, limit int, kind string, all bool) ([]Result, error) {
 		got = kind
 		return nil, nil
 	}
@@ -640,5 +684,109 @@ func TestFuzzyKindRestriction(t *testing.T) {
 	}
 	if err := v.c.Call(context.Background(), "search.fuzzy", FuzzyReq{Q: "kube"}, &resp); err != nil || len(resp.Results) != 2 {
 		t.Fatalf("%v %+v", err, resp.Results)
+	}
+}
+
+func TestCreatedFiltersISOForms(t *testing.T) {
+	v := newVault(t, map[string]string{
+		"iso.md":      "---\ncreated: \"" + time.Date(2026, 3, 14, 9, 15, 0, 0, time.Local).Format(time.RFC3339) + "\"\n---\nx\n",
+		"dateonly.md": "---\ncreated: 2026-04-02\n---\nx\n",
+		"naive.md":    "---\ncreated: \"2025-12-31T23:59:59\"\n---\nx\n",
+		"legacy.md":   "---\ncreated: \"260314153045\"\n---\nx\n",
+		"none.md":     "x\n",
+	}, nil)
+	cases := map[string][]string{
+		"created:2026":                   {"dateonly.md", "iso.md"},
+		"created:2026-03":                {"iso.md"},
+		"created:2026-03-14":             {"iso.md"},
+		"created:2026-03-14T09":          {"iso.md"},
+		"created:>2026-03":               {"dateonly.md"},
+		"created:<2026":                  {"naive.md"},
+		"created:2025..2026-03-14":       {"iso.md", "naive.md"},
+		"created:2025-12-31T23:59":       {"naive.md"},
+		"created:2026-04-01..2026-04-30": {"dateonly.md"},
+	}
+	for q, want := range cases {
+		if got := ids(v.query(t, q)); !sameSet(got, want) {
+			t.Errorf("%s: got %v want %v", q, got, want)
+		}
+	}
+	if got := ids(v.query(t, "created:2026 -created:2026")); len(got) != 0 {
+		t.Errorf("legacy compact created must never match: %v", got)
+	}
+}
+
+func TestCompactDateFormatFilters(t *testing.T) {
+	v := newVaultFmt(t, map[string]string{
+		"a.md": "---\ncreated: \"2026-03-14T15:30:45\"\n---\nx\n",
+		"b.md": "---\ncreated: \"2026-04-01\"\n---\nx\n",
+	}, nil, "compact")
+	for q, want := range map[string][]string{
+		"created:2603": {"a.md"}, "created:26": {"a.md", "b.md"}, "created:260314": {"a.md"}, "created:>2603": {"b.md"},
+		"created:2603..2604": {"a.md", "b.md"},
+	} {
+		if got := ids(v.query(t, q)); !sameSet(got, want) {
+			t.Errorf("%s: got %v want %v", q, got, want)
+		}
+	}
+	var resp QueryResp
+	err := v.c.Call(context.Background(), "search.query", QueryReq{Q: "created:2026-03"}, &resp)
+	if errCode(err) != ops.CodeInvalid || !strings.Contains(err.Error(), "created:2026-03") || !strings.Contains(err.Error(), "date_format: compact") {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestISOFormatRejectsCompactToken(t *testing.T) {
+	v := newVault(t, fixture, nil)
+	var resp QueryResp
+	err := v.c.Call(context.Background(), "search.query", QueryReq{Q: "created:2603"}, &resp)
+	if errCode(err) != ops.CodeInvalid || !strings.Contains(err.Error(), "created:2603") || !strings.Contains(err.Error(), "date_format: iso") {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestCorpusAndLinesScopedByFilters(t *testing.T) {
+	v := newVault(t, map[string]string{
+		"a.md":         "---\ntags: [thread]\n---\nline a\n",
+		"b.md":         "---\ntags: [other]\n---\nline b\n",
+		"old.md":       "---\ntags: [thread, archive]\n---\nline old\n",
+		"d.excalidraw": `{"type":"excalidraw","elements":[]}`,
+	}, nil)
+	corpus := func(req CorpusReq) string {
+		var r CorpusResp
+		if err := v.c.Call(context.Background(), "search.corpus", req, &r); err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, it := range r.Items {
+			out = append(out, it.ID)
+		}
+		return strings.Join(out, ",")
+	}
+	if got := corpus(CorpusReq{Q: "tag:thread"}); got != "a.md" {
+		t.Errorf("scoped: %q", got)
+	}
+	if got := corpus(CorpusReq{Q: "tag:thread", All: true}); got != "a.md,old.md" {
+		t.Errorf("scoped --all: %q", got)
+	}
+	if got := corpus(CorpusReq{Q: "tag:archive"}); got != "old.md" {
+		t.Errorf("tag:archive: %q", got)
+	}
+	if got := corpus(CorpusReq{Kind: "diagram"}); got != "d.excalidraw" {
+		t.Errorf("kind: %q", got)
+	}
+	var r CorpusResp
+	if err := v.c.Call(context.Background(), "search.corpus", CorpusReq{Q: "tag:thread words"}, &r); errCode(err) != ops.CodeInvalid {
+		t.Errorf("plain words in scope: %v", err)
+	}
+	var lines LinesResp
+	if err := v.c.Call(context.Background(), "search.lines", LinesReq{Q: "tag:thread"}, &lines); err != nil {
+		t.Fatal(err)
+	}
+	if len(lines.Lines) != 1 || lines.Lines[0].ID != "a.md" {
+		t.Errorf("lines scoped: %+v", lines.Lines)
+	}
+	if err := v.c.Call(context.Background(), "search.lines", LinesReq{}, &lines); err != nil || len(lines.Lines) != 2 {
+		t.Errorf("lines default hides archived: %v %+v", err, lines.Lines)
 	}
 }

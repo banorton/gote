@@ -403,6 +403,13 @@ func nullable(s string) any {
 	return s
 }
 
+func createdArg(t time.Time) any {
+	if t.IsZero() {
+		return nil
+	}
+	return t.Unix()
+}
+
 func insertNote(ctx context.Context, tx *sql.Tx, n note.Note, fi fileInfo, hash string) error {
 	fields, err := json.Marshal(n.Fields)
 	if err != nil {
@@ -414,7 +421,7 @@ func insertNote(ctx context.Context, tx *sql.Tx, n note.Note, fi fileInfo, hash 
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO notes(id, kind, title, stem, created, mtime_ns, size, hash, fields, semantic, parse_error)
 		VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
-		n.ID, n.Kind, n.Title, n.Stem, nullable(n.Created), fi.mtime, fi.size, hash, string(fields), sem, nullable(n.ParseErr)); err != nil {
+		n.ID, n.Kind, n.Title, n.Stem, createdArg(n.Created), fi.mtime, fi.size, hash, string(fields), sem, nullable(n.ParseErr)); err != nil {
 		return err
 	}
 	for _, a := range n.Aliases {
