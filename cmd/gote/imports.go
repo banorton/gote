@@ -8,6 +8,7 @@ import (
 	_ "github.com/banorton/gote/internal/cli/search"
 	_ "github.com/banorton/gote/internal/cli/semantic"
 	_ "github.com/banorton/gote/internal/cli/tasks"
+	_ "github.com/banorton/gote/internal/cli/update"
 	_ "github.com/banorton/gote/internal/cli/view"
 	_ "github.com/banorton/gote/internal/ops/diagram"
 	_ "github.com/banorton/gote/internal/ops/graph"

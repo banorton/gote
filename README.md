@@ -14,6 +14,15 @@ go install github.com/banorton/gote/cmd/gote@latest
 
 Or build from a checkout with `make build`.
 
+Release binaries (`gote-<os>-<arch>` plus `SHA256SUMS`) are on the GitHub releases page. To update a release build in place:
+
+```
+gote update --check   # is a newer release available?
+gote update           # download, verify the sha256, replace the binary
+```
+
+`gote update` refuses development builds (`dev`, `v1.1.0-3-gabc`, `-dirty`); use `git pull && make build` there, or pass `--force`. A running server restarts itself on the next command.
+
 ## Configure
 
 Create `~/.config/gote/config.yaml` (or `$XDG_CONFIG_HOME/gote/config.yaml`):
@@ -87,6 +96,7 @@ A note's id is its path relative to the notes directory. Its title is the frontm
 | `server` | | `server status`, `server stop` |
 | `help` | `h`, `man` | list commands or show help for one |
 | `version` | | print the version |
+| `update` | | update to the latest release: `--check` only reports, `--force` reinstalls or overrides the dev-build refusal |
 
 ### Menu shortcuts
 
