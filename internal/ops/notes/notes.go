@@ -5,12 +5,14 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/banorton/gote/internal/config"
 	"github.com/banorton/gote/internal/dates"
 	"github.com/banorton/gote/internal/ops"
+	"github.com/banorton/gote/internal/parse"
 	"github.com/banorton/gote/internal/parse/frontmatter"
 	"github.com/goccy/go-yaml"
 )
@@ -83,7 +85,9 @@ func templatePath(name string) (string, error) {
 
 // withCreated returns src with created set and empty tags/aliases stubbed when
 // absent, adding a frontmatter block if needed.
-func withCreated(src []byte, ts string) ([]byte, error) {
+// A tag in mustTags that the note lacks is added (case-insensitive match).
+func withCreated(src []byte, ts string, mustTags ...string) ([]byte, error) {
+	tags := parse.Note("", src).Tags
 	present := map[string]bool{}
 	if fm, _, ok, _ := frontmatter.Split(src); ok {
 		var keys map[string]any
@@ -95,10 +99,20 @@ func withCreated(src []byte, ts string) ([]byte, error) {
 	}
 	out, err := frontmatter.Update(src, func(m *frontmatter.Map) {
 		m.Set("created", frontmatter.Quoted(ts))
-		for _, k := range []string{"tags", "aliases"} {
-			if !present[k] {
-				m.Set(k, []string{})
+		next := slices.Clone(tags)
+		for _, t := range mustTags {
+			if !slices.ContainsFunc(next, func(x string) bool { return strings.EqualFold(x, t) }) {
+				next = append(next, t)
 			}
+		}
+		switch {
+		case !present["tags"]:
+			m.Set("tags", append([]string{}, next...))
+		case len(next) != len(tags):
+			m.Set("tags", next)
+		}
+		if !present["aliases"] {
+			m.Set("aliases", []string{})
 		}
 	})
 	if err != nil {
@@ -144,8 +158,8 @@ func prefixed(name, prefix string, env *ops.Env) (string, error) {
 	return name[:i+1] + p + name[i+1:], nil
 }
 
-func createNote(env *ops.Env, id string, content []byte) (CreateResp, error) {
-	out, err := withCreated(content, stamp(env))
+func createNote(env *ops.Env, id string, content []byte, mustTags ...string) (CreateResp, error) {
+	out, err := withCreated(content, stamp(env), mustTags...)
 	if err != nil {
 		return CreateResp{}, err
 	}

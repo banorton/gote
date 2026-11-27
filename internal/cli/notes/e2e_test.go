@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/banorton/gote/internal/cli"
 	_ "github.com/banorton/gote/internal/ops/search"
@@ -134,7 +135,7 @@ func TestAliasesResolve(t *testing.T) {
 			t.Errorf("alias %q -> %v (ok=%v), want %q", alias, cmd, ok, name)
 		}
 	}
-	for _, n := range []string{"open", "new", "quick", "today", "recent", "pinned", "pin", "unpin", "tag", "delete", "trash", "recover", "rename", "duplicate", "info", "template", "config", "get", "export", "import"} {
+	for _, n := range []string{"open", "new", "quick", "daily", "today", "recent", "pinned", "pin", "unpin", "tag", "delete", "trash", "recover", "rename", "duplicate", "info", "template", "config", "get", "export", "import"} {
 		if _, ok := cli.Lookup(n); !ok {
 			t.Errorf("command %q missing", n)
 		}
@@ -240,7 +241,7 @@ func TestManagementCommands(t *testing.T) {
 	if !strings.Contains(s.read("idea note.md"), "idea") {
 		t.Fatal("quick save")
 	}
-	if code, _ := s.run("today", "-1"); code != 0 {
+	if code, _ := s.run("daily"); code != 0 {
 		t.Fatal(code)
 	}
 	ms, _ := filepath.Glob(filepath.Join(s.notes, "daily", "*_daily.md"))
@@ -414,4 +415,37 @@ func TestQuickJSONSkipsEditor(t *testing.T) {
 		t.Fatalf("%v %q", err, out)
 	}
 	s.noEditorRan(marker)
+}
+
+func TestDailyPastNeverCreates(t *testing.T) {
+	s := newSandbox(t)
+	marker := s.trapEditor()
+	code, out := s.run("daily", "-1", "--json")
+	if code != 1 || out != "" {
+		t.Fatalf("missing past note: exit %d %q", code, out)
+	}
+	s.noEditorRan(marker)
+	if ms, _ := filepath.Glob(filepath.Join(s.notes, "daily", "*")); len(ms) != 0 {
+		t.Fatalf("past note created: %v", ms)
+	}
+	for _, bad := range [][]string{{"daily", "+1"}, {"daily", "0"}, {"daily", "-0"}, {"daily", "x"}, {"daily", "-1", "-2"}} {
+		if code, _ := s.run(bad...); code != 2 {
+			t.Errorf("%v: exit %d, want usage error 2", bad, code)
+		}
+	}
+	yesterday := time.Now().AddDate(0, 0, -1).Format("060102")
+	s.write("daily/"+yesterday+"_daily.md", "---\ntags: [daily]\n---\nold\n")
+	code, out = s.run("daily", "-1", "--json")
+	var r openOut
+	if err := json.Unmarshal([]byte(out), &r); code != 0 || err != nil || r.Created || !strings.HasSuffix(r.Path, yesterday+"_daily.md") {
+		t.Fatalf("%d %v %q", code, err, out)
+	}
+}
+
+func TestTodayIsAliasOfDaily(t *testing.T) {
+	cmd, ok := cli.Lookup("today")
+	d, ok2 := cli.Lookup("daily")
+	if !ok || !ok2 || cmd.Name != "daily" || d.Name != "daily" {
+		t.Fatalf("today must alias daily: %v %v", cmd, d)
+	}
 }

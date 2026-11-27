@@ -108,17 +108,21 @@ func init() {
 	})
 
 	ops.Handle("daily.open", func(ctx context.Context, env *ops.Env, r DailyReq) (CreateResp, error) {
-		id := "daily/" + env.Now().AddDate(0, 0, r.Offset).Format("060102") + "_daily.md"
+		day := env.Now().AddDate(0, 0, r.Offset)
+		id := "daily/" + day.Format("060102") + "_daily.md"
 		p := abs(env, id)
 		if _, err := os.Stat(p); err == nil {
 			return CreateResp{ID: id, Path: p}, nil
+		}
+		if r.Offset != 0 {
+			return CreateResp{}, ops.Errorf(ops.CodeNotFound, "no daily note for %s", day.Format("2006-01-02"))
 		}
 		tpl, err := templateBytes("daily")
 		var oe *ops.Error
 		if err != nil && !(errors.As(err, &oe) && oe.Code == ops.CodeNotFound) {
 			return CreateResp{}, err
 		}
-		return createNote(env, id, tpl)
+		return createNote(env, id, tpl, "daily")
 	})
 
 	ops.Handle("templates.list", func(ctx context.Context, env *ops.Env, _ ops.Empty) ([]string, error) {
