@@ -68,6 +68,8 @@ type InfoResp struct {
 	Links     int      `json:"links"`
 	Backlinks int      `json:"backlinks"`
 	Pinned    bool     `json:"pinned"`
+	// ParseError is a frontmatter warning (bad YAML, non-ISO created).
+	ParseError string `json:"parse_error,omitempty"`
 }
 
 func TemplatesDir() string { return filepath.Join(filepath.Dir(config.Path()), "templates") }
@@ -225,9 +227,10 @@ func init() {
 	ops.Handle("notes.info", func(ctx context.Context, env *ops.Env, r IDReq) (InfoResp, error) {
 		var i InfoResp
 		var created sql.NullInt64
+		var perr sql.NullString
 		var mtime int64
-		err := env.Store.DB.QueryRowContext(ctx, "SELECT id, title, kind, created, mtime_ns, size FROM notes WHERE id=?", r.ID).
-			Scan(&i.ID, &i.Title, &i.Kind, &created, &mtime, &i.Size)
+		err := env.Store.DB.QueryRowContext(ctx, "SELECT id, title, kind, created, mtime_ns, size, parse_error FROM notes WHERE id=?", r.ID).
+			Scan(&i.ID, &i.Title, &i.Kind, &created, &mtime, &i.Size, &perr)
 		if err == sql.ErrNoRows {
 			return i, ops.Errorf(ops.CodeNotFound, "note %q not found", r.ID)
 		}
@@ -235,6 +238,7 @@ func init() {
 			return i, dbErr("info", err)
 		}
 		i.Path = abs(env, i.ID)
+		i.ParseError = perr.String
 		if created.Valid {
 			i.Created = dates.Format(time.Unix(created.Int64, 0))
 		}

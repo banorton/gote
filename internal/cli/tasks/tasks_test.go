@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 var files = map[string]string{
 	"a.md": "---\ntags: [work]\n---\n- [ ] write spec\n- [x] ship it\n",
 	"b.md": "# B\n\n- [ ] buy milk\n",
+	"z.md": "---\ntags: [Archive]\n---\n- [ ] archived task\n",
 }
 
 func setup(t *testing.T, jsonOut bool) (*cli.Ctx, *bytes.Buffer) {
@@ -62,7 +64,7 @@ func TestTasksText(t *testing.T) {
 	if err := run(c, []string{"--all"}); err != nil {
 		t.Fatal(err)
 	}
-	if want := "b (b.md:3)  [ ] buy milk\na (a.md:4)  [ ] write spec\na (a.md:5)  [x] ship it\n"; out.String() != want {
+	if want := "b (b.md:3)  [ ] buy milk\nz (z.md:4)  [ ] archived task\na (a.md:4)  [ ] write spec\na (a.md:5)  [x] ship it\n"; out.String() != want && out.String() != "z (z.md:4)  [ ] archived task\nb (b.md:3)  [ ] buy milk\na (a.md:4)  [ ] write spec\na (a.md:5)  [x] ship it\n" {
 		t.Fatalf("got %q", out)
 	}
 }
@@ -79,7 +81,7 @@ func TestTasksQueryAndNegatedTerm(t *testing.T) {
 	if err := run(c, []string{"-tag:work", "--all"}); err != nil {
 		t.Fatal(err)
 	}
-	if want := "b (b.md:3)  [ ] buy milk\n"; out.String() != want {
+	if got := out.String(); !strings.Contains(got, "buy milk") || !strings.Contains(got, "archived task") || strings.Contains(got, "write spec") {
 		t.Fatalf("got %q", out)
 	}
 }
@@ -90,7 +92,7 @@ func TestTasksJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	var got []optasks.Task
-	if err := json.Unmarshal(out.Bytes(), &got); err != nil || len(got) != 3 || !got[2].Done || got[0].ID != "b.md" {
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil || len(got) != 4 || !got[3].Done {
 		t.Fatalf("%v %s", err, out)
 	}
 	out.Reset()

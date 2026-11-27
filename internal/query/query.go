@@ -88,7 +88,9 @@ func validName(s string) bool {
 
 func isSpace(r rune) bool { return r == ' ' || r == '\t' || r == '\n' || r == '\r' }
 
-func Parse(s string) (Query, error) {
+// Parse reads a query; dateFormat (iso or compact, "" = iso) is how created:
+// and modified: values must be written.
+func Parse(s, dateFormat string) (Query, error) {
 	var q Query
 	rs := []rune(s)
 	i := 0
@@ -152,7 +154,7 @@ func Parse(s string) (Query, error) {
 		if val == "" {
 			return Query{}, errf("invalid token %q: empty value", token)
 		}
-		f, err := makeFilter(key, val, token)
+		f, err := makeFilter(key, val, token, dateFormat)
 		if err != nil {
 			return Query{}, err
 		}
@@ -174,7 +176,7 @@ func readQuoted(rs []rune, i int) (string, int, error) {
 	return "", 0, errf("unterminated quote in %q", string(rs[i:]))
 }
 
-func makeFilter(key, val, token string) (Filter, error) {
+func makeFilter(key, val, token, dateFormat string) (Filter, error) {
 	switch strings.ToLower(key) {
 	case KindTag:
 		return Filter{Kind: KindTag, Value: val}, nil
@@ -185,7 +187,7 @@ func makeFilter(key, val, token string) (Filter, error) {
 		}
 		return Filter{Kind: KindNoteKind, Value: v}, nil
 	case KindCreated, KindModified:
-		r, err := parseRange(val, token)
+		r, err := parseRange(val, token, dateFormat)
 		if err != nil {
 			return Filter{}, err
 		}
@@ -194,33 +196,33 @@ func makeFilter(key, val, token string) (Filter, error) {
 	return Filter{Kind: KindField, Field: key, Value: val}, nil
 }
 
-func parseRange(v, token string) (Range, error) {
+func parseRange(v, token, format string) (Range, error) {
 	bad := func() error {
-		return errf("invalid token %q: date must be ISO (2026, 2026-03, 2026-03-14, 2026-03-14T10:30) or compact digits (2-12, even count), optionally >d, <d or d..d", token)
+		return errf("invalid token %q: %s, optionally >d, <d or d..d", token, dates.Expected(format))
 	}
 	switch {
 	case strings.HasPrefix(v, ">"):
-		_, end, ok := dates.Period(v[1:])
+		_, end, ok := dates.Period(v[1:], format)
 		if !ok {
 			return Range{}, bad()
 		}
 		return Range{Lo: end, HasLo: true}, nil
 	case strings.HasPrefix(v, "<"):
-		start, _, ok := dates.Period(v[1:])
+		start, _, ok := dates.Period(v[1:], format)
 		if !ok {
 			return Range{}, bad()
 		}
 		return Range{Hi: start, HasHi: true}, nil
 	}
 	if a, b, found := strings.Cut(v, ".."); found {
-		start, _, ok1 := dates.Period(a)
-		_, end, ok2 := dates.Period(b)
+		start, _, ok1 := dates.Period(a, format)
+		_, end, ok2 := dates.Period(b, format)
 		if !ok1 || !ok2 {
 			return Range{}, bad()
 		}
 		return Range{Lo: start, Hi: end, HasLo: true, HasHi: true}, nil
 	}
-	start, end, ok := dates.Period(v)
+	start, end, ok := dates.Period(v, format)
 	if !ok {
 		return Range{}, bad()
 	}

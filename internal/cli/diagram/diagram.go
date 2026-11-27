@@ -9,7 +9,11 @@ import (
 	"os"
 	"strings"
 
+	"golang.org/x/term"
+
 	"github.com/banorton/gote/internal/cli"
+	"github.com/banorton/gote/internal/cli/results"
+	"github.com/banorton/gote/internal/cli/search"
 	"github.com/banorton/gote/internal/cli/view"
 	"github.com/banorton/gote/internal/excal"
 	"github.com/banorton/gote/internal/note"
@@ -19,7 +23,7 @@ import (
 	"github.com/banorton/gote/internal/tui/menu"
 )
 
-const usage = "gote diagram [name] | gote diagram open <ref> | gote diagram list [-n N] [--json] | gote diagram read <ref> | gote diagram check <ref> | gote diagram render <ref> [--json] | gote diagram describe <ref> [<text>...|-|--clear] | gote diagram search [-n N] [-t|-s] <words>..."
+const usage = "gote diagram [name] | gote diagram open <ref> | gote diagram list [-n N] [--all] [--json] | gote diagram read <ref> | gote diagram check <ref> | gote diagram render <ref> [--json] | gote diagram describe <ref> [<text>...|-|--clear] | gote diagram search [-n N] [--all] [-l] [-t|-s] [<words>...]"
 
 // stdin is where `describe <ref> -` reads from; tests replace it.
 var stdin io.Reader = os.Stdin
@@ -89,14 +93,15 @@ type listItem struct {
 func list(c *cli.Ctx, args []string) error {
 	fs := c.FlagSet("diagram list")
 	n := fs.Int("n", 0, "max drawings")
+	all := fs.Bool("all", false, "include archived drawings")
 	if err := cli.ParseFlags(fs, args); err != nil {
 		return err
 	}
 	if fs.NArg() > 0 {
-		return cli.Usagef("usage: gote diagram list [-n N] [--json]")
+		return cli.Usagef("usage: gote diagram list [-n N] [--all] [--json]")
 	}
 	var items []listItem
-	if err := c.Client.Call(context.Background(), "diagram.list", map[string]int{"limit": *n}, &items); err != nil {
+	if err := c.Client.Call(context.Background(), "diagram.list", map[string]any{"limit": *n, "all": *all}, &items); err != nil {
 		return err
 	}
 	if items == nil {
@@ -217,15 +222,22 @@ func describe(c *cli.Ctx, args []string) error {
 	return nil
 }
 
-const searchUsage = "usage: gote diagram search [-n <limit>] <words>...   fuzzy on drawing titles and paths\n       gote diagram search [-n <limit>] -t <query>...   full-text with filters (labels + description)\n       gote diagram search [-n <limit>] -s <query>...   semantic"
+const searchUsage = "usage: gote diagram search [--all] [-l]   finder over all drawings\n       gote diagram search [-n <limit>] [--all] [-l] <words>...   fuzzy on drawing titles and paths; filters like tag:x narrow first (filters only: finder)\n       gote diagram search [-n <limit>] [--all] [-l] -t <query>...   full-text with filters (labels + description)\n       gote diagram search [-n <limit>] [--all] [-l] -s <query>...   semantic"
+
+func stdinIsTTY() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
+
+func interactive(c *cli.Ctx) bool { return !c.JSON && results.IsTTY(c.Out) && stdinIsTTY() }
 
 func searchCmd(c *cli.Ctx, args []string) error {
 	fs := c.FlagSet("diagram search")
 	n := fs.Int("n", 0, "max results")
 	text := fs.Bool("t", false, "full-text")
 	sem := fs.Bool("s", false, "semantic")
+	all := fs.Bool("all", false, "include archived drawings")
+	list := fs.Bool("list", false, "plain list, no menu")
 	fs.BoolVar(text, "text", false, "full-text")
 	fs.BoolVar(sem, "semantic", false, "semantic")
+	fs.BoolVar(list, "l", false, "plain list, no menu")
 	if err := cli.ParseFlags(fs, args); err != nil {
 		return err
 	}
@@ -236,13 +248,19 @@ func searchCmd(c *cli.Ctx, args []string) error {
 		return cli.Usagef("-n must be a positive integer")
 	}
 	if fs.NArg() == 0 {
-		return cli.Usagef("diagram search: no query given\n%s", searchUsage)
+		if *text || *sem || *list || !interactive(c) {
+			return cli.Usagef("diagram search: no query given\n%s", searchUsage)
+		}
+		return search.RunFinder(c, search.FinderOpts{All: *all, Kind: note.KindDiagram, Open: func(id string) error { return edit(c, id) }})
 	}
 	q := strings.Join(fs.Args(), " ")
 	if *text || *sem {
-		return searchQuery(c, q, *n, *sem)
+		return searchQuery(c, q, *n, *sem, *all, *list)
 	}
-	return searchFuzzy(c, q, *n)
+	if !*list && interactive(c) && search.FilterOnly(c, q) {
+		return search.RunFinder(c, search.FinderOpts{All: *all, Q: q, Kind: note.KindDiagram, Open: func(id string) error { return edit(c, id) }})
+	}
+	return searchFuzzy(c, q, *n, *all, *list)
 }
 
 func flagSet(fs *flag.FlagSet, name string) bool {
@@ -255,27 +273,45 @@ func flagSet(fs *flag.FlagSet, name string) bool {
 	return set
 }
 
-func searchQuery(c *cli.Ctx, q string, limit int, semantic bool) error {
+func searchQuery(c *cli.Ctx, q string, limit int, semantic, all, list bool) error {
 	var resp opsearch.QueryResp
-	req := opsearch.QueryReq{Q: q, Limit: limit, Semantic: semantic, Kind: "diagram"}
+	req := opsearch.QueryReq{Q: q, Limit: limit, Semantic: semantic, Kind: "diagram", All: all}
 	if err := c.Client.Call(context.Background(), "search.query", req, &resp); err != nil {
 		return err
 	}
 	if c.JSON {
 		return c.PrintJSON(resp)
 	}
-	for _, r := range resp.Results {
-		fmt.Fprintf(c.Out, "%s  (%s)\n", r.Title, r.ID)
-		if s := strings.TrimSpace(strings.ReplaceAll(r.Snippet, "\n", " ")); s != "" {
-			fmt.Fprintf(c.Out, "    %s\n", s)
-		}
+	if len(resp.Results) == 0 {
+		return nil
 	}
-	return nil
+	rows := search.Rows(resp.Results, semantic)
+	st := results.StyleFor(c.Out, results.Terms(q, c.Cfg.DateFormat), semantic)
+	if list || !interactive(c) {
+		results.Print(c.Out, rows, st)
+		return nil
+	}
+	mi := make([]menu.Item, len(rows))
+	for i, r := range rows {
+		mi[i] = results.MenuItem(r, st)
+	}
+	return pickDrawing(c, mi)
 }
 
-func searchFuzzy(c *cli.Ctx, q string, limit int) error {
+func pickDrawing(c *cli.Ctx, mi []menu.Item) error {
+	it, _, err := menu.Run(mi, "open", allActions)
+	switch {
+	case errors.Is(err, menu.ErrCancelled):
+		return nil
+	case err != nil:
+		return err
+	}
+	return edit(c, it.ID)
+}
+
+func searchFuzzy(c *cli.Ctx, q string, limit int, all, list bool) error {
 	var resp opsearch.FuzzyResp
-	req := opsearch.FuzzyReq{Q: q, Limit: limit, Kind: "diagram"}
+	req := opsearch.FuzzyReq{Q: q, Limit: limit, Kind: "diagram", All: all}
 	if err := c.Client.Call(context.Background(), "search.fuzzy", req, &resp); err != nil {
 		return err
 	}
@@ -298,23 +334,17 @@ func searchFuzzy(c *cli.Ctx, q string, limit int) error {
 		fmt.Fprintln(c.Out, "no drawings")
 		return nil
 	}
-	mi := make([]menu.Item, len(resp.Results))
-	for i, it := range resp.Results {
-		mi[i] = menu.Item{ID: it.ID, Title: it.Title}
-	}
-	it, _, err := menu.Run(mi, "open", allActions)
-	switch {
-	case errors.Is(err, menu.ErrCancelled):
-		return nil
-	case errors.Is(err, menu.ErrNotTTY):
+	if list || !interactive(c) {
 		for _, x := range resp.Results {
 			fmt.Fprintf(c.Out, "%s  (%s)\n", x.Title, x.ID)
 		}
 		return nil
-	case err != nil:
-		return err
 	}
-	return edit(c, it.ID)
+	mi := make([]menu.Item, len(resp.Results))
+	for i, it := range resp.Results {
+		mi[i] = menu.Item{ID: it.ID, Title: it.Title}
+	}
+	return pickDrawing(c, mi)
 }
 
 type readResp struct {

@@ -113,6 +113,9 @@ var infoCmd = withNote("gote info <note>", func(c *cli.Ctx, r opsnotes.Ref) erro
 	}
 	fmt.Fprintf(c.Out, "id:        %s\ntitle:     %s\npath:      %s\ncreated:   %s\nmodified:  %s\nsize:      %d\ntags:      %s\naliases:   %s\nlinks:     %d out, %d in\npinned:    %v\n",
 		i.ID, i.Title, i.Path, i.Created, i.Modified, i.Size, strings.Join(i.Tags, ", "), strings.Join(i.Aliases, ", "), i.Links, i.Backlinks, i.Pinned)
+	if i.ParseError != "" {
+		fmt.Fprintf(c.Out, "warning:   %s\n", i.ParseError)
+	}
 	return nil
 })
 

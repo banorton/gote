@@ -72,7 +72,7 @@ func runList(ctx context.Context, env *ops.Env, req ListReq) ([]Task, error) {
 	}
 	archived := req.Archived
 	if strings.TrimSpace(req.Q) != "" {
-		pq, err := query.Parse(req.Q)
+		pq, err := query.Parse(req.Q, env.Cfg.DateFormat)
 		if err != nil {
 			return nil, ops.Errorf(ops.CodeInvalid, "%v", err)
 		}

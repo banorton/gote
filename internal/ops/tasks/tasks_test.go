@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/banorton/gote/internal/client"
+	"github.com/banorton/gote/internal/config"
 	"github.com/banorton/gote/internal/index"
 	"github.com/banorton/gote/internal/ops"
 	"github.com/banorton/gote/internal/store"
@@ -69,7 +70,7 @@ func setup(t *testing.T) client.Client {
 	if _, err := ix.Reconcile(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	return client.Local(&ops.Env{Store: st, Index: ix, Now: time.Now})
+	return client.Local(&ops.Env{Cfg: &config.Config{}, Store: st, Index: ix, Now: time.Now})
 }
 
 func list(t *testing.T, c client.Client, req ListReq) []Task {
@@ -126,7 +127,7 @@ func TestListEmptyIsNonNil(t *testing.T) {
 	dir := t.TempDir()
 	st, _ := store.Open(filepath.Join(t.TempDir(), "gote.db"))
 	t.Cleanup(func() { st.Close() })
-	c := client.Local(&ops.Env{Store: st, Index: index.New(st, dir), Now: time.Now})
+	c := client.Local(&ops.Env{Cfg: &config.Config{}, Store: st, Index: index.New(st, dir), Now: time.Now})
 	if got := list(t, c, ListReq{}); got == nil || len(got) != 0 {
 		t.Fatalf("%#v", got)
 	}

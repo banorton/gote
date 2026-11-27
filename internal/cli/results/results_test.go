@@ -66,11 +66,11 @@ func TestHighlightCaseInsensitiveAndAfterTrim(t *testing.T) {
 }
 
 func TestTermsFromQuery(t *testing.T) {
-	got := Terms(`foo "two words" -neg tag:x created:2026`)
+	got := Terms(`foo "two words" -neg tag:x created:2026`, "iso")
 	if strings.Join(got, "|") != "foo|two words" {
 		t.Fatalf("%q", got)
 	}
-	if got := Terms(`"unterminated`); len(got) != 1 {
+	if got := Terms(`"unterminated`, "iso"); len(got) != 1 {
 		t.Fatalf("%q", got)
 	}
 }

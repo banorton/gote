@@ -183,3 +183,21 @@ func TestDiagramPNGDefaultAndValidation(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 }
+
+func TestDateFormatDefaultAndValidation(t *testing.T) {
+	setup(t, "notes_dir: NOTES\n")
+	c, err := Load()
+	if err != nil || c.DateFormat != "iso" {
+		t.Fatalf("%+v %v", c, err)
+	}
+	for _, v := range []string{"iso", "compact"} {
+		setup(t, "notes_dir: NOTES\ndate_format: "+v+"\n")
+		if c, err := Load(); err != nil || c.DateFormat != v {
+			t.Fatalf("%s: %v", v, err)
+		}
+	}
+	setup(t, "notes_dir: NOTES\ndate_format: us\n")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "date_format") || !strings.Contains(err.Error(), "us") {
+		t.Fatalf("%v", err)
+	}
+}

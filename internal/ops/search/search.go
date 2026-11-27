@@ -80,7 +80,7 @@ func runQuery(ctx context.Context, env *ops.Env, req QueryReq) (QueryResp, error
 		}
 		return QueryResp{Results: nonNil(rs)}, nil
 	}
-	q, err := query.Parse(req.Q)
+	q, err := query.Parse(req.Q, env.Cfg.DateFormat)
 	if err != nil {
 		return QueryResp{}, ops.Errorf(ops.CodeInvalid, "%v", err)
 	}
@@ -277,10 +277,40 @@ type CorpusResp struct {
 
 type CorpusReq struct {
 	All bool `json:"all"`
+	// Q restricts the corpus to notes matching these filter tokens (no plain
+	// words); Kind restricts it to "note" or "diagram".
+	Q    string `json:"q"`
+	Kind string `json:"kind"`
+}
+
+// scope turns a filters-only query plus kind and all into WHERE conditions.
+func scope(env *ops.Env, q, kind string, all bool) ([]string, []any, error) {
+	if err := checkKind(kind); err != nil {
+		return nil, nil, err
+	}
+	var pq query.Query
+	if strings.TrimSpace(q) != "" {
+		var err error
+		if pq, err = query.Parse(q, env.Cfg.DateFormat); err != nil {
+			return nil, nil, ops.Errorf(ops.CodeInvalid, "%v", err)
+		}
+		if len(pq.Terms) > 0 {
+			return nil, nil, ops.Errorf(ops.CodeInvalid, "finder scope takes filters only (tag:x, created:...), got plain words")
+		}
+	}
+	if kind != "" {
+		pq.Filters = append(pq.Filters, query.Filter{Kind: query.KindNoteKind, Value: kind})
+	}
+	where, args := filterWhere(pq, all || pq.MentionsArchive())
+	return where, args, nil
 }
 
 func runCorpus(ctx context.Context, env *ops.Env, req CorpusReq) (CorpusResp, error) {
-	return loadCorpus(ctx, env, []string{ops.Visible("n", req.All)}, nil, "n.title COLLATE NOCASE, n.id")
+	where, args, err := scope(env, req.Q, req.Kind, req.All)
+	if err != nil {
+		return CorpusResp{}, err
+	}
+	return loadCorpus(ctx, env, where, args, "n.title COLLATE NOCASE, n.id")
 }
 
 func loadCorpus(ctx context.Context, env *ops.Env, where []string, args []any, order string) (CorpusResp, error) {
@@ -318,8 +348,17 @@ type LinesResp struct {
 	Lines []Line `json:"lines"`
 }
 
-func noteIDs(ctx context.Context, env *ops.Env) ([]string, error) {
-	rows, err := env.Store.DB.QueryContext(ctx, "SELECT id FROM notes WHERE kind = 'note' ORDER BY id")
+type LinesReq struct {
+	All bool   `json:"all"`
+	Q   string `json:"q"`
+}
+
+func noteIDs(ctx context.Context, env *ops.Env, req LinesReq) ([]string, error) {
+	where, args, err := scope(env, req.Q, "note", req.All)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := env.Store.DB.QueryContext(ctx, "SELECT n.id FROM notes n WHERE "+strings.Join(where, " AND ")+" ORDER BY n.id", args...)
 	if err != nil {
 		return nil, ops.Errorf(ops.CodeInternal, "%v", err)
 	}
@@ -335,8 +374,8 @@ func noteIDs(ctx context.Context, env *ops.Env) ([]string, error) {
 	return ids, rows.Err()
 }
 
-func runLines(ctx context.Context, env *ops.Env, _ ops.Empty) (LinesResp, error) {
-	ids, err := noteIDs(ctx, env)
+func runLines(ctx context.Context, env *ops.Env, req LinesReq) (LinesResp, error) {
+	ids, err := noteIDs(ctx, env, req)
 	if err != nil {
 		return LinesResp{}, err
 	}
@@ -441,7 +480,7 @@ func runFuzzy(ctx context.Context, env *ops.Env, req FuzzyReq) (FuzzyResp, error
 	if strings.TrimSpace(req.Q) == "" {
 		return FuzzyResp{}, ops.Errorf(ops.CodeInvalid, "empty query")
 	}
-	q, err := query.Parse(req.Q)
+	q, err := query.Parse(req.Q, env.Cfg.DateFormat)
 	if err != nil {
 		return FuzzyResp{}, ops.Errorf(ops.CodeInvalid, "%v", err)
 	}

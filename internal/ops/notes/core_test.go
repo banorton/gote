@@ -47,7 +47,7 @@ func TestCreateTemplateMerge(t *testing.T) {
 
 func TestResolveReadInfoVisitRecent(t *testing.T) {
 	h := newHarness(t)
-	h.write("a.md", "---\ntags: [x, y]\naliases: [Ay]\ncreated: \"250101000000\"\n---\nbody [[b]]\n")
+	h.write("a.md", "---\ntags: [x, y]\naliases: [Ay]\ncreated: \"2025-01-01\"\n---\nbody [[b]]\n")
 	h.write("b.md", "hello [[a]]\n")
 	h.reconcile()
 	var rr ResolveResp
@@ -68,7 +68,7 @@ func TestResolveReadInfoVisitRecent(t *testing.T) {
 
 func TestVisitRecentInfo(t *testing.T) {
 	h := newHarness(t)
-	h.write("a.md", "---\ntags: [x, y]\naliases: [Ay]\ncreated: \"250101000000\"\n---\nbody [[b]]\n")
+	h.write("a.md", "---\ntags: [x, y]\naliases: [Ay]\ncreated: \"2025-01-01\"\n---\nbody [[b]]\n")
 	h.write("b.md", "hello [[a]]\n")
 	h.reconcile()
 	h.must("notes.visit", IDReq{ID: "a.md"}, nil)
@@ -106,7 +106,7 @@ func TestVisitRecentInfo(t *testing.T) {
 
 func TestDuplicate(t *testing.T) {
 	h := newHarness(t)
-	h.write("a.md", "---\ncreated: \"250101000000\"\n---\nbody\n")
+	h.write("a.md", "---\ncreated: \"2025-01-01\"\n---\nbody\n")
 	h.reconcile()
 	var r CreateResp
 	h.must("notes.duplicate", DupReq{ID: "a.md", New: "b"}, &r)
@@ -138,4 +138,15 @@ func TestPins(t *testing.T) {
 func isISO(s string) bool {
 	_, err := time.Parse(time.RFC3339, s)
 	return err == nil
+}
+
+func TestInfoReportsNonISOCreated(t *testing.T) {
+	h := newHarness(t)
+	h.write("legacy.md", "---\ncreated: \"250101000000\"\n---\nbody\n")
+	h.reconcile()
+	var info InfoResp
+	h.must("notes.info", IDReq{ID: "legacy.md"}, &info)
+	if info.Created != "" || !strings.Contains(info.ParseError, "250101000000") || !strings.Contains(info.ParseError, "ISO") {
+		t.Fatalf("%+v", info)
+	}
 }

@@ -341,3 +341,26 @@ func TestSearchTextAndSemanticTogetherExit2(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 }
+
+func TestFilterOnly(t *testing.T) {
+	c, _ := testCtx(t, files)
+	for q, want := range map[string]bool{
+		"tag:ops": true, "tag:ops -tag:x": true, "kube": false, "kube tag:ops": false, "": false,
+		"created:260314": false, `created:2026-03`: true,
+	} {
+		if got := FilterOnly(c, q); got != want {
+			t.Errorf("%q: got %v", q, got)
+		}
+	}
+}
+
+func TestFilterOnlyNotTTYPrintsListNewestFirst(t *testing.T) {
+	c, out := testCtx(t, files)
+	if err := run(c, []string{"tag:ops"}); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "Kubernetes guide  (k8s.md)") || !strings.Contains(got, "x  (notes/x.md)") || strings.Contains(got, "other") {
+		t.Fatalf("%q", got)
+	}
+}

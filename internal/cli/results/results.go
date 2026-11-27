@@ -69,8 +69,8 @@ func StyleFor(w io.Writer, terms []string, firstLine bool) Style {
 }
 
 // Terms extracts the words and phrases a query matches on, for highlighting.
-func Terms(q string) []string {
-	pq, err := query.Parse(q)
+func Terms(q, dateFormat string) []string {
+	pq, err := query.Parse(q, dateFormat)
 	if err != nil {
 		return strings.Fields(q)
 	}

@@ -15,7 +15,9 @@ import (
 	"github.com/banorton/gote/internal/cli"
 	"github.com/banorton/gote/internal/cli/notes"
 	"github.com/banorton/gote/internal/cli/results"
+	"github.com/banorton/gote/internal/note"
 	opsearch "github.com/banorton/gote/internal/ops/search"
+	"github.com/banorton/gote/internal/query"
 	"github.com/banorton/gote/internal/tui/fuzzy"
 )
 
@@ -145,7 +147,7 @@ func runQuery(c *cli.Ctx, o opts) error {
 		return nil
 	}
 	rows := Rows(resp.Results, o.semantic)
-	st := results.StyleFor(c.Out, results.Terms(req.Q), o.semantic)
+	st := results.StyleFor(c.Out, results.Terms(req.Q, c.Cfg.DateFormat), o.semantic)
 	if o.list || !results.IsTTY(c.Out) || !stdinIsTTY() {
 		results.Print(c.Out, rows, st)
 		return nil
@@ -170,6 +172,9 @@ func isTTY() bool { return stdinIsTTY() && term.IsTerminal(int(os.Stdout.Fd())) 
 // runFuzzy on a terminal hands off to the "so" lister (home-row menu, open
 // preselected); otherwise it prints the ranked list.
 func runFuzzy(c *cli.Ctx, o opts) error {
+	if !c.JSON && !o.list && isTTY() && FilterOnly(c, strings.Join(o.words, " ")) {
+		return RunFinder(c, FinderOpts{All: o.all, Q: strings.Join(o.words, " ")})
+	}
 	if !c.JSON && !o.list && isTTY() {
 		var args []string
 		if o.limit > 0 {
@@ -210,15 +215,38 @@ func previewText(p opsearch.PreviewResp, line int) string {
 	return b.String()
 }
 
+// FilterOnly reports whether q is only filter tokens (tag:x, created:...), no
+// plain words: such a query opens the finder over the matching notes. A query
+// that does not parse is not filter-only; the search op reports the error.
+func FilterOnly(c *cli.Ctx, q string) bool {
+	pq, err := query.Parse(q, c.Cfg.DateFormat)
+	return err == nil && len(pq.Terms) == 0 && len(pq.Filters) > 0
+}
+
+// FinderOpts scopes the interactive finder. Q is filter tokens only; Kind
+// restricts to "note" or "diagram". Open replaces the default open action
+// (used for drawings); with Kind "diagram" there is no content mode.
+type FinderOpts struct {
+	All  bool
+	Q    string
+	Kind string
+	Open func(id string) error
+}
+
 func runFinder(c *cli.Ctx, o opts) error {
 	if !isTTY() {
 		return cli.Usagef("search: no query given and not a terminal\nusage: %s", usage)
 	}
+	return RunFinder(c, FinderOpts{All: o.all})
+}
+
+// RunFinder runs the fuzzy finder over the notes in scope.
+func RunFinder(c *cli.Ctx, o FinderOpts) error {
 	ctx := context.Background()
-	return fuzzy.Run(fuzzy.Config{
+	cfg := fuzzy.Config{
 		Notes: func() ([]fuzzy.Item, error) {
 			var r opsearch.CorpusResp
-			if err := c.Client.Call(ctx, "search.corpus", opsearch.CorpusReq{All: o.all}, &r); err != nil {
+			if err := c.Client.Call(ctx, "search.corpus", opsearch.CorpusReq{All: o.All, Q: o.Q, Kind: o.Kind}, &r); err != nil {
 				return nil, err
 			}
 			items := make([]fuzzy.Item, len(r.Items))
@@ -229,7 +257,7 @@ func runFinder(c *cli.Ctx, o opts) error {
 		},
 		Lines: func() ([]fuzzy.Item, error) {
 			var r opsearch.LinesResp
-			if err := c.Client.Call(ctx, "search.lines", nil, &r); err != nil {
+			if err := c.Client.Call(ctx, "search.lines", opsearch.LinesReq{All: o.All, Q: o.Q}, &r); err != nil {
 				return nil, err
 			}
 			items := make([]fuzzy.Item, len(r.Lines))
@@ -246,6 +274,9 @@ func runFinder(c *cli.Ctx, o opts) error {
 			return previewText(r, line), nil
 		},
 		Invoke: func(name string, args []string) error {
+			if name == "open" && o.Open != nil {
+				return o.Open(args[0])
+			}
 			if name == "delete" || name == "pin" {
 				return invokeQuiet(c, name, args)
 			}
@@ -265,5 +296,9 @@ func runFinder(c *cli.Ctx, o opts) error {
 			return c.Client.Call(ctx, "index.reconcile", nil, nil)
 		},
 		Editor: c.Cfg.Editor,
-	})
+	}
+	if o.Kind == note.KindDiagram {
+		cfg.Lines, cfg.Edit = nil, nil
+	}
+	return fuzzy.Run(cfg)
 }

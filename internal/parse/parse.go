@@ -67,22 +67,18 @@ func applyFields(n *note.Note) {
 	if t, ok := f["title"].(string); ok && strings.TrimSpace(t) != "" {
 		n.Title = t
 	}
-	var created string
-	switch c := f["created"].(type) {
-	case string:
-		created = c
-	case time.Time:
-		n.Created = c
-	case uint64:
-		created = fmt.Sprintf("%012d", c)
-	case int64:
-		created = fmt.Sprintf("%012d", c)
-	case int:
-		created = fmt.Sprintf("%012d", c)
-	}
-	if created != "" {
-		if t, ok := dates.ParseStored(created); ok {
-			n.Created = t
+	if raw, present := f["created"]; present && raw != nil {
+		switch c := raw.(type) {
+		case time.Time:
+			n.Created = c
+		case string:
+			if t, ok := dates.ParseStored(c); ok {
+				n.Created = t
+			} else {
+				n.ParseErr = fmt.Sprintf("created %q is not ISO 8601 (like 2026-11-27T14:30:00-05:00); ignored", c)
+			}
+		default:
+			n.ParseErr = fmt.Sprintf("created %v is not ISO 8601 (like 2026-11-27T14:30:00-05:00); ignored", raw)
 		}
 	}
 	if s, ok := f["semantic"].(bool); ok {
