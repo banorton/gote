@@ -138,6 +138,7 @@ Menu commands print `id<TAB>title` lines without a terminal and are interactive 
 | `serve` | | run the server in the foreground (never; auto-spawned) |
 | `help` | `h` `man` | `help --json` lists every command with usage |
 | `version` | | print the version |
+| `update` | | self-update to the latest release; `update --check --json` only reports. See safety |
 | `open` | | open or create a note; with `--json` returns `{id,path,created}` and skips the editor: `-t <template>`, `-d`/`-dt`/`-nt` name prefix |
 | `new` | | create a note, `--json` returns `{id,path,created}` without opening the editor; fails with `conflict` if it exists |
 | `quick` | `q` | quick note `.quick.md`; `--json` returns `{path}` without the editor; `quick save <name>` |
@@ -203,6 +204,7 @@ A new note stub is `created`, `tags: []`, `aliases: []` (`gote new` writes it). 
 - Never pass `embed --yes` without asking the user: the first full embed and any model change spend API budget.
 - A write that races a concurrent change fails with `conflict` and writes nothing; re-read and retry.
 - Ask before `trash empty` and `import --force`.
+- Never run `gote update` (without `--check`) without asking the user: it replaces the gote binary.
 
 ### Drawings
 
