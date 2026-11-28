@@ -16,6 +16,8 @@ func (s *Server) startWeb(ctx context.Context) (func(), error) {
 	if err != nil {
 		return nil, fmt.Errorf("start web server: %w", err)
 	}
+	clients := ws.Clients
+	s.webClients.Store(&clients)
 	s.log.Printf("web view on %s", ws.Addr())
 	unhook := s.env.Index.OnReconcile(func(index.Stats) { ws.Notify() })
 	return func() { unhook(); ws.Close() }, nil

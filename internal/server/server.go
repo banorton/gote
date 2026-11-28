@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -44,6 +45,8 @@ type Server struct {
 	started time.Time
 	stop    chan struct{}
 	stopOne sync.Once
+
+	webClients atomic.Pointer[func() int] // set once the web view is up; the socket answers before that
 }
 
 func New(o Options) *Server {
@@ -231,7 +234,11 @@ func raiseFDLimit(l *log.Logger) {
 func (s *Server) handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/version", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, client.ServerInfo{Version: s.o.Version, PID: os.Getpid(), Started: dates.Format(s.started)})
+		info := client.ServerInfo{Version: s.o.Version, PID: os.Getpid(), Started: dates.Format(s.started)}
+		if f := s.webClients.Load(); f != nil {
+			info.WebClients = (*f)()
+		}
+		writeJSON(w, http.StatusOK, info)
 	})
 	mux.HandleFunc("POST /v1/shutdown", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, struct{}{})

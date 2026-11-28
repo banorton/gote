@@ -13,8 +13,10 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/banorton/gote/internal/cli"
+	"github.com/banorton/gote/internal/client"
 )
 
 func TestCompareSemver(t *testing.T) {
@@ -52,6 +54,47 @@ type fixture struct {
 	requests []*http.Request
 	dir      string
 	target   string
+	server   *fakeServer
+}
+
+// fakeServer stands in for the socket, the old server and the spawn path.
+type fakeServer struct {
+	running     bool
+	info        client.ServerInfo
+	serverless  bool
+	startErr    error
+	shutdownErr error
+	calls       []string
+}
+
+func (s *fakeServer) hooks() serverHooks {
+	return serverHooks{
+		Socket: func() (string, error) { return "sock", nil },
+		Probe: func(string) (client.ServerInfo, error) {
+			if !s.running {
+				return client.ServerInfo{}, fmt.Errorf("no server")
+			}
+			return s.info, nil
+		},
+		Shutdown: func(string) error {
+			s.calls = append(s.calls, "shutdown")
+			if s.shutdownErr != nil {
+				return s.shutdownErr
+			}
+			s.running = false
+			return nil
+		},
+		WaitGone: func(string, time.Duration) error { s.calls = append(s.calls, "waitgone"); return nil },
+		Start: func(exe, sock, version string) error {
+			s.calls = append(s.calls, "start "+version+" "+filepath.Base(exe))
+			if s.startErr != nil {
+				return s.startErr
+			}
+			s.running = true
+			return nil
+		},
+		Enabled: func(*cli.Ctx) (bool, error) { return !s.serverless, nil },
+	}
 }
 
 func script(version string) []byte {
@@ -108,8 +151,12 @@ func newFixture(t *testing.T, current, latest string) *fixture {
 	apiBase, apiClient, downloadClient = f.srv.URL, f.srv.Client(), f.srv.Client()
 	executable = func() (string, error) { return f.target, nil }
 	cli.Version = current
+	f.server = &fakeServer{}
+	oldHooks := hooks
+	hooks = f.server.hooks()
 	t.Cleanup(func() {
 		apiBase, apiClient, downloadClient, executable, cli.Version = oldBase, oldAPI, oldDL, oldExe, oldVer
+		hooks = oldHooks
 	})
 	return f
 }
@@ -249,7 +296,7 @@ func TestUpdateReplacesSymlinkTarget(t *testing.T) {
 		t.Errorf("mode %v", fi.Mode())
 	}
 	realResolved, _ := filepath.EvalSymlinks(real)
-	if !strings.Contains(out, "updated gote v1.1.0 → v1.2.0 ("+realResolved+")") || !strings.Contains(out, "server") {
+	if !strings.Contains(out, "updated gote v1.1.0 → v1.2.0 ("+realResolved+")") || !strings.Contains(out, "v1.2.0") {
 		t.Errorf("out=%q", out)
 	}
 	if ents, _ := os.ReadDir(realDir); len(ents) != 1 {
@@ -373,4 +420,125 @@ func TestPermissionDenied(t *testing.T) {
 	}
 	os.Chmod(f.dir, 0o755)
 	assertUntouched(t, f, orig)
+}
+
+func (f *fixture) runningServer(version string, webClients int) {
+	f.server.running = true
+	f.server.info = client.ServerInfo{Version: version, WebClients: webClients}
+}
+
+func TestUpdateRestartsIdleServer(t *testing.T) {
+	f := newFixture(t, "v1.1.0", "v1.2.0")
+	f.runningServer("v1.1.0", 0)
+	out, errOut, err := runCmd()
+	if err != nil || errOut != "" {
+		t.Fatalf("err=%v stderr=%q", err, errOut)
+	}
+	if got := strings.Join(f.server.calls, ","); got != "shutdown,waitgone,start v1.2.0 gote" {
+		t.Errorf("calls=%s", got)
+	}
+	if !strings.Contains(out, "restarted gote server on v1.2.0") {
+		t.Errorf("out=%q", out)
+	}
+}
+
+func TestUpdateKeepsServerWithWebClient(t *testing.T) {
+	f := newFixture(t, "v1.1.0", "v1.2.0")
+	f.runningServer("v1.1.0", 1)
+	out, _, err := runCmd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.server.calls) != 0 {
+		t.Errorf("calls=%v", f.server.calls)
+	}
+	want := "server still running v1.1.0: an editor or note tab is open; it restarts on your next command, or run gote server stop"
+	if !strings.Contains(out, want) {
+		t.Errorf("out=%q", out)
+	}
+}
+
+func TestUpdateNoServerRunning(t *testing.T) {
+	f := newFixture(t, "v1.1.0", "v1.2.0")
+	out, _, err := runCmd()
+	if err != nil || len(f.server.calls) != 0 || strings.Contains(out, "server") {
+		t.Fatalf("out=%q calls=%v err=%v", out, f.server.calls, err)
+	}
+}
+
+func TestUpdateRestartFailureWarns(t *testing.T) {
+	f := newFixture(t, "v1.1.0", "v1.2.0")
+	f.runningServer("v1.1.0", 0)
+	f.server.startErr = fmt.Errorf("boom")
+	out, errOut, err := runCmd()
+	if err != nil {
+		t.Fatalf("restart failure must not fail the update: %v", err)
+	}
+	if !strings.Contains(errOut, "warning") || !strings.Contains(errOut, "boom") {
+		t.Errorf("stderr=%q", errOut)
+	}
+	if !strings.Contains(out, "updated gote v1.1.0 → v1.2.0") {
+		t.Errorf("out=%q", out)
+	}
+}
+
+func TestUpdateStopFailureWarns(t *testing.T) {
+	f := newFixture(t, "v1.1.0", "v1.2.0")
+	f.runningServer("v1.1.0", 0)
+	f.server.shutdownErr = fmt.Errorf("stuck")
+	_, errOut, err := runCmd()
+	if err != nil || !strings.Contains(errOut, "warning") || !strings.Contains(errOut, "stuck") {
+		t.Fatalf("err=%v stderr=%q", err, errOut)
+	}
+}
+
+func TestUpdateServerlessStopsWithoutSpawn(t *testing.T) {
+	f := newFixture(t, "v1.1.0", "v1.2.0")
+	f.runningServer("v1.1.0", 0)
+	f.server.serverless = true
+	out, _, err := runCmd("--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(f.server.calls, ","); got != "shutdown,waitgone" {
+		t.Errorf("calls=%s", got)
+	}
+	var got map[string]string
+	json.Unmarshal([]byte(out), &got)
+	if got["server"] != "stopped" {
+		t.Errorf("%v", got)
+	}
+}
+
+func TestUpdateJSONServerField(t *testing.T) {
+	for name, tc := range map[string]struct {
+		setup func(f *fixture)
+		want  string
+	}{
+		"restarted":   {func(f *fixture) { f.runningServer("v1.1.0", 0) }, "restarted"},
+		"kept":        {func(f *fixture) { f.runningServer("v1.1.0", 2) }, "kept"},
+		"not_running": {func(f *fixture) {}, "not_running"},
+	} {
+		f := newFixture(t, "v1.1.0", "v1.2.0")
+		tc.setup(f)
+		out, _, err := runCmd("--json")
+		if err != nil {
+			t.Fatal(name, err)
+		}
+		var got map[string]string
+		if err := json.Unmarshal([]byte(out), &got); err != nil {
+			t.Fatal(name, err, out)
+		}
+		if got["server"] != tc.want {
+			t.Errorf("%s: %v", name, got)
+		}
+	}
+}
+
+func TestUpdateNoopLeavesServerAlone(t *testing.T) {
+	f := newFixture(t, "v1.2.0", "v1.2.0")
+	f.runningServer("v1.2.0", 0)
+	if _, _, err := runCmd(); err != nil || len(f.server.calls) != 0 {
+		t.Fatalf("err=%v calls=%v", err, f.server.calls)
+	}
 }

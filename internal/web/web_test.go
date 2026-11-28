@@ -719,3 +719,26 @@ func TestPutPreservesGoteDescription(t *testing.T) {
 		t.Fatal("stale PUT modified the file")
 	}
 }
+
+func TestClientsCountsOpenEventStreams(t *testing.T) {
+	f := newFixture(t)
+	waitClients := func(want int) {
+		t.Helper()
+		deadline := time.Now().Add(2 * time.Second)
+		for f.srv.Clients() != want {
+			if time.Now().After(deadline) {
+				t.Fatalf("Clients() = %d, want %d", f.srv.Clients(), want)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	waitClients(0)
+	a := f.events("a.md")
+	waitClients(1)
+	d := f.events(drawingID)
+	waitClients(2)
+	a.close()
+	waitClients(1)
+	d.close()
+	waitClients(0)
+}

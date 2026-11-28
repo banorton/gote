@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/banorton/gote/internal/ops"
@@ -59,7 +60,8 @@ type Server struct {
 	token string
 	state string
 
-	wmu sync.Mutex
+	wmu     sync.Mutex
+	clients atomic.Int64
 
 	mu   sync.Mutex
 	wake chan struct{}

@@ -48,6 +48,9 @@ func same(a, b []stamp) bool {
 	return true
 }
 
+// Clients is the number of open event streams; every note and editor page holds one.
+func (s *Server) Clients() int { return int(s.clients.Load()) }
+
 // handleEvents streams "reload" when the note or a drawing it embeds changes.
 // It polls file stamps; Notify wakes it early. After Phase 7 lands, the main
 // session should call Notify from an index.OnReconcile hook.
@@ -68,6 +71,8 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	snap := s.snapshot(ids)
+	s.clients.Add(1)
+	defer s.clients.Add(-1)
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Accel-Buffering", "no")
