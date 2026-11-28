@@ -42,7 +42,7 @@ var notePage = template.Must(template.New("note").Parse(`<!doctype html>
 </body></html>
 `))
 
-type editorPage struct{ ID, Title string }
+type editorPage struct{ ID, Title, Events string }
 
 var editorTmpl = template.Must(template.New("editor").Parse(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -60,7 +60,7 @@ html,body{margin:0;height:100%;overflow:hidden}
 .library-menu-browse-button{display:none!important}
 </style>
 </head><body>
-<div id="root" data-id="{{.ID}}"></div>
+<div id="root" data-id="{{.ID}}" data-events="{{.Events}}"></div>
 <script type="module" src="/assets/editor.js"></script>
 </body></html>
 `))

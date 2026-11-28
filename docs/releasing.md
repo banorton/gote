@@ -100,8 +100,11 @@ gh release edit vX.Y.Z --notes-file notes.md
 ## 6. After the release
 
 - Install from source: `git pull && make build`. Release binaries:
-  `gote update`. A running `gote serve` restarts itself on the next command
-  (version handshake).
+  `gote update`, which also restarts an idle running server on the new
+  version. With a browser note/editor tab open (`web_clients > 0`) it keeps the
+  old server, which restarts on the next command (version handshake). A server
+  older than this feature does not report `web_clients`, so updating from it
+  restarts even with a tab open.
 - If commands, flags, output or frontmatter changed, the docs already had to
   match before merge (the README, `skill/gote/SKILL.md` and
   `skill/template/SKILL.md` are test-checked). Agent skills built from the

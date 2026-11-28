@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { test as base, expect, request as pwRequest } from "@playwright/test";
 
 export { expect };
@@ -49,3 +50,12 @@ export const test = base.extend({
     await ctx.dispose();
   },
 });
+
+// Open web-view streams as the server reports them (`gote server status --json`).
+export const webClients = () => {
+  const out = execFileSync(process.env.E2E_BIN, ["server", "status", "--json"], {
+    env: { PATH: process.env.PATH, HOME: process.env.E2E_ROOT, XDG_CONFIG_HOME: process.env.E2E_CFG, XDG_STATE_HOME: process.env.E2E_STATE },
+    encoding: "utf8",
+  });
+  return JSON.parse(out).web_clients;
+};

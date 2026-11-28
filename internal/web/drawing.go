@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -39,7 +40,7 @@ func (s *Server) handleEditor(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	renderPage(w, editorTmpl, editorPage{ID: id, Title: filepath.Base(id)})
+	renderPage(w, editorTmpl, editorPage{ID: id, Title: filepath.Base(id), Events: "/events?id=" + url.QueryEscape(id)})
 }
 
 func (s *Server) handleDrawingGet(w http.ResponseWriter, r *http.Request) {

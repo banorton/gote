@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -741,4 +742,12 @@ func TestClientsCountsOpenEventStreams(t *testing.T) {
 	waitClients(1)
 	d.close()
 	waitClients(0)
+}
+
+func TestEditorPageOpensEventStream(t *testing.T) {
+	f := newFixture(t)
+	_, body := f.get("/d/" + drawingID)
+	if want := `data-events="/events?id=` + url.QueryEscape(drawingID); !strings.Contains(body, want) {
+		t.Fatalf("editor page lacks %s:\n%s", want, body)
+	}
 }
