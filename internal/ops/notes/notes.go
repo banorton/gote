@@ -234,8 +234,12 @@ func init() {
 		if limit <= 0 {
 			limit = 50
 		}
-		return queryRefs(ctx, env, `SELECT n.id, n.title, n.kind FROM visits v JOIN notes n ON n.id=v.note_id
-			WHERE `+ops.Visible("n", r.All)+` ORDER BY v.last_visited DESC LIMIT ?`, limit)
+		// Recent means recently touched by anyone: opened through gote, or the
+		// file modified (agents, other editors). Both are Unix nanoseconds. Notes
+		// only: recent's actions open in the text editor (drawings: diagram list).
+		return queryRefs(ctx, env, `SELECT n.id, n.title, n.kind FROM notes n LEFT JOIN visits v ON v.note_id=n.id
+			WHERE n.kind='note' AND `+ops.Visible("n", r.All)+`
+			ORDER BY MAX(COALESCE(v.last_visited, 0), n.mtime_ns) DESC, n.id LIMIT ?`, limit)
 	})
 
 	ops.Handle("notes.info", func(ctx context.Context, env *ops.Env, r IDReq) (InfoResp, error) {
