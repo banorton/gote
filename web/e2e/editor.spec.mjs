@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { test, expect, env } from "./fixtures.mjs";
+import { test, expect, env, webClients } from "./fixtures.mjs";
 
 const file = (name) => path.join(env().notes, "diagrams", `261101130001_${name}.excalidraw`);
 const url = (name) => `${env().origin}/d/diagrams/261101130001_${name}.excalidraw?t=${env().token}`;
@@ -28,6 +28,13 @@ async function drawRect(page, canvas, dx = 0) {
 }
 
 test.describe("editor", () => {
+  test("holds an event stream open while the editor is open", async ({ page }) => {
+    await openEditor(page, "e2e_edit");
+    await expect.poll(webClients).toBe(1);
+    await page.close();
+    await expect.poll(webClients).toBe(0);
+  });
+
   test("draw rectangle + text, autosave, Ctrl/Cmd-S, persists on reload", async ({ page }) => {
     const canvas = await openEditor(page, "e2e_edit");
     const count = (type) => live(scene("e2e_edit")).filter((e) => e.type === type).length;

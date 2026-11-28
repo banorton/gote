@@ -20,6 +20,9 @@ import (
 	"time"
 
 	"github.com/banorton/gote/internal/cli"
+	"github.com/banorton/gote/internal/client"
+	"github.com/banorton/gote/internal/config"
+	"github.com/banorton/gote/internal/paths"
 )
 
 const (
@@ -37,6 +40,46 @@ var (
 	downloadClient = &http.Client{Timeout: 10 * time.Minute}
 	executable     = os.Executable
 )
+
+// serverHooks are the seams for talking to the background server; tests replace them.
+type serverHooks struct {
+	Socket   func() (string, error)
+	Probe    func(socket string) (client.ServerInfo, error)
+	Shutdown func(socket string) error
+	WaitGone func(socket string, d time.Duration) error
+	// Start spawns exe as the server and waits until it reports version.
+	Start func(exe, socket, version string) error
+	// Enabled reports whether this user's config and flags allow a server.
+	Enabled func(c *cli.Ctx) (bool, error)
+}
+
+var hooks = serverHooks{
+	Socket:   paths.SocketPath,
+	Probe:    client.Probe,
+	Shutdown: client.Shutdown,
+	WaitGone: client.WaitGone,
+	Start: func(exe, socket, version string) error {
+		state, err := paths.StateDir()
+		if err != nil {
+			return err
+		}
+		_, err = client.Connect(client.ConnectOpts{
+			Socket: socket, Version: version,
+			Spawn: func() error { return client.SpawnBinary(exe, filepath.Join(state, "server.log")) },
+		})
+		return err
+	},
+	Enabled: func(c *cli.Ctx) (bool, error) {
+		if c.NoServer {
+			return false, nil
+		}
+		cfg, err := config.Load()
+		if err != nil {
+			return false, err
+		}
+		return cfg.Server, nil
+	},
+}
 
 var cleanVersion = regexp.MustCompile(`^v(\d+)\.(\d+)\.(\d+)$`)
 
@@ -263,12 +306,55 @@ func runUpdate(c *cli.Ctx, force bool) error {
 	}
 	installed = true
 
+	state, msg := refreshServer(c, target, rel.Tag)
 	if c.JSON {
-		return c.PrintJSON(map[string]string{"previous": cli.Version, "current": rel.Tag, "path": target})
+		return c.PrintJSON(map[string]string{"previous": cli.Version, "current": rel.Tag, "path": target, "server": state})
 	}
 	fmt.Fprintf(c.Out, "updated gote %s → %s (%s)\n", cli.Version, rel.Tag, target)
-	fmt.Fprintln(c.Out, "a running gote server restarts itself on the next command")
+	if msg != "" {
+		fmt.Fprintln(c.Out, msg)
+	}
 	return nil
+}
+
+// refreshServer replaces a running old-version server with the new binary,
+// unless a web tab is open (a restart gives the web view a new port and token).
+// It returns the JSON state and a human message. Failures are warnings on
+// stderr: the update itself already succeeded.
+func refreshServer(c *cli.Ctx, exe, newVersion string) (state, msg string) {
+	warn := func(err error) (string, string) {
+		fmt.Fprintf(c.Err, "gote: warning: server not restarted: %v; it restarts on your next command\n", err)
+		return "kept", ""
+	}
+	sock, err := hooks.Socket()
+	if err != nil {
+		return warn(err)
+	}
+	info, err := hooks.Probe(sock)
+	if err != nil {
+		return "not_running", ""
+	}
+	if info.WebClients > 0 {
+		return "kept", fmt.Sprintf("server still running %s: an editor or note tab is open; it restarts on your next command, or run gote server stop", info.Version)
+	}
+	enabled, err := hooks.Enabled(c)
+	if err != nil {
+		return warn(err)
+	}
+	if err := hooks.Shutdown(sock); err != nil {
+		return warn(fmt.Errorf("stop server %s: %w", info.Version, err))
+	}
+	if err := hooks.WaitGone(sock, 3*time.Second); err != nil {
+		return warn(err)
+	}
+	if !enabled {
+		return "stopped", fmt.Sprintf("stopped gote server %s (server is disabled in config or by --no-server)", info.Version)
+	}
+	if err := hooks.Start(exe, sock, newVersion); err != nil {
+		warn(fmt.Errorf("start server: %w", err))
+		return "not_running", ""
+	}
+	return "restarted", "restarted gote server on " + newVersion
 }
 
 func checksumFor(sums, name string) (string, error) {

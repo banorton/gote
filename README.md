@@ -21,7 +21,7 @@ gote update --check   # is a newer release available?
 gote update           # download, verify the sha256, replace the binary
 ```
 
-`gote update` refuses development builds (`dev`, `v1.1.0-3-gabc`, `-dirty`); use `git pull && make build` there, or pass `--force`. A running server restarts itself on the next command.
+`gote update` refuses development builds (`dev`, `v1.1.0-3-gabc`, `-dirty`); use `git pull && make build` there, or pass `--force`. After replacing the binary, `gote update` restarts a running server on the new version straight away (`restarted gote server on vX.Y.Z`). If a note or editor tab is open in the browser it leaves the server alone, since a restart gives the web view a new port and token; it then restarts on your next command, or run `gote server stop`. With `--no-server` or `server: false` it stops a running server and does not start a new one. A failed restart is a warning, not an error. `--json` adds `server`: `restarted`, `kept`, `stopped` or `not_running`.
 
 ## Configure
 
@@ -160,7 +160,7 @@ New notes start with `created` (ISO 8601 with offset, quoted), `tags: []` and `a
 
 ## Server
 
-The first command spawns a background server on a Unix socket in the state directory. It watches the notes directory and keeps the index current, so later commands start fast. It restarts itself when the gote version changes. `gote server status` and `gote server stop` manage it.
+The first command spawns a background server on a Unix socket in the state directory. It watches the notes directory and keeps the index current, so later commands start fast. It restarts itself when the gote version changes. `gote server status` (its `--json` includes `web_clients`, the open browser tabs) and `gote server stop` manage it.
 
 `--no-server` runs one command in-process with no server. Set `server: false` in the config to always do that. If the server cannot start, gote prints one warning and runs in-process.
 

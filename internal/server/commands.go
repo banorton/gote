@@ -88,13 +88,13 @@ func runServerCmd(c *cli.Ctx, args []string) error {
 			if probeErr != nil {
 				return c.PrintJSON(map[string]any{"running": false, "socket": sock})
 			}
-			return c.PrintJSON(map[string]any{"running": true, "version": info.Version, "pid": info.PID, "started": info.Started, "socket": sock})
+			return c.PrintJSON(map[string]any{"running": true, "version": info.Version, "pid": info.PID, "started": info.Started, "web_clients": info.WebClients, "socket": sock})
 		}
 		if probeErr != nil {
 			fmt.Fprintln(c.Out, "server not running")
 			return nil
 		}
-		fmt.Fprintf(c.Out, "server running: version %s, pid %d, started %s\nsocket: %s\n", info.Version, info.PID, info.Started, sock)
+		fmt.Fprintf(c.Out, "server running: version %s, pid %d, started %s, web clients %d\nsocket: %s\n", info.Version, info.PID, info.Started, info.WebClients, sock)
 		return nil
 	}
 	if probeErr != nil {

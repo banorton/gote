@@ -89,6 +89,15 @@ function Editor({ id }) {
     [schedule],
   );
 
+  // Presence only: the server counts open streams to decide whether `gote update`
+  // may restart it. Events are ignored; the editor never reloads itself.
+  useEffect(() => {
+    const url = document.getElementById("root").dataset.events;
+    if (!url) return undefined;
+    const es = new EventSource(url);
+    return () => es.close();
+  }, []);
+
   useEffect(() => {
     const onKey = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {

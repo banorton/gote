@@ -71,6 +71,9 @@ export default async function globalSetup() {
     E2E_NOTES: notes,
     E2E_PORT: String(web.port),
     E2E_TOKEN: web.token,
+    E2E_BIN: bin,
+    E2E_CFG: cfg,
+    E2E_STATE: state,
   });
 
   return async () => {

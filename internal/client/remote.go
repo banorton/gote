@@ -77,6 +77,8 @@ type ServerInfo struct {
 	Version string `json:"version"`
 	PID     int    `json:"pid"`
 	Started string `json:"started"`
+	// WebClients is the number of open web-view streams (note and editor tabs).
+	WebClients int `json:"web_clients"`
 }
 
 // Probe returns the version info of the server on socket, or an error if none answers.
@@ -173,21 +175,27 @@ func SpawnServer(logPath string) func() error {
 		if err != nil {
 			return err
 		}
-		// A test binary re-run with "serve" would execute the whole suite again.
-		if strings.HasSuffix(filepath.Base(exe), ".test") {
-			return errors.New("refusing to spawn a server from a test binary")
-		}
-		log, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
-		if err != nil {
-			return err
-		}
-		defer log.Close()
-		cmd := exec.Command(exe, "serve")
-		cmd.Stdout, cmd.Stderr = log, log
-		cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-		if err := cmd.Start(); err != nil {
-			return err
-		}
-		return cmd.Process.Release()
+		return SpawnBinary(exe, logPath)
 	}
+}
+
+// SpawnBinary starts `exe serve` detached, with stdio on logPath. Used by
+// `gote update`, whose own os.Executable may name a replaced (deleted) file.
+func SpawnBinary(exe, logPath string) error {
+	// A test binary re-run with "serve" would execute the whole suite again.
+	if strings.HasSuffix(filepath.Base(exe), ".test") {
+		return errors.New("refusing to spawn a server from a test binary")
+	}
+	log, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	defer log.Close()
+	cmd := exec.Command(exe, "serve")
+	cmd.Stdout, cmd.Stderr = log, log
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	return cmd.Process.Release()
 }
