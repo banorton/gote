@@ -63,7 +63,7 @@ A note's id is its path relative to the notes directory. Its title is the frontm
 | `daily` | `today` | open today's daily note (`daily/<yymmdd>_daily.md`), creating it if missing: frontmatter only (`created`, `tags: [daily]`, `aliases`), empty body, or your `daily` template. `daily -N` (N >= 1) opens the existing note from N days ago; if there is none it prints `no daily note for YYYY-MM-DD` and exits 1 (past days are never created). With `--json` or piped stdout it skips the editor and prints `{id,path,created}` |
 | `archive` | | `archive <note>...` adds the `archive` tag (`--json` lists the changed ids) |
 | `unarchive` | | `unarchive <note>...` removes it |
-| `recent` | `r` | menu of recently opened notes (`--all` includes archived) |
+| `recent` | `r` | menu of recently touched notes: opened through gote or modified by anyone (agents, other editors); `--all` includes archived |
 | `get` | `g` | menu of all notes (`--all` includes archived) |
 | `pinned` | `p` | menu of pinned notes (`--all` includes archived); with a note name, pins it |
 | `pin` | | pin a note |

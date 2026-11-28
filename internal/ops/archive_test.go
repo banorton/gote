@@ -105,7 +105,7 @@ func TestArchiveHidesByDefault(t *testing.T) {
 	v.call(t, "notes.recent", opnotes.RecentReq{}, &rs)
 	eq(t, "recent", refIDs(rs), []string{"live.md", "solo.md"})
 	v.call(t, "notes.recent", opnotes.RecentReq{All: true}, &rs)
-	eq(t, "recent --all", refIDs(rs), []string{"live.md", "old.md", "solo.md"})
+	eq(t, "recent --all", refIDs(rs), []string{"live.md", "lonely.md", "old.md", "solo.md"})
 	v.call(t, "pins.list", opnotes.PinsListReq{}, &rs)
 	eq(t, "pinned", refIDs(rs), []string{"live.md", "solo.md"})
 	v.call(t, "pins.list", opnotes.PinsListReq{All: true}, &rs)

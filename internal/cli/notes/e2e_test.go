@@ -159,8 +159,8 @@ func TestJSONOutputs(t *testing.T) {
 	}
 	_, out = s.run("--json", "recent")
 	var rec []struct{ ID string }
-	if err := json.Unmarshal([]byte(out), &rec); err != nil || len(rec) != 1 || rec[0].ID != "a.md" {
-		t.Fatalf("%v %q", err, out)
+	if err := json.Unmarshal([]byte(out), &rec); err != nil || len(rec) != 2 || rec[0].ID != "a.md" {
+		t.Fatalf("want a.md (opened) first, then b.md: %v %q", err, out)
 	}
 	_, out = s.run("--json", "tag")
 	var tags []struct {
@@ -313,12 +313,12 @@ func (s *sandbox) noEditorRan(marker string) {
 	}
 }
 
+// lastVisitedIsEmpty asserts nothing counted as opened: `-` (last opened note)
+// must not resolve. recent also lists modified files, so it can't tell.
 func (s *sandbox) lastVisitedIsEmpty() {
 	s.t.Helper()
-	_, out := s.run("--json", "recent")
-	var rec []struct{ ID string }
-	if err := json.Unmarshal([]byte(out), &rec); err != nil || len(rec) != 0 {
-		s.t.Fatalf("visit recorded: %v %q", err, out)
+	if code, out := s.run("--json", "info", "-"); code == 0 {
+		s.t.Fatalf("visit recorded: %q", out)
 	}
 }
 

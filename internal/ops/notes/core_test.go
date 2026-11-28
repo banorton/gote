@@ -1,6 +1,7 @@
 package notes
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -70,6 +71,12 @@ func TestVisitRecentInfo(t *testing.T) {
 	h := newHarness(t)
 	h.write("a.md", "---\ntags: [x, y]\naliases: [Ay]\ncreated: \"2025-01-01\"\n---\nbody [[b]]\n")
 	h.write("b.md", "hello [[a]]\n")
+	for _, n := range []string{"a.md", "b.md"} {
+		past := h.now.Add(-time.Hour)
+		if err := os.Chtimes(filepath.Join(h.dir, n), past, past); err != nil {
+			t.Fatal(err)
+		}
+	}
 	h.reconcile()
 	h.must("notes.visit", IDReq{ID: "a.md"}, nil)
 	h.now = h.now.Add(time.Second)
@@ -148,5 +155,36 @@ func TestInfoReportsNonISOCreated(t *testing.T) {
 	h.must("notes.info", IDReq{ID: "legacy.md"}, &info)
 	if info.Created != "" || !strings.Contains(info.ParseError, "250101000000") || !strings.Contains(info.ParseError, "ISO") {
 		t.Fatalf("%+v", info)
+	}
+}
+
+func TestRecentIncludesUnvisitedRecentlyModified(t *testing.T) {
+	h := newHarness(t)
+	h.write("old.md", "old\n")
+	h.write("agent.md", "made by an agent\n")
+	h.write("stale.md", "untouched\n")
+	base := h.now.Add(-time.Hour)
+	for name, at := range map[string]time.Time{"old.md": base, "stale.md": base.Add(-time.Hour), "agent.md": base.Add(30 * time.Minute)} {
+		if err := os.Chtimes(filepath.Join(h.dir, name), at, at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h.reconcile()
+	h.now = base.Add(10 * time.Minute)
+	h.must("notes.visit", IDReq{ID: "old.md"}, nil)
+
+	var rec []Ref
+	h.must("notes.recent", RecentReq{}, &rec)
+	var ids []string
+	for _, r := range rec {
+		ids = append(ids, r.ID)
+	}
+	if strings.Join(ids, ",") != "agent.md,old.md,stale.md" {
+		t.Fatalf("want agent.md (modified after the visit), then old.md (visited), then stale.md; got %v", ids)
+	}
+	var rr ResolveResp
+	h.must("notes.resolve", ResolveReq{Ref: "-"}, &rr)
+	if rr.ID != "old.md" {
+		t.Fatalf("- must stay the last opened note, got %s", rr.ID)
 	}
 }
